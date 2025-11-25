@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { Car, FilterOptions } from './types';
 
 // Configuração do Supabase com suporte a import.meta.env (Padrão Vite)
-const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
-const SUPABASE_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
+// Adicionado optional chaining (?.) para evitar erro caso env seja undefined
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
+const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
