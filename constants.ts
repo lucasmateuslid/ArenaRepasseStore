@@ -1,134 +1,14 @@
+
 import { Car } from './types';
 
-// Helper to generate a gallery (simulated with different angles/interiors from unsplash)
-const getGallery = (baseId: string) => [
-  `https://images.unsplash.com/photo-${baseId}?auto=format&fit=crop&q=80&w=800`,
-  `https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&q=80&w=800`, // Interior generic
-  `https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&q=80&w=800`, // Wheel generic
-  `https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=800`  // Rear generic
-];
+// O banco de dados agora é a única fonte da verdade.
+// Mantemos apenas este array vazio para evitar erros de importação legada,
+// mas a aplicação não o utiliza mais.
+export const MOCK_CARS: Car[] = [];
 
-// NOTE: These IDs are now strings.
-// This list is used primarily to SEED the Firestore database.
-export const MOCK_CARS: Car[] = [
-  {
-    id: '1',
-    make: 'Chevrolet',
-    model: 'Onix 1.0 LT',
-    year: 2020,
-    price: 52900,
-    fipePrice: 64500,
-    mileage: 42000,
-    fuel: 'Flex',
-    transmission: 'Manual',
-    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1552519507-da3b142c6e3d'),
-    location: 'São Paulo, SP',
-    description: 'Hatch mais vendido do Brasil. Multimídia MyLink, super econômico. Ideal para Uber.',
-  },
-  {
-    id: '2',
-    make: 'Fiat',
-    model: 'Mobi Like 1.0',
-    year: 2022,
-    price: 45900,
-    fipePrice: 53200,
-    mileage: 28000,
-    fuel: 'Flex',
-    transmission: 'Manual',
-    image: 'https://images.unsplash.com/photo-1626847037657-fd3622613ce3?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1626847037657-fd3622613ce3'),
-    location: 'Belo Horizonte, MG',
-    description: 'Carro de entrada perfeito. Ar condicionado, direção hidráulica e vidros elétricos.',
-  },
-  {
-    id: '3',
-    make: 'Volkswagen',
-    model: 'Gol 1.6 MSI',
-    year: 2019,
-    price: 48500,
-    fipePrice: 56000,
-    mileage: 65000,
-    fuel: 'Flex',
-    transmission: 'Manual',
-    image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1541899481282-d53bffe3c35d'),
-    location: 'Curitiba, PR',
-    description: 'O tanque de guerra. Mecânica inquebrável, motor 1.6 forte. Pneus novos.',
-  },
-  {
-    id: '4',
-    make: 'Fiat',
-    model: 'Strada Freedom Cab. Dupla',
-    year: 2021,
-    price: 89900,
-    fipePrice: 105000,
-    mileage: 45000,
-    fuel: 'Flex',
-    transmission: 'Manual',
-    image: 'https://images.unsplash.com/photo-1626847037657-fd3622613ce3?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1626847037657-fd3622613ce3'),
-    location: 'Goiânia, GO',
-    description: 'A picape líder. Cabine dupla, caçamba protegida, ótima para trabalho e família.',
-  },
-  {
-    id: '5',
-    make: 'Renault',
-    model: 'Kwid Zen 1.0',
-    year: 2023,
-    price: 39900,
-    fipePrice: 48000,
-    mileage: 15000,
-    fuel: 'Flex',
-    transmission: 'Manual',
-    image: 'https://images.unsplash.com/photo-1503376763036-066120622c74?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1503376763036-066120622c74'),
-    location: 'Rio de Janeiro, RJ',
-    description: 'SUV dos compactos. Muito novo, cheiro de zero. Garantia de fábrica.',
-  },
-  {
-    id: '6',
-    make: 'Toyota',
-    model: 'Corolla XEi 2.0',
-    year: 2018,
-    price: 92000,
-    fipePrice: 102000,
-    mileage: 80000,
-    fuel: 'Flex',
-    transmission: 'Automático',
-    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1590362891991-f776e747a588'),
-    location: 'Brasília, DF',
-    description: 'Sinônimo de conforto. Bancos em couro, chave presencial. Revisado na Toyota.',
-  },
-  {
-    id: '7',
-    make: 'Jeep',
-    model: 'Renegade Longitude',
-    year: 2019,
-    price: 78900,
-    fipePrice: 89000,
-    mileage: 55000,
-    fuel: 'Flex',
-    transmission: 'Automático',
-    image: 'https://images.unsplash.com/photo-1569766952763-71a39648939c?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1569766952763-71a39648939c'),
-    location: 'São Paulo, SP',
-    description: 'SUV urbano robusto. Rodas aro 18, teto preto. Excelente estado de conservação.',
-  },
-  {
-    id: '8',
-    make: 'Hyundai',
-    model: 'HB20S Vision 1.6',
-    year: 2021,
-    price: 68500,
-    fipePrice: 76000,
-    mileage: 32000,
-    fuel: 'Flex',
-    transmission: 'Automático',
-    image: 'https://images.unsplash.com/photo-1583121274602-3e2820c698d2?auto=format&fit=crop&q=80&w=800',
-    gallery: getGallery('1583121274602-3e2820c698d2'),
-    location: 'Porto Alegre, RS',
-    description: 'Sedã compacto com ótimo porta-malas. Câmbio automático de 6 marchas.',
-  }
+// Lista de locais para filtros visuais (opcional, pode vir do banco no futuro)
+export const AVAILABLE_LOCATIONS = [
+  'São Paulo, SP', 'Rio de Janeiro, RJ', 'Belo Horizonte, MG', 
+  'Curitiba, PR', 'Porto Alegre, RS', 'Salvador, BA', 
+  'Brasília, DF', 'Goiânia, GO', 'Recife, PE', 'Fortaleza, CE'
 ];

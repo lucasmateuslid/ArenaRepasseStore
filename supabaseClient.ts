@@ -1,106 +1,58 @@
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
-import { MOCK_CARS } from './constants';
-import { Car } from './types';
+import { createClient } from '@supabase/supabase-js';
+import { Car, FilterOptions } from './types';
 
-// CONFIGURAÇÃO FIREBASE - PROJETO STOREARENA
-const firebaseConfig = {
-  apiKey: "AIzaSyB9cHCBWHCWrIzU2KFleqeLZj2uPOHgKzs",
-  authDomain: "storearena-aa9f4.firebaseapp.com",
-  projectId: "storearena-aa9f4",
-  storageBucket: "storearena-aa9f4.firebasestorage.app",
-  messagingSenderId: "229409336986",
-  appId: "1:229409336986:web:29507adc25248b51a83923",
-  measurementId: "G-FXBS5CWNG4"
-};
+// Configuração do Supabase
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
+const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
 
-// Inicialização do Firebase
-let db: any = null;
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-try {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  console.log("Firebase 'storearena' initialized successfully");
-} catch (e) {
-  console.error("Firebase initialization failed:", e);
-}
-
-// Definição do tipo de retorno
 type FetchResponse = {
   data: Car[];
-  error: 'permission-denied' | 'database-not-found' | 'sdk-not-initialized' | 'unknown' | null;
+  error: string | null;
 };
 
 /**
- * Busca carros do Firestore (Coleção 'cars').
- * Retorna dados ou um código de erro específico para a UI tratar.
+ * Busca carros diretamente do Supabase.
  */
-export const fetchCars = async (): Promise<FetchResponse> => {
-  if (!db) {
-    return { data: [], error: 'sdk-not-initialized' };
-  }
-
+export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse> => {
   try {
-    const carsCol = collection(db, 'cars');
-    const carSnapshot = await getDocs(carsCol);
-    
-    if (carSnapshot.empty) {
-        return { data: [], error: null };
-    }
+    let query = supabase.from('cars').select('*');
 
-    const carList = carSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data
-      };
-    }) as unknown as Car[];
-
-    return { data: carList, error: null };
-  } catch (error: any) {
-    console.error('Erro detalhado ao buscar:', error);
-    
-    // Tratamento de erros comuns do Firebase
-    if (error.code === 'permission-denied') {
-        return { data: [], error: 'permission-denied' };
+    // Aplicação dos Filtros via Query Builder do Supabase (SQL)
+    if (filters.make) {
+      query = query.eq('make', filters.make);
     }
     
-    if (error.code === 'not-found' || (error.message && error.message.includes('does not exist'))) {
-        return { data: [], error: 'database-not-found' };
+    if (filters.year) {
+      query = query.gte('year', Number(filters.year));
     }
-
-    return { data: [], error: 'unknown' };
-  }
-};
-
-/**
- * Função utilitária para enviar os dados Mockados para o Firestore.
- * Útil para popular o banco inicialmente.
- */
-export const uploadMockData = async () => {
-  if (!db) {
-    alert("Firebase não configurado.");
-    return false;
-  }
-
-  try {
-    const batch = writeBatch(db);
     
-    MOCK_CARS.forEach((car) => {
-      // Usa o ID do mock como ID do documento
-      const docRef = doc(db, "cars", car.id.toString());
-      const { id, ...carData } = car; 
-      batch.set(docRef, carData);
-    });
-
-    await batch.commit();
-    return true;
-  } catch (e: any) {
-    console.error("Erro ao enviar dados:", e);
-    if (e.code === 'permission-denied') {
-       alert("ERRO DE PERMISSÃO: Você precisa alterar as regras do Firestore para 'allow read, write: if true;' no console do Firebase.");
+    if (filters.maxPrice) {
+      query = query.lte('price', Number(filters.maxPrice));
     }
-    return false;
+    
+    if (filters.search) {
+      const searchTerm = filters.search;
+      // Busca case-insensitive em modelo ou marca
+      query = query.or(`model.ilike.%${searchTerm}%,make.ilike.%${searchTerm}%`);
+    }
+
+    // Ordenação padrão: Mais recentes primeiro
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Erro Supabase:", error);
+      return { data: [], error: error.message };
+    }
+
+    return { data: data as Car[], error: null };
+
+  } catch (err) {
+    console.error("Erro crítico na conexão:", err);
+    return { data: [], error: "Falha na conexão com o banco de dados." };
   }
 };

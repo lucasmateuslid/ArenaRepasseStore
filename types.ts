@@ -1,10 +1,11 @@
+
 export interface Car {
-  id: string; // Changed from number to string for Firestore compatibility
+  id: string;
   make: string;
   model: string;
   year: number;
   price: number;
-  fipePrice: number;
+  fipeprice: number; // Corrigido para minúsculo para bater com o banco de dados
   mileage: number;
   fuel: string;
   transmission: string;
@@ -14,11 +15,15 @@ export interface Car {
   description: string;
 }
 
-export interface CartItem extends Car {
-  addedAt: number;
-}
-
 export interface Message {
   role: 'user' | 'model';
   text: string;
+  recommendedCarIds?: string[];
+}
+
+export interface FilterOptions {
+  make?: string;
+  year?: string;
+  maxPrice?: string;
+  search?: string;
 }
