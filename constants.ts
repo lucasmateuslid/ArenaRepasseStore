@@ -8,9 +8,11 @@ const getGallery = (baseId: string) => [
   `https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=800`  // Rear generic
 ];
 
+// NOTE: These IDs are now strings.
+// This list is used primarily to SEED the Firestore database.
 export const MOCK_CARS: Car[] = [
   {
-    id: 1,
+    id: '1',
     make: 'Chevrolet',
     model: 'Onix 1.0 LT',
     year: 2020,
@@ -25,7 +27,7 @@ export const MOCK_CARS: Car[] = [
     description: 'Hatch mais vendido do Brasil. Multimídia MyLink, super econômico. Ideal para Uber.',
   },
   {
-    id: 2,
+    id: '2',
     make: 'Fiat',
     model: 'Mobi Like 1.0',
     year: 2022,
@@ -40,7 +42,7 @@ export const MOCK_CARS: Car[] = [
     description: 'Carro de entrada perfeito. Ar condicionado, direção hidráulica e vidros elétricos.',
   },
   {
-    id: 3,
+    id: '3',
     make: 'Volkswagen',
     model: 'Gol 1.6 MSI',
     year: 2019,
@@ -55,7 +57,7 @@ export const MOCK_CARS: Car[] = [
     description: 'O tanque de guerra. Mecânica inquebrável, motor 1.6 forte. Pneus novos.',
   },
   {
-    id: 4,
+    id: '4',
     make: 'Fiat',
     model: 'Strada Freedom Cab. Dupla',
     year: 2021,
@@ -70,7 +72,7 @@ export const MOCK_CARS: Car[] = [
     description: 'A picape líder. Cabine dupla, caçamba protegida, ótima para trabalho e família.',
   },
   {
-    id: 5,
+    id: '5',
     make: 'Renault',
     model: 'Kwid Zen 1.0',
     year: 2023,
@@ -85,7 +87,7 @@ export const MOCK_CARS: Car[] = [
     description: 'SUV dos compactos. Muito novo, cheiro de zero. Garantia de fábrica.',
   },
   {
-    id: 6,
+    id: '6',
     make: 'Toyota',
     model: 'Corolla XEi 2.0',
     year: 2018,
@@ -100,7 +102,7 @@ export const MOCK_CARS: Car[] = [
     description: 'Sinônimo de conforto. Bancos em couro, chave presencial. Revisado na Toyota.',
   },
   {
-    id: 7,
+    id: '7',
     make: 'Jeep',
     model: 'Renegade Longitude',
     year: 2019,
@@ -115,7 +117,7 @@ export const MOCK_CARS: Car[] = [
     description: 'SUV urbano robusto. Rodas aro 18, teto preto. Excelente estado de conservação.',
   },
   {
-    id: 8,
+    id: '8',
     make: 'Hyundai',
     model: 'HB20S Vision 1.6',
     year: 2021,

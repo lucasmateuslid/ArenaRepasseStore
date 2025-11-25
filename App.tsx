@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
-import { MOCK_CARS } from './constants';
 import { Car, CartItem, Message } from './types';
-import { fetchCars } from './supabaseClient';
+import { fetchCars, uploadMockData } from './supabaseClient'; // NOTE: This file now contains Firebase Logic
 
 function App() {
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // New Error State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -28,19 +28,39 @@ function App() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   // Initial Load
-  useEffect(() => {
-    const loadInventory = async () => {
-      setLoading(true);
-      const data = await fetchCars();
+  const loadInventory = async () => {
+    // Only set loading on first load or if we are in an error state to avoid flickering
+    if (cars.length === 0) setLoading(true);
+    
+    const { data, error: fetchError } = await fetchCars();
+    
+    if (fetchError) {
+      setError(fetchError);
+      setLoading(false);
+    } else {
+      setError(null);
       setCars(data);
       setLoading(false);
-    };
+    }
+  };
+
+  useEffect(() => {
     loadInventory();
+
+    // Auto-reload when user comes back to the tab (helpful after fixing Firebase rules)
+    const handleFocus = () => {
+      loadInventory();
+    };
+    window.addEventListener('focus', handleFocus);
 
     const savedCart = localStorage.getItem('arena_cart');
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     }
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -69,7 +89,7 @@ function App() {
     }
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string) => {
     setCart(cart.filter(item => item.id !== id));
   };
 
@@ -82,6 +102,21 @@ function App() {
   const closeModal = () => {
     setSelectedCar(null);
     // document.body.style.overflow = 'auto';
+  };
+
+  // Function to seed database (Admin feature)
+  const handleSeedDatabase = async () => {
+    const confirm = window.confirm("Deseja popular o banco de dados Firebase com os carros de exemplo?");
+    if (confirm) {
+      setLoading(true);
+      const success = await uploadMockData();
+      if (success) {
+        alert("Sucesso! Recarregando estoque...");
+        await loadInventory();
+      } else {
+        setLoading(false);
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -112,12 +147,13 @@ function App() {
           systemInstruction: `
             Você é o "Arena Bot", consultor da Arena Repasse.
             FOCO: Carros populares e lucro real.
-            ESTOQUE: ${JSON.stringify(inventoryContext)}
+            ESTOQUE ATUAL DO SITE: ${JSON.stringify(inventoryContext)}
             
             REGRAS:
-            1. Entenda valores: "tenho 40k" -> mostre carros até 40k.
-            2. Enfatize: "R$ X (R$ Y abaixo da FIPE!)".
-            3. Dúvidas complexas -> WhatsApp: https://wa.me/5511999999999
+            1. Se a lista de ESTOQUE estiver vazia, diga que o estoque está sendo atualizado.
+            2. Entenda valores: "tenho 40k" -> mostre carros até 40k.
+            3. Enfatize: "R$ X (R$ Y abaixo da FIPE!)".
+            4. Dúvidas complexas -> WhatsApp: https://wa.me/5511999999999
           `
         }
       });
@@ -227,8 +263,56 @@ function App() {
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
              {[1,2,3,4].map(i => <div key={i} className="bg-brand-surface rounded-lg h-96 animate-pulse"></div>)}
            </div>
+        ) : error === 'database-not-found' ? (
+          <div className="bg-brand-surface border border-red-900 rounded-xl p-8 text-center max-w-2xl mx-auto">
+             <i className="fa-solid fa-database text-6xl text-brand-red mb-4"></i>
+             <h2 className="text-2xl font-bold text-white mb-2">Banco de Dados Não Encontrado</h2>
+             <p className="text-gray-400 mb-6">O projeto Firebase existe, mas o banco Firestore ainda não foi criado no console.</p>
+             <a href="https://console.firebase.google.com/project/storearena-aa9f4/firestore" target="_blank" rel="noopener noreferrer" className="inline-block bg-brand-red text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition">
+               <i className="fa-solid fa-external-link-alt mr-2"></i> Criar Banco de Dados Agora
+             </a>
+             <p className="text-xs text-gray-500 mt-4">Crie no modo "Test" ou "Production" na região de sua preferência.</p>
+          </div>
+        ) : error === 'permission-denied' ? (
+           <div className="bg-brand-surface border border-red-900 rounded-xl p-8 text-left max-w-3xl mx-auto shadow-2xl">
+              <div className="flex items-center gap-4 mb-6">
+                <i className="fa-solid fa-lock text-4xl text-brand-red"></i>
+                <div>
+                   <h2 className="text-2xl font-bold text-white">Acesso Bloqueado (Permissões)</h2>
+                   <p className="text-gray-400">O Firebase bloqueou a leitura dos dados. Você precisa atualizar as regras de segurança.</p>
+                </div>
+              </div>
+              
+              <div className="bg-black/50 p-4 rounded-lg border border-gray-700 mb-6">
+                 <p className="text-sm text-gray-400 mb-2 font-mono">1. Acesse: <a href="https://console.firebase.google.com/project/storearena-aa9f4/firestore/rules" target="_blank" className="text-brand-orange hover:underline font-bold">Firestore Database {'>'} Rules</a></p>
+                 <p className="text-sm text-gray-400 mb-2 font-mono">2. Cole este código (Permite tudo - Apenas para Testes):</p>
+                 <pre className="bg-gray-900 text-green-400 p-3 rounded text-xs overflow-x-auto border border-gray-700">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                 </pre>
+              </div>
+              <button onClick={() => window.location.reload()} className="w-full bg-brand-red hover:bg-red-800 text-white font-bold py-3 rounded-lg transition">
+                 <i className="fa-solid fa-rotate-right mr-2"></i> Já atualizei, tentar novamente
+              </button>
+           </div>
         ) : filteredCars.length === 0 ? (
-          <div className="text-center py-20 text-gray-500"><p className="text-xl">Nenhum veículo encontrado.</p></div>
+          <div className="text-center py-20 text-gray-500 flex flex-col items-center">
+            <i className="fa-solid fa-car-tunnel text-6xl mb-4 text-gray-700"></i>
+            <p className="text-xl mb-4">Nenhum veículo encontrado no banco de dados.</p>
+            {/* Show seed button if inventory is empty (Admin Helper) */}
+            <button 
+              onClick={handleSeedDatabase}
+              className="mt-4 px-6 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm hover:bg-gray-700 transition"
+            >
+              <i className="fa-solid fa-database mr-2"></i> Carregar Estoque Inicial (Admin)
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredCars.map(car => (
@@ -239,7 +323,7 @@ function App() {
               >
                 {/* Image Section */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
-                  <img src={car.image} alt={car.model} className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" loading="lazy" />
+                  <img src={car.image} alt={car.model} className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" loading="lazy" onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }} />
                   
                   {/* FIPE BADGE - HUGE DISCOUNT */}
                   {(car.fipePrice - car.price) > 0 && (
@@ -314,6 +398,7 @@ function App() {
                     src={(selectedCar.gallery && selectedCar.gallery[selectedImageIndex]) || selectedCar.image} 
                     className="w-full h-full object-contain md:object-cover" 
                     alt="Detail" 
+                    onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
                  />
                  {/* Navigation Arrows */}
                  {selectedCar.gallery && (
@@ -343,6 +428,7 @@ function App() {
                     src={img}
                     className={`h-16 w-24 object-cover rounded cursor-pointer border-2 transition ${selectedImageIndex === idx ? 'border-brand-orange opacity-100' : 'border-transparent opacity-50 hover:opacity-100'}`}
                     onClick={() => setSelectedImageIndex(idx)}
+                    onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
                   />
                 ))}
               </div>
@@ -443,8 +529,13 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="border-t border-gray-800 pt-6 text-center text-xs text-gray-600">
-          &copy; 2025 Arena Repasse. Tecnologia Supabase Integrada.
+        <div className="border-t border-gray-800 pt-6 text-center text-xs text-gray-600 flex justify-center items-center gap-4">
+          <span>&copy; 2025 Arena Repasse. Tecnologia Firebase Integrada.</span>
+          
+          {/* Hidden/Admin helper to re-seed if empty even if not shown in main grid */}
+          <button onClick={handleSeedDatabase} className="opacity-20 hover:opacity-100 text-[10px] uppercase">
+             Sync DB
+          </button>
         </div>
       </footer>
 

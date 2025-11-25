@@ -1,5 +1,5 @@
 export interface Car {
-  id: number;
+  id: string; // Changed from number to string for Firestore compatibility
   make: string;
   model: string;
   year: number;
@@ -9,7 +9,7 @@ export interface Car {
   fuel: string;
   transmission: string;
   image: string;
-  gallery: string[]; // New field for modal photos
+  gallery: string[];
   location: string;
   description: string;
 }
