@@ -1,8 +1,6 @@
-
 import React from 'react';
 import { FaFilter, FaTimes, FaCar, FaCalendarAlt, FaDollarSign } from 'react-icons/fa';
 
-// === Configuração centralizada dos filtros ===
 const YEAR_OPTIONS = [
   { label: 'Ano Mínimo', value: '' },
   { label: '2018 ou mais recente', value: '2018' },
@@ -19,18 +17,8 @@ const PRICE_OPTIONS = [
 ] as const;
 
 interface FilterBarProps {
-  tempFilters: {
-    make: string;
-    year: string;
-    maxPrice: string;
-  };
-  setTempFilters: React.Dispatch<
-    React.SetStateAction<{
-      make: string;
-      year: string;
-      maxPrice: string;
-    }>
-  >;
+  tempFilters: { make: string; year: string; maxPrice: string; };
+  setTempFilters: React.Dispatch<React.SetStateAction<{ make: string; year: string; maxPrice: string; }>>;
   applyFilters: () => void;
   clearFilters: () => void;
   availableMakes: string[];
@@ -38,128 +26,52 @@ interface FilterBarProps {
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
-  tempFilters,
-  setTempFilters,
-  applyFilters,
-  clearFilters,
-  availableMakes,
-  hasActiveFilters,
+  tempFilters, setTempFilters, applyFilters, clearFilters, availableMakes, hasActiveFilters,
 }) => {
-  const handleChange = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-    field: keyof typeof tempFilters
-  ) => {
-    setTempFilters((prev) => ({
-      ...prev,
-      [field]: e.target.value,
-    }));
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>, field: keyof typeof tempFilters) => {
+    setTempFilters((prev) => ({ ...prev, [field]: e.target.value }));
   };
-
-  // Base style for inputs
-  const selectClass =
-    'w-full h-12 bg-brand-surface border border-gray-700 text-white pl-10 pr-4 rounded-xl focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 outline-none transition-all text-sm font-medium appearance-none shadow-sm';
-  
-  // Icon wrapper style
+  const selectClass = 'w-full h-12 bg-brand-surface border border-gray-700 text-white pl-10 pr-4 rounded-xl focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 outline-none transition-all text-sm font-medium appearance-none shadow-sm';
   const iconWrapperClass = 'absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10';
 
   return (
     <section className="sticky top-16 md:top-20 z-30 bg-brand-darkRed/95 backdrop-blur-xl border-b border-gray-800 py-4 md:py-6 shadow-2xl transition-all duration-300">
       <div className="container mx-auto px-4">
-        
-        {/* GRID LAYOUT OTIMIZADO 
-            Mobile: Marca (Full) | Ano (Half) + Preço (Half) | Botões (Full)
-            Desktop: Marca | Ano | Preço | Botões (Tudo em linha)
-        */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 items-end">
-          
-          {/* Marca - Full no Mobile, 1 col no Desktop */}
           <div className="col-span-2 lg:col-span-1 relative group">
-            <label htmlFor="make" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">
-              Marca
-            </label>
+            <label htmlFor="make" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Marca</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaCar /></div>
-              <select
-                id="make"
-                className={selectClass}
-                value={tempFilters.make}
-                onChange={(e) => handleChange(e, 'make')}
-                aria-label="Filtrar por marca"
-              >
+              <select id="make" className={selectClass} value={tempFilters.make} onChange={(e) => handleChange(e, 'make')}>
                 <option value="">Todas as marcas</option>
-                {availableMakes.map((make) => (
-                  <option key={make} value={make}>
-                    {make}
-                  </option>
-                ))}
+                {availableMakes.map((make) => (<option key={make} value={make}>{make}</option>))}
               </select>
             </div>
           </div>
-
-          {/* Ano - Metade no Mobile, 1 col no Desktop */}
           <div className="col-span-1 relative group">
-            <label htmlFor="year" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">
-              Ano
-            </label>
+            <label htmlFor="year" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Ano</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaCalendarAlt /></div>
-              <select
-                id="year"
-                className={selectClass}
-                value={tempFilters.year}
-                onChange={(e) => handleChange(e, 'year')}
-                aria-label="Filtrar por ano mínimo"
-              >
-                {YEAR_OPTIONS.map(({ label, value }) => (
-                  <option key={value || 'any'} value={value}>
-                    {label}
-                  </option>
-                ))}
+              <select id="year" className={selectClass} value={tempFilters.year} onChange={(e) => handleChange(e, 'year')}>
+                {YEAR_OPTIONS.map(({ label, value }) => (<option key={value || 'any'} value={value}>{label}</option>))}
               </select>
             </div>
           </div>
-
-          {/* Preço - Metade no Mobile, 1 col no Desktop */}
           <div className="col-span-1 relative group">
-            <label htmlFor="price" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">
-              Preço
-            </label>
+            <label htmlFor="price" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Preço</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaDollarSign /></div>
-              <select
-                id="price"
-                className={selectClass}
-                value={tempFilters.maxPrice}
-                onChange={(e) => handleChange(e, 'maxPrice')}
-                aria-label="Filtrar por preço máximo"
-              >
-                {PRICE_OPTIONS.map(({ label, value }) => (
-                  <option key={value || 'any'} value={value}>
-                    {label}
-                  </option>
-                ))}
+              <select id="price" className={selectClass} value={tempFilters.maxPrice} onChange={(e) => handleChange(e, 'maxPrice')}>
+                {PRICE_OPTIONS.map(({ label, value }) => (<option key={value || 'any'} value={value}>{label}</option>))}
               </select>
             </div>
           </div>
-
-          {/* Botões - Full no Mobile (para facilitar o clique), 1 col no Desktop */}
           <div className="col-span-2 lg:col-span-1 flex gap-2 h-12 mt-auto">
-            <button
-              onClick={applyFilters}
-              className="flex-1 h-full bg-brand-orange hover:bg-brand-orangeHover text-white font-bold rounded-xl shadow-glow hover:shadow-orange-500/50 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
-              aria-label="Aplicar filtros"
-            >
-              <FaFilter className="text-sm" />
-              <span>Filtrar</span>
+            <button onClick={applyFilters} className="flex-1 h-full bg-brand-orange hover:bg-brand-orangeHover text-white font-bold rounded-xl shadow-glow hover:shadow-orange-500/50 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide text-sm">
+              <FaFilter className="text-sm" /> <span>Filtrar</span>
             </button>
-
             {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="h-full px-4 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl active:scale-95 transition-all flex items-center justify-center"
-                aria-label="Limpar todos os filtros"
-                title="Limpar filtros"
-              >
+              <button onClick={clearFilters} className="h-full px-4 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white rounded-xl active:scale-95 transition-all flex items-center justify-center">
                 <FaTimes />
               </button>
             )}

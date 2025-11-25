@@ -1,11 +1,10 @@
-
 export interface Car {
   id: string;
   make: string;
   model: string;
   year: number;
   price: number;
-  fipeprice: number; // Corrigido para minúsculo para bater com o banco de dados
+  fipeprice: number;
   mileage: number;
   fuel: string;
   transmission: string;

@@ -1,10 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Car, FilterOptions } from './types';
 
-// Configuração do Supabase
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
-const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
+// Configuração do Supabase com suporte a import.meta.env (Padrão Vite)
+const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
+const SUPABASE_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -13,14 +12,10 @@ type FetchResponse = {
   error: string | null;
 };
 
-/**
- * Busca carros diretamente do Supabase.
- */
 export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse> => {
   try {
     let query = supabase.from('cars').select('*');
 
-    // Aplicação dos Filtros via Query Builder do Supabase (SQL)
     if (filters.make) {
       query = query.eq('make', filters.make);
     }
@@ -35,11 +30,9 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     
     if (filters.search) {
       const searchTerm = filters.search;
-      // Busca case-insensitive em modelo ou marca
       query = query.or(`model.ilike.%${searchTerm}%,make.ilike.%${searchTerm}%`);
     }
 
-    // Ordenação padrão: Mais recentes primeiro
     query = query.order('created_at', { ascending: false });
 
     const { data, error } = await query;

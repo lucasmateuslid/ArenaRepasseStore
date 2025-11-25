@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Car, FilterOptions } from './types';
-import { fetchCars } from './supabaseClient'; // uploadMockData removido do import padrão
+import { fetchCars } from './supabaseClient';
 
 // Importing Components
 import { Header } from './components/Header';
@@ -17,31 +16,20 @@ function App() {
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); 
-  
-  // Estado dedicado para ofertas especiais (Persistente independente de filtros)
   const [specialOffersCars, setSpecialOffersCars] = useState<Car[]>([]);
-  
-  // Otimização de Renderização (Infinite Scroll)
   const [displayLimit, setDisplayLimit] = useState(12);
   const observerTarget = useRef<HTMLDivElement>(null);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null); 
-
-  // Estado de Busca e Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Filtros Temporários (UI - Inputs)
   const [tempFilters, setTempFilters] = useState({
     make: '',
     maxPrice: '',
     year: ''
   });
 
-  // Load Inventory (Grid Principal - Afetado por filtros)
   const loadInventory = async (options: FilterOptions = {}) => {
     setLoading(true);
-    // Busca exclusivamente do Supabase
     const { data, error: fetchError } = await fetchCars(options);
     
     if (fetchError) {
@@ -52,13 +40,11 @@ function App() {
       setCars(data || []);
     }
     setLoading(false);
-    setDisplayLimit(12); // Reset scroll on new data
+    setDisplayLimit(12);
   };
 
-  // Carrega as Ofertas Especiais separadamente (Apenas uma vez, sem filtros)
   useEffect(() => {
     const loadSpecialOffers = async () => {
-      // Busca sem filtros para obter o estoque base completo para os destaques
       const { data } = await fetchCars({});
       if (data && data.length > 0) {
         setSpecialOffersCars(data);
@@ -67,12 +53,10 @@ function App() {
     loadSpecialOffers();
   }, []);
 
-  // Initial Load do Grid Principal
   useEffect(() => {
     loadInventory();
   }, []);
 
-  // Infinite Scroll Observer logic in Parent to manage data slice
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
@@ -94,7 +78,6 @@ function App() {
     };
   }, [cars, loading]); 
 
-  // Handlers
   const applyFilters = () => {
     loadInventory({
       ...tempFilters,
@@ -127,7 +110,6 @@ function App() {
     window.scrollTo(0,0);
   }
 
-  // Helper to open WhatsApp (Centralized Logic)
   const handleWhatsApp = (car?: Car) => {
     const phone = "5511999999999";
     let text = "Olá! Gostaria de saber mais sobre as ofertas do Arena Repasse.";
@@ -144,18 +126,12 @@ function App() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
   };
 
-  // Sliced data for rendering
   const visibleCars = cars.slice(0, displayLimit);
-  
-  const availableMakes = [
-    'Chevrolet', 'Fiat', 'Volkswagen', 'Renault', 'Toyota', 'Jeep', 'Hyundai', 'Honda', 'Ford'
-  ];
-
+  const availableMakes = ['Chevrolet', 'Fiat', 'Volkswagen', 'Renault', 'Toyota', 'Jeep', 'Hyundai', 'Honda', 'Ford'];
   const hasActiveFilters = Boolean(tempFilters.make || tempFilters.maxPrice || tempFilters.year);
 
   return (
     <div className="min-h-screen bg-brand-dark text-gray-200 flex flex-col font-sans selection:bg-brand-orange selection:text-white">
-      
       <Header 
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -163,10 +139,7 @@ function App() {
         resetApp={resetApp}
         handleWhatsApp={handleWhatsApp}
       />
-
       <Hero />
-
-      {/* Seção "Sonhos Imperdíveis" */}
       {specialOffersCars.length > 0 && (
         <SpecialOffers 
           cars={specialOffersCars} 
@@ -175,7 +148,6 @@ function App() {
           formatCurrency={formatCurrency} 
         />
       )}
-
       <FilterBar 
         tempFilters={tempFilters}
         setTempFilters={setTempFilters}
@@ -184,7 +156,6 @@ function App() {
         availableMakes={availableMakes}
         hasActiveFilters={hasActiveFilters}
       />
-
       <CarGrid 
         cars={cars}
         visibleCars={visibleCars}
@@ -195,24 +166,20 @@ function App() {
         resetFilters={resetApp}
         formatCurrency={formatCurrency}
       />
-
       <CarModal 
         car={selectedCar}
         onClose={() => setSelectedCar(null)}
         handleWhatsApp={handleWhatsApp}
         formatCurrency={formatCurrency}
       />
-
       <Footer handleWhatsApp={() => handleWhatsApp()} />
-
       <ChatWidget 
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
-        cars={specialOffersCars.length > 0 ? specialOffersCars : cars} // Contexto de IA usa a lista completa
+        cars={specialOffersCars.length > 0 ? specialOffersCars : cars} 
         openModal={setSelectedCar}
         formatCurrency={formatCurrency}
       />
-
     </div>
   );
 }

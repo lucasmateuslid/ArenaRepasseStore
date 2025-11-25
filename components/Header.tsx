@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, Phone } from 'lucide-react';
 
@@ -23,8 +22,6 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-50 w-full bg-brand-darkRed border-b border-gray-800 shadow-xl">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
-
-          {/* LOGO SIMPLIFICADA */}
           <button
             onClick={resetApp}
             className="group flex items-center gap-1 outline-none focus:opacity-80 transition-opacity flex-shrink-0"
@@ -37,8 +34,6 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </h1>
           </button>
-
-          {/* BARRA DE BUSCA (Desktop) - Estilo Sólido */}
           <div className="hidden md:flex flex-1 max-w-lg mx-auto">
             <div className={`relative w-full transition-all duration-200 ${isFocused ? 'scale-[1.01]' : 'scale-100'}`}>
               <input
@@ -51,7 +46,6 @@ export const Header: React.FC<HeaderProps> = ({
                 onBlur={() => setIsFocused(false)}
                 className="w-full h-12 pl-4 pr-12 rounded-xl bg-brand-surface border border-gray-700 text-white placeholder-gray-500 text-sm font-medium focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-inner"
               />
-              
               {searchTerm && (
                 <button 
                    onClick={() => setSearchTerm('')}
@@ -60,7 +54,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <i className="fa-solid fa-times text-xs"></i>
                 </button>
               )}
-              
               <button
                 onClick={handleSearch}
                 className={`absolute right-1 top-1 h-10 w-10 rounded-lg flex items-center justify-center transition-all ${isFocused ? 'text-brand-orange' : 'text-gray-400 hover:text-white'}`}
@@ -69,11 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           </div>
-
-          {/* BOTÕES DE AÇÃO */}
           <div className="flex items-center gap-4 flex-shrink-0">
-
-            {/* Desktop: Fale Conosco Sólido */}
             <button
               onClick={() => handleWhatsApp()}
               className="hidden md:flex items-center gap-2 px-6 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0"
@@ -81,16 +70,12 @@ export const Header: React.FC<HeaderProps> = ({
               <Phone size={18} className="fill-current" />
               <span>Fale Conosco</span>
             </button>
-
-            {/* Mobile: Ícone Busca */}
              <button
               onClick={() => document.querySelector('input')?.focus()}
               className="md:hidden p-2 text-gray-300"
             >
               <Search size={24} />
             </button>
-
-            {/* Mobile: Ícone WhatsApp */}
             <button
               onClick={() => handleWhatsApp()}
               className="md:hidden p-2 rounded-full bg-[#25D366] text-white shadow-lg active:scale-95 transition-all"
@@ -100,8 +85,6 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         </div>
-        
-        {/* Barra de Busca Mobile (Expandida) - Opcional se quiser busca no mobile abaixo do header */}
         <div className="md:hidden pb-4">
            <div className="relative">
               <input

@@ -19,8 +19,7 @@
                 red: '#b91c1c', 
                 darkRed: '#1a0505', 
                 surface: '#18181b', // Zinc 900 (Neutral Dark)
-                // ALTERADO: De Laranja (#FF6600) para Vermelho (#DC2626)
-                orange: '#DC2626', 
+                orange: '#DC2626', // Vermelho (substituindo o antigo laranja)
                 orangeHover: '#B91C1C',
                 dark: '#09090b', // Zinc 950 (Body)
                 light: '#F8F9FA'
@@ -31,11 +30,12 @@
             },
             boxShadow: {
               'card': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)',
-              'glow': '0 0 15px rgba(220, 38, 38, 0.3)', // Glow ajustado para vermelho
+              'glow': '0 0 15px rgba(220, 38, 38, 0.3)',
             },
             animation: {
               'fade-in': 'fadeIn 0.4s ease-out forwards',
               'slide-up': 'slideUp 0.4s ease-out forwards',
+              'spin-slow': 'spin 3s linear infinite',
             },
             keyframes: {
               fadeIn: {
@@ -54,7 +54,7 @@
     <style>
       body {
         font-family: 'Roboto', sans-serif;
-        background-color: #09090b; /* brand-dark */
+        background-color: #09090b;
         color: #e2e8f0;
         -webkit-tap-highlight-color: transparent;
       }
@@ -65,11 +65,9 @@
           -ms-overflow-style: none;
           scrollbar-width: none;
       }
-      /* Custom Select styling for Dark Mode */
       select {
         -webkit-appearance: none;
         -moz-appearance: none;
-        /* Ícone do select alterado para vermelho (%23DC2626) */
         background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23DC2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
         background-repeat: no-repeat;
         background-position: right 1rem center;
@@ -79,22 +77,21 @@
   <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
-    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.84.0",
     "react-icons/": "https://aistudiocdn.com/react-icons@^5.5.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

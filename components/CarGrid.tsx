@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Car } from '../types';
 
@@ -43,7 +42,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
                   onClick={() => openModal(car)}
                   className="bg-brand-surface border border-gray-700 rounded-2xl overflow-hidden group hover:border-brand-orange transition-all duration-300 flex flex-col hover:-translate-y-2 shadow-card cursor-pointer"
                 >
-                  {/* Image Section - Lazy Loaded */}
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
                     <img 
                       src={car.image} 
@@ -55,40 +53,33 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       height="300"
                       onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }} 
                     />
-                    
                     {discount > 0 && (
                       <div className="absolute top-0 right-0 bg-green-600 text-white px-3 py-2 rounded-bl-xl font-black text-lg shadow-lg z-10 flex flex-col items-center leading-none">
                         <span className="text-[10px] uppercase font-medium mb-0.5">Abaixo FIPE</span>
                         <span>-{discount}%</span>
                       </div>
                     )}
-
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-brand-surface to-transparent h-20"></div>
                   </div>
-                  
                   <div className="p-5 flex-grow flex flex-col relative">
                     <div className="flex justify-between items-center mb-1">
                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{car.make}</span>
                        <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded border border-gray-600">{car.year}</span>
                     </div>
-
                     <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-brand-orange transition-colors">
                       {car.model}
                     </h3>
-                    
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-6 bg-brand-dark/30 p-3 rounded-lg border border-gray-800">
                       <div className="flex items-center gap-2"><i className="fa-solid fa-gauge text-brand-orange"></i> {car.mileage.toLocaleString()} km</div>
                       <div className="flex items-center gap-2"><i className="fa-solid fa-gas-pump text-brand-orange"></i> {car.fuel}</div>
                       <div className="flex items-center gap-2"><i className="fa-solid fa-gears text-brand-orange"></i> {car.transmission}</div>
                       <div className="flex items-center gap-2"><i className="fa-solid fa-location-dot text-brand-orange"></i> {car.location ? car.location.split(',')[0] : 'Brasil'}</div>
                     </div>
-
                     <div className="mt-auto pt-4 border-t border-gray-800/50">
                       <div className="flex items-center justify-between mb-1">
                          <span className="text-xs text-gray-500 line-through">FIPE {formatCurrency(fipe)}</span>
                          {economy > 0 && <span className="text-green-500 text-xs font-bold">Economize {formatCurrency(economy)}</span>}
                       </div>
-                      
                       <div className="flex justify-between items-center">
                         <span className="text-3xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
                         <button 
@@ -104,7 +95,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
               );
             })}
           </div>
-          
           {visibleCars.length < cars.length && (
             <div ref={observerRef} className="h-20 flex items-center justify-center mt-8">
               <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce"></div>
