@@ -66,7 +66,7 @@ export const CarGrid: React.FC<CarGridProps> = ({
                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{car.make}</span>
                        <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded border border-gray-600">{car.year}</span>
                     </div>
-                    <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-brand-orange transition-colors">
+                    <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-brand-orange transition-colors line-clamp-1">
                       {car.model}
                     </h3>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-6 bg-brand-dark/30 p-3 rounded-lg border border-gray-800">
@@ -80,13 +80,24 @@ export const CarGrid: React.FC<CarGridProps> = ({
                          <span className="text-xs text-gray-500 line-through">FIPE {formatCurrency(fipe)}</span>
                          {economy > 0 && <span className="text-green-500 text-xs font-bold">Economize {formatCurrency(economy)}</span>}
                       </div>
-                      <div className="flex justify-between items-center">
+                      
+                      <div className="mb-4">
                         <span className="text-3xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openModal(car); }}
+                          className="flex-1 h-10 bg-transparent border border-gray-600 hover:border-brand-orange text-gray-300 hover:text-brand-orange text-xs font-bold uppercase rounded-lg transition-all flex items-center justify-center gap-2 hover:bg-brand-orange/10"
+                        >
+                          <i className="fa-solid fa-eye"></i> Ver Detalhes
+                        </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }}
-                          className="h-12 w-12 bg-green-600 border border-green-500 text-white rounded-full flex items-center justify-center hover:bg-green-500 transition-all shadow-lg active:scale-90"
+                          className="h-10 w-12 bg-green-600 border border-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-500 transition-all shadow-lg active:scale-95"
+                          title="Negociar no WhatsApp"
                         >
-                          <i className="fa-brands fa-whatsapp text-2xl"></i>
+                          <i className="fa-brands fa-whatsapp text-xl"></i>
                         </button>
                       </div>
                     </div>

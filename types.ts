@@ -12,6 +12,16 @@ export interface Car {
   gallery: string[];
   location: string;
   description: string;
+  is_active?: boolean;
+  created_at?: string;
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'editor' | 'viewer';
+  created_at?: string;
 }
 
 export interface Message {

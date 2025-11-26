@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface FooterProps {
   handleWhatsApp: () => void;
@@ -34,6 +35,9 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
       </div>
       <div className="border-t border-gray-800 pt-6 text-center text-xs text-gray-600 flex justify-center items-center gap-4">
         <span>&copy; 2025 Arena Repasse. Tecnologia Supabase Integrada.</span>
+        <Link to="/admin" className="text-gray-800 hover:text-brand-orange transition-colors opacity-50 hover:opacity-100" title="Acesso Administrativo">
+          <i className="fa-solid fa-lock"></i>
+        </Link>
       </div>
     </footer>
   );
