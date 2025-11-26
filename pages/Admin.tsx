@@ -6,7 +6,7 @@ import { Car, AppUser, Seller } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { FaTrash, FaEdit, FaPlus, FaSave, FaTimes, FaCar, FaDollarSign, FaCloudUploadAlt, FaSearchDollar, FaSync, FaUsers, FaUserPlus, FaUserShield, FaSignOutAlt, FaHeadset, FaWhatsapp } from 'react-icons/fa';
 
-// Interfaces FIPE e outros tipos
+// Interfaces FIPE
 interface FipeBrand { codigo: string; nome: string; }
 interface FipeModel { codigo: number; nome: string; }
 interface FipeYear { codigo: string; nome: string; }
@@ -21,7 +21,6 @@ export const Admin = () => {
   const [cars, setCars] = useState<Car[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
-  const [loading, setLoading] = useState(true);
   
   // Form States (Cars)
   const [isEditingCar, setIsEditingCar] = useState(false);
@@ -56,20 +55,18 @@ export const Admin = () => {
   useEffect(() => {
     loadAllData();
     loadFipeBrands();
-  }, [vehicleType]); // Reload FIPE brands when vehicle type changes
+  }, [vehicleType]); 
 
   const loadAllData = async () => {
-    setLoading(true);
     const carsRes = await fetchCars({});
     const usersRes = await fetchUsers();
     const sellersRes = await fetchSellers();
     
-    if (carsRes.error) showNotification("Erro carros: " + carsRes.error, 'error');
+    if (carsRes.error) showNotification("Erro ao carregar carros", 'error');
     
     setCars(carsRes.data || []);
     setUsers(usersRes.data || []);
     setSellers(sellersRes.data || []);
-    setLoading(false);
   };
 
   const showNotification = (msg: string, type: 'success' | 'error') => {
@@ -85,6 +82,7 @@ export const Admin = () => {
   // --- CAR ACTIONS ---
   const handleCarEdit = (car: Car) => {
     setCarFormData({...car});
+    setVehicleType(car.vehicleType || 'carros');
     setMainImagePreview(car.image);
     setMainImageFile(null);
     setGalleryFiles([]);
@@ -100,6 +98,7 @@ export const Admin = () => {
       status: 'available',
       vehicleType: 'carros'
     });
+    setVehicleType('carros');
     setMainImagePreview(null);
     setMainImageFile(null);
     setGalleryFiles([]);
@@ -127,12 +126,21 @@ export const Admin = () => {
     setSaving(true);
     try {
       let finalImage = carFormData.image;
+      
+      // Upload Main Image
       if (mainImageFile) {
         const url = await uploadCarImage(mainImageFile);
-        if (url) finalImage = url;
+        if (url) {
+          finalImage = url;
+        } else {
+          // Se falhar o upload, lançamos erro para cair no catch
+          throw new Error("Falha no upload da imagem principal. Verifique o Storage.");
+        }
       }
+      
       if (!finalImage) throw new Error("Foto principal obrigatória");
 
+      // Upload Gallery
       const newGalleryUrls = [];
       for (const file of galleryFiles) {
         const url = await uploadCarImage(file);
@@ -142,10 +150,10 @@ export const Admin = () => {
 
       const payload = {
         ...carFormData,
-        price: Number(carFormData.price),
-        fipeprice: Number(carFormData.fipeprice),
-        mileage: Number(carFormData.mileage),
-        year: Number(carFormData.year),
+        price: Number(carFormData.price) || 0,
+        fipeprice: Number(carFormData.fipeprice) || 0,
+        mileage: Number(carFormData.mileage) || 0,
+        year: Number(carFormData.year) || 2020,
         image: finalImage,
         gallery: finalGallery,
         is_active: true,
@@ -164,7 +172,13 @@ export const Admin = () => {
       setIsEditingCar(false);
       loadAllData();
     } catch (err: any) {
-      showNotification(err.message || "Erro ao salvar", 'error');
+      console.error(err);
+      // Tratamento de erro detalhado para o caso de recursão
+      let errorMsg = typeof err === 'string' ? err : err.message || "Erro ao salvar";
+      if (errorMsg.includes("recursion")) {
+        errorMsg = "Erro de configuração no Banco de Dados (Recursão). Contate o suporte.";
+      }
+      showNotification(errorMsg, 'error');
     } finally {
       setSaving(false);
     }
@@ -175,7 +189,7 @@ export const Admin = () => {
     const { error } = await updateCar(car.id, { status: newStatus });
     if (error) showNotification("Erro ao atualizar status", 'error');
     else {
-      loadAllData(); // Refresh UI
+      loadAllData(); 
     }
   };
 
@@ -408,7 +422,7 @@ export const Admin = () => {
                 <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4 mb-8">
                    <div className="flex items-center justify-between mb-3">
                      <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase"><FaSearchDollar /> FIPE Automático</div>
-                     <div className="flex gap-2">{['carros', 'motos', 'caminhoes'].map(t => <button key={t} onClick={() => setVehicleType(t)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${vehicleType === t ? 'bg-blue-500 text-white' : 'text-gray-500 border-gray-700'}`}>{t}</button>)}</div>
+                     <div className="flex gap-2">{['carros', 'motos', 'caminhoes'].map(t => <button type="button" key={t} onClick={() => setVehicleType(t)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${vehicleType === t ? 'bg-blue-500 text-white' : 'text-gray-500 border-gray-700'}`}>{t}</button>)}</div>
                    </div>
                    <div className="grid grid-cols-3 gap-3">
                       <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300" onChange={e => handleFipeBrand(e.target.value)} value={selectedFipeBrand}><option value="">Marca</option>{fipeBrands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}</select>

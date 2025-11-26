@@ -10,7 +10,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 type FetchResponse<T> = {
   data: T[];
-  error: string | null;
+  error: any;
 };
 
 // --- AUTH ---
@@ -52,6 +52,8 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     }
     
     if (filters.year) {
+      // Se o usuário filtrar por ano, buscamos carros desse ano ou mais novos
+      // Ou, se preferir exato, mude para .eq
       query = query.gte('year', Number(filters.year));
     }
     
@@ -73,14 +75,14 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     const { data, error } = await query;
 
     if (error) {
-      return { data: [], error: error.message || JSON.stringify(error) };
+      return { data: [], error };
     }
 
     return { data: data as Car[], error: null };
 
   } catch (err: any) {
     console.error("Erro crítico na conexão:", err);
-    return { data: [], error: err.message || "Falha na conexão com o banco de dados." };
+    return { data: [], error: err };
   }
 };
 
@@ -101,6 +103,27 @@ export const fetchAvailableBrands = async (vehicleType?: string): Promise<string
     return brands as string[];
   } catch (e) {
     console.error("Erro ao buscar marcas:", e);
+    return [];
+  }
+};
+
+export const fetchAvailableYears = async (vehicleType?: string): Promise<number[]> => {
+  try {
+    let query = supabase.from('cars').select('year');
+    
+    if (vehicleType) {
+      query = query.eq('vehicleType', vehicleType);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) return [];
+
+    // Retorna anos únicos ordenados do mais recente para o mais antigo
+    const years = Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a, b) => b - a);
+    return years as number[];
+  } catch (e) {
+    console.error("Erro ao buscar anos:", e);
     return [];
   }
 };
@@ -145,7 +168,7 @@ export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
     .select('*')
     .eq('active', true);
 
-  if (error) return { data: [], error: error.message };
+  if (error) return { data: [], error };
   return { data: data as Seller[], error: null };
 };
 
@@ -175,7 +198,7 @@ export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) return { data: [], error: error.message };
+  if (error) return { data: [], error };
   return { data: data as AppUser[], error: null };
 };
 
@@ -204,12 +227,17 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${fileName}`;
 
+    // Upload direto para o bucket 'car-images'
     const { error: uploadError } = await supabase.storage
       .from('car-images')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
     if (uploadError) {
-      throw uploadError;
+      console.error("Erro no upload (Supabase):", uploadError);
+      throw uploadError; // Lança o erro para ser capturado no catch
     }
 
     const { data } = supabase.storage
@@ -218,7 +246,7 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
 
     return data.publicUrl;
   } catch (error) {
-    console.error("Erro no upload:", error);
-    return null;
+    console.error("Erro detalhado no upload:", error);
+    throw error; // Repassa o erro para o Admin exibir a mensagem
   }
 };

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Car, FilterOptions, Seller } from '../types';
-import { fetchCars, fetchSellers, fetchAvailableBrands } from '../supabaseClient';
+import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears } from '../supabaseClient';
 
 // Importing Components
 import { Header } from '../components/Header';
@@ -24,6 +24,7 @@ export const Home = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [tempFilters, setTempFilters] = useState({ make: '', maxPrice: '', year: '', vehicleType: '' });
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   
   // Vendedores State
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -41,9 +42,11 @@ export const Home = () => {
     setDisplayLimit(12);
   };
 
-  const loadBrands = async (vehicleType?: string) => {
+  const loadFiltersData = async (vehicleType?: string) => {
     const brands = await fetchAvailableBrands(vehicleType);
+    const years = await fetchAvailableYears(vehicleType);
     setAvailableMakes(brands);
+    setAvailableYears(years);
   };
 
   useEffect(() => {
@@ -54,7 +57,7 @@ export const Home = () => {
        const sellersRes = await fetchSellers();
        if (sellersRes.data) setSellers(sellersRes.data);
 
-       await loadBrands();
+       await loadFiltersData();
     };
     initData();
   }, []);
@@ -63,9 +66,11 @@ export const Home = () => {
     loadInventory();
   }, []);
 
-  // Recarregar marcas quando o tipo de veículo muda no filtro
+  // Recarregar marcas e anos quando o tipo de veículo muda no filtro visual
   useEffect(() => {
-    loadBrands(tempFilters.vehicleType);
+    loadFiltersData(tempFilters.vehicleType);
+    // Limpar seleções que podem não existir no novo tipo
+    setTempFilters(prev => ({ ...prev, make: '' }));
   }, [tempFilters.vehicleType]);
 
   useEffect(() => {
@@ -150,6 +155,7 @@ export const Home = () => {
         applyFilters={applyFilters}
         clearFilters={clearFilters}
         availableMakes={availableMakes}
+        availableYears={availableYears}
         hasActiveFilters={hasActiveFilters}
       />
       <CarGrid 

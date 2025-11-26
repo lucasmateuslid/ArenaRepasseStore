@@ -25,14 +25,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sessão atual
+    let mounted = true;
+
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Timeout de segurança: Se o Supabase demorar mais de 3s, destrava a tela
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+        const sessionPromise = supabase.auth.getSession();
+
+        // Corrida entre a sessão e o timeout
+        const result: any = await Promise.race([sessionPromise, timeoutPromise]);
+
+        if (!result || !result.data) {
+           // Caiu no timeout ou erro
+           console.warn("Auth check timed out or failed");
+           if (mounted) setLoading(false);
+           return;
+        }
+
+        const { data: { session } } = result;
         
         if (session?.user) {
-          setUser(session.user);
-          // Verificar se existe na tabela app_users
+          if (mounted) setUser(session.user);
+          
           const { data, error } = await supabase
             .from('app_users')
             .select('*')
@@ -40,29 +55,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
             
           if (data && !error) {
-            setAppUser(data);
+            if (mounted) setAppUser(data);
           } else {
-            // Se não estiver na tabela de permissão, desloga (segurança extra)
             console.warn("Usuário autenticado mas sem permissão em app_users");
-            setAppUser(null);
+            if (mounted) setAppUser(null);
           }
         } else {
-          setUser(null);
-          setAppUser(null);
+          if (mounted) {
+            setUser(null);
+            setAppUser(null);
+          }
         }
       } catch (error) {
         console.error("Erro auth check:", error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     checkSession();
 
-    // Escutar mudanças de auth
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       if (session?.user) {
         setUser(session.user);
+        // Tenta buscar permissões novamente ao logar
         const { data } = await supabase
           .from('app_users')
           .select('*')
@@ -77,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);

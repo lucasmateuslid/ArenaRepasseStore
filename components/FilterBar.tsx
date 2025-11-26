@@ -1,13 +1,6 @@
+
 import React from 'react';
 import { FaFilter, FaTimes, FaCar, FaCalendarAlt, FaDollarSign, FaMotorcycle, FaTruck } from 'react-icons/fa';
-
-const YEAR_OPTIONS = [
-  { label: 'Ano Mínimo', value: '' },
-  { label: '2015 ou mais recente', value: '2015' },
-  { label: '2018 ou mais recente', value: '2018' },
-  { label: '2020 ou mais recente', value: '2020' },
-  { label: '2022 ou mais recente', value: '2022' },
-] as const;
 
 const PRICE_OPTIONS = [
   { label: 'Preço Máximo', value: '' },
@@ -24,11 +17,12 @@ interface FilterBarProps {
   applyFilters: () => void;
   clearFilters: () => void;
   availableMakes: string[];
+  availableYears: number[];
   hasActiveFilters: boolean;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
-  tempFilters, setTempFilters, applyFilters, clearFilters, availableMakes, hasActiveFilters,
+  tempFilters, setTempFilters, applyFilters, clearFilters, availableMakes, availableYears, hasActiveFilters,
 }) => {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>, field: keyof typeof tempFilters) => {
     setTempFilters((prev) => ({ ...prev, [field]: e.target.value }));
@@ -49,11 +43,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 items-end">
           
+          {/* Seletor de Tipo de Veículo */}
           <div className="col-span-1 relative group">
-            <label htmlFor="vehicleType" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Tipo</label>
+            <label htmlFor="vehicleType" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1 hidden md:block">Tipo</label>
             <div className="relative">
               <div className={iconWrapperClass}>{getTypeIcon()}</div>
-              <select id="vehicleType" className={selectClass} value={tempFilters.vehicleType} onChange={(e) => handleChange(e, 'vehicleType')}>
+              <select 
+                id="vehicleType" 
+                className={selectClass} 
+                value={tempFilters.vehicleType} 
+                onChange={(e) => handleChange(e, 'vehicleType')}
+              >
                 <option value="">Todos</option>
                 <option value="carros">Carros</option>
                 <option value="motos">Motos</option>
@@ -63,7 +63,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           <div className="col-span-1 lg:col-span-1 relative group">
-            <label htmlFor="make" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Marca</label>
+            <label htmlFor="make" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1 hidden md:block">Marca</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaCar /></div>
               <select id="make" className={selectClass} value={tempFilters.make} onChange={(e) => handleChange(e, 'make')}>
@@ -74,17 +74,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           <div className="col-span-1 relative group">
-            <label htmlFor="year" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Ano</label>
+            <label htmlFor="year" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1 hidden md:block">Ano</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaCalendarAlt /></div>
               <select id="year" className={selectClass} value={tempFilters.year} onChange={(e) => handleChange(e, 'year')}>
-                {YEAR_OPTIONS.map(({ label, value }) => (<option key={value || 'any'} value={value}>{label}</option>))}
+                <option value="">Ano Mínimo</option>
+                {availableYears.map((year) => (<option key={year} value={year}>{year}</option>))}
               </select>
             </div>
           </div>
 
           <div className="col-span-1 relative group">
-            <label htmlFor="price" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1">Preço</label>
+            <label htmlFor="price" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 ml-1 hidden md:block">Preço</label>
             <div className="relative">
               <div className={iconWrapperClass}><FaDollarSign /></div>
               <select id="price" className={selectClass} value={tempFilters.maxPrice} onChange={(e) => handleChange(e, 'maxPrice')}>
