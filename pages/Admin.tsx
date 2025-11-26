@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { fetchCars, createCar, updateCar, deleteCar, uploadCarImage, fetchUsers, createUser, deleteUser } from '../supabaseClient';
 import { Car, AppUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { FaTrash, FaEdit, FaPlus, FaSave, FaTimes, FaCar, FaDollarSign, FaImages, FaCloudUploadAlt, FaSearchDollar, FaSync, FaUsers, FaUserPlus, FaUserShield, FaSignOutAlt } from 'react-icons/fa';
+import { FaTrash, FaEdit, FaPlus, FaSave, FaTimes, FaCar, FaDollarSign, FaCloudUploadAlt, FaSearchDollar, FaSync, FaUsers, FaUserPlus, FaUserShield, FaSignOutAlt } from 'react-icons/fa';
 
 // Interfaces FIPE e outros tipos
 interface FipeBrand { codigo: string; nome: string; }
@@ -44,11 +44,14 @@ export const Admin = () => {
   const [selectedFipeBrand, setSelectedFipeBrand] = useState('');
   const [selectedFipeModel, setSelectedFipeModel] = useState('');
   const [loadingFipe, setLoadingFipe] = useState(false);
+  
+  // Vehicle Type for FIPE
+  const [vehicleType, setVehicleType] = useState('carros');
 
   useEffect(() => {
     loadAllData();
     loadFipeBrands();
-  }, []);
+  }, [vehicleType]); // Reload FIPE brands when vehicle type changes
 
   const loadAllData = async () => {
     setLoading(true);
@@ -84,7 +87,13 @@ export const Admin = () => {
   };
 
   const handleCarCreate = () => {
-    setCarFormData({ gallery: [], is_active: true });
+    setCarFormData({ 
+      gallery: [], 
+      is_active: true,
+      category: 'Hatch',
+      status: 'available',
+      vehicleType: 'carros'
+    });
     setMainImagePreview(null);
     setMainImageFile(null);
     setGalleryFiles([]);
@@ -133,7 +142,8 @@ export const Admin = () => {
         year: Number(carFormData.year),
         image: finalImage,
         gallery: finalGallery,
-        is_active: true
+        is_active: true,
+        vehicleType: vehicleType
       };
 
       if (carFormData.id) {
@@ -151,6 +161,15 @@ export const Admin = () => {
       showNotification(err.message || "Erro ao salvar", 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleCarStatus = async (car: Car) => {
+    const newStatus = car.status === 'sold' ? 'available' : 'sold';
+    const { error } = await updateCar(car.id, { status: newStatus });
+    if (error) showNotification("Erro ao atualizar status", 'error');
+    else {
+      loadAllData(); // Refresh UI
     }
   };
 
@@ -186,13 +205,17 @@ export const Admin = () => {
 
   // --- FIPE LOGIC ---
   const loadFipeBrands = async () => {
-    try { const res = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas'); setFipeBrands(await res.json()); } catch (e) {}
+    try { 
+      setFipeBrands([]);
+      const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`); 
+      setFipeBrands(await res.json()); 
+    } catch (e) {}
   };
   const handleFipeBrand = async (codigo: string) => {
     setSelectedFipeBrand(codigo); setSelectedFipeModel(''); setFipeModels([]);
     if(codigo) {
        setLoadingFipe(true);
-       const res = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${codigo}/modelos`);
+       const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`);
        const data = await res.json();
        setFipeModels(data.modelos);
        setLoadingFipe(false);
@@ -202,7 +225,7 @@ export const Admin = () => {
     setSelectedFipeModel(codigo); setFipeYears([]);
     if(codigo) {
        setLoadingFipe(true);
-       const res = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${selectedFipeBrand}/modelos/${codigo}/anos`);
+       const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedFipeBrand}/modelos/${codigo}/anos`);
        setFipeYears(await res.json());
        setLoadingFipe(false);
     }
@@ -211,38 +234,88 @@ export const Admin = () => {
     if(!codigo) return;
     setLoadingFipe(true);
     try {
-      const res = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${selectedFipeBrand}/modelos/${selectedFipeModel}/anos/${codigo}`);
+      const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedFipeBrand}/modelos/${selectedFipeModel}/anos/${codigo}`);
       const data: FipeResult = await res.json();
       const val = parseFloat(data.Valor.replace('R$ ', '').replace('.','').replace(',','.'));
-      setCarFormData(prev => ({ ...prev, make: data.Marca, model: data.Modelo, year: data.AnoModelo, fipeprice: val, fuel: data.Combustivel, price: Math.floor(val * 0.85) }));
+      
+      // Auto-detect category based on model name keywords
+      let detectedCategory = 'Hatch';
+      const modelLower = data.Modelo.toLowerCase();
+      if(vehicleType === 'motos') detectedCategory = 'Moto';
+      else if(vehicleType === 'caminhoes') detectedCategory = 'Caminhão';
+      else {
+        if(modelLower.includes('suv') || modelLower.includes('tracker') || modelLower.includes('creta') || modelLower.includes('renegade') || modelLower.includes('hr-v')) detectedCategory = 'SUV';
+        else if(modelLower.includes('sedan') || modelLower.includes('plus') || modelLower.includes('virtus') || modelLower.includes('corolla') || modelLower.includes('civic')) detectedCategory = 'Sedan';
+        else if(modelLower.includes('pickup') || modelLower.includes('strada') || modelLower.includes('toro') || modelLower.includes('hilux') || modelLower.includes('s10')) detectedCategory = 'Pickup';
+      }
+
+      setCarFormData(prev => ({ 
+        ...prev, 
+        make: data.Marca, 
+        model: data.Modelo, 
+        year: data.AnoModelo, 
+        fipeprice: val, 
+        fuel: data.Combustivel, 
+        price: Math.floor(val * 0.85),
+        category: detectedCategory
+      }));
     } catch(e) {} finally { setLoadingFipe(false); }
   };
 
   // --- UI HELPERS ---
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   const totalStockValue = cars.reduce((acc, c) => acc + (Number(c.price) || 0), 0);
+  const totalFipeValue = cars.reduce((acc, c) => acc + (Number(c.fipeprice) || 0), 0);
+  const potentialProfit = totalFipeValue - totalStockValue;
+
+  // Count by category
+  const categories = cars.reduce((acc, car) => {
+    const cat = car.category || 'Outros';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
   
   // --- SUB-COMPONENTS (INLINE FOR SIMPLICITY) ---
   const DashboardView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-       <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-brand-orange text-6xl"><FaCar/></div>
-          <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Total Veículos</h3>
-          <p className="text-4xl font-black text-white">{cars.length}</p>
-          <div className="mt-4 text-xs text-green-500 font-bold flex items-center gap-1"><FaSync className="text-[10px]"/> Atualizado agora</div>
-       </div>
-       <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-green-500 text-6xl"><FaDollarSign/></div>
-          <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Valor em Estoque</h3>
-          <p className="text-4xl font-black text-white">{new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(totalStockValue)}</p>
-          <div className="mt-4 text-xs text-gray-500">Valor total de venda</div>
-       </div>
-       <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-blue-500 text-6xl"><FaUsers/></div>
-          <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Usuários Admin</h3>
-          <p className="text-4xl font-black text-white">{users.length}</p>
-          <button onClick={() => setActiveTab('users')} className="mt-4 text-xs text-blue-400 hover:text-blue-300 underline">Gerenciar acessos</button>
-       </div>
+    <div className="space-y-6 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-brand-orange text-6xl"><FaCar/></div>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Total Veículos</h3>
+            <p className="text-4xl font-black text-white">{cars.length}</p>
+            <div className="mt-4 text-xs text-green-500 font-bold flex items-center gap-1"><FaSync className="text-[10px]"/> Atualizado agora</div>
+        </div>
+        <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-green-500 text-6xl"><FaDollarSign/></div>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Valor em Estoque</h3>
+            <p className="text-4xl font-black text-white">{new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(totalStockValue)}</p>
+            <div className="mt-4 text-xs text-gray-500">Valor de venda</div>
+        </div>
+        <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-yellow-500 text-6xl"><FaSearchDollar/></div>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Gap FIPE</h3>
+            <p className="text-4xl font-black text-white">{new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(potentialProfit)}</p>
+            <div className="mt-4 text-xs text-gray-500">Diferença FIPE vs Preço</div>
+        </div>
+        <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-blue-500 text-6xl"><FaUsers/></div>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Admin</h3>
+            <p className="text-4xl font-black text-white">{users.length}</p>
+            <button onClick={() => setActiveTab('users')} className="mt-4 text-xs text-blue-400 hover:text-blue-300 underline">Gerenciar</button>
+        </div>
+      </div>
+      
+      <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl">
+        <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Estoque por Categoria</h3>
+        <div className="flex flex-wrap gap-4">
+          {Object.entries(categories).map(([cat, count]) => (
+            <div key={cat} className="bg-black/40 px-4 py-3 rounded-xl border border-gray-700 min-w-[120px]">
+              <span className="text-xs text-gray-500 uppercase block mb-1">{cat}</span>
+              <span className="text-2xl font-black text-white">{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
@@ -322,7 +395,7 @@ export const Admin = () => {
                          <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
                            <tr>
                              <th className="px-6 py-4">Carro</th>
-                             <th className="px-6 py-4">Ano</th>
+                             <th className="px-6 py-4">Status</th>
                              <th className="px-6 py-4">Preço</th>
                              <th className="px-6 py-4">FIPE</th>
                              <th className="px-6 py-4 text-right">Ações</th>
@@ -332,10 +405,17 @@ export const Admin = () => {
                            {cars.map(c => (
                              <tr key={c.id} className="hover:bg-white/5 transition">
                                 <td className="px-6 py-4 flex items-center gap-3">
-                                  <img src={c.image} className="w-10 h-10 rounded-lg object-cover bg-gray-900" />
-                                  <span className="font-bold text-white">{c.make} {c.model}</span>
+                                  <img src={c.image} className="w-10 h-10 rounded-lg object-cover bg-gray-900" onError={(e) => {e.currentTarget.src='https://via.placeholder.com/50'}}/>
+                                  <div>
+                                    <span className="font-bold text-white block">{c.make} {c.model}</span>
+                                    <span className="text-[10px] text-gray-500">{c.category} • {c.year}</span>
+                                  </div>
                                 </td>
-                                <td className="px-6 py-4 text-gray-400">{c.year}</td>
+                                <td className="px-6 py-4">
+                                  <button onClick={() => toggleCarStatus(c)} className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${c.status === 'sold' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'}`}>
+                                    {c.status === 'sold' ? 'Vendido' : 'Disponível'}
+                                  </button>
+                                </td>
                                 <td className="px-6 py-4 font-bold text-white">{formatCurrency(c.price)}</td>
                                 <td className="px-6 py-4 text-gray-500">{formatCurrency(c.fipeprice)}</td>
                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
@@ -357,7 +437,16 @@ export const Admin = () => {
                     
                     {/* FIPE WIDGET */}
                     <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4 mb-8">
-                       <div className="flex items-center gap-2 mb-3 text-blue-400 text-xs font-bold uppercase"><FaSearchDollar /> Preenchimento Automático FIPE</div>
+                       <div className="flex items-center justify-between mb-3">
+                         <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase"><FaSearchDollar /> Preenchimento Automático FIPE</div>
+                         <div className="flex gap-2">
+                            {['carros', 'motos', 'caminhoes'].map(t => (
+                              <button key={t} onClick={() => setVehicleType(t)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${vehicleType === t ? 'bg-blue-500 text-white border-blue-500' : 'bg-black/30 text-gray-500 border-gray-700'}`}>
+                                {t}
+                              </button>
+                            ))}
+                         </div>
+                       </div>
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300 outline-none" onChange={e => handleFipeBrand(e.target.value)} value={selectedFipeBrand}>
                              <option value="">1. Marca</option>
@@ -403,18 +492,20 @@ export const Admin = () => {
                          { label: 'Marca', key: 'make', type: 'text' },
                          { label: 'Modelo', key: 'model', type: 'text' },
                          { label: 'Ano', key: 'year', type: 'number' },
+                         { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Coupe', 'Moto', 'Caminhão', 'Outros'] },
                          { label: 'KM', key: 'mileage', type: 'number' },
                          { label: 'Preço Venda', key: 'price', type: 'number' },
                          { label: 'Preço FIPE', key: 'fipeprice', type: 'number' },
                          { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico'] },
                          { label: 'Câmbio', key: 'transmission', type: 'select', opts: ['Manual','Automático','CVT'] },
+                         { label: 'Status', key: 'status', type: 'select', opts: ['available', 'sold'] },
                          { label: 'Cidade', key: 'location', type: 'text' },
                        ].map((field: any) => (
                          <div key={field.key} className={field.key === 'description' ? 'md:col-span-2' : ''}>
                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">{field.label}</label>
                            {field.type === 'select' ? (
                              <select className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})}>
-                               {field.opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
+                               {field.opts.map((o:string) => <option key={o} value={o === 'available' ? 'Disponível' : o === 'sold' ? 'Vendido' : o}>{o === 'available' ? 'Disponível' : o === 'sold' ? 'Vendido' : o}</option>)}
                              </select>
                            ) : (
                              <input type={field.type} className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})} />

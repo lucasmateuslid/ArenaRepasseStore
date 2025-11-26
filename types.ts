@@ -14,6 +14,9 @@ export interface Car {
   description: string;
   is_active?: boolean;
   created_at?: string;
+  category?: string;
+  status?: string;
+  vehicleType?: string;
 }
 
 export interface AppUser {
