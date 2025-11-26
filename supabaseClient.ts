@@ -1,9 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Car, AppUser, FilterOptions } from './types';
+import { Car, AppUser, FilterOptions, Seller } from './types';
 
-// Configuração do Supabase com suporte a import.meta.env (Padrão Vite)
-// Uso de optional chaining (?.) para prevenir erro se env for undefined
+// Configuração do Supabase com fallback explícito para garantir funcionamento
 const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
 const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
 
@@ -59,6 +58,10 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     if (filters.maxPrice) {
       query = query.lte('price', Number(filters.maxPrice));
     }
+
+    if (filters.vehicleType) {
+      query = query.eq('vehicleType', filters.vehicleType);
+    }
     
     if (filters.search) {
       const searchTerm = filters.search;
@@ -70,15 +73,35 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     const { data, error } = await query;
 
     if (error) {
-      console.error("Erro Supabase:", error);
-      return { data: [], error: error.message };
+      return { data: [], error: error.message || JSON.stringify(error) };
     }
 
     return { data: data as Car[], error: null };
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erro crítico na conexão:", err);
-    return { data: [], error: "Falha na conexão com o banco de dados." };
+    return { data: [], error: err.message || "Falha na conexão com o banco de dados." };
+  }
+};
+
+export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
+  try {
+    let query = supabase.from('cars').select('make');
+    
+    if (vehicleType) {
+      query = query.eq('vehicleType', vehicleType);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) return [];
+
+    // Retorna apenas marcas únicas ordenadas alfabeticamente
+    const brands = Array.from(new Set(data.map((c: any) => c.make))).sort();
+    return brands as string[];
+  } catch (e) {
+    console.error("Erro ao buscar marcas:", e);
+    return [];
   }
 };
 
@@ -113,6 +136,36 @@ export const deleteCar = async (id: string) => {
 
   return { error };
 };
+
+// --- VENDEDORES (sellers) ---
+
+export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*')
+    .eq('active', true);
+
+  if (error) return { data: [], error: error.message };
+  return { data: data as Seller[], error: null };
+};
+
+export const createSeller = async (seller: Omit<Seller, 'id'>) => {
+  const { data, error } = await supabase
+    .from('sellers')
+    .insert([seller])
+    .select()
+    .single();
+  return { data, error };
+};
+
+export const deleteSeller = async (id: string) => {
+  const { error } = await supabase
+    .from('sellers')
+    .delete()
+    .eq('id', id);
+  return { error };
+};
+
 
 // --- USUÁRIOS (app_users) ---
 

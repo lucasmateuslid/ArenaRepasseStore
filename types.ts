@@ -27,6 +27,14 @@ export interface AppUser {
   created_at?: string;
 }
 
+export interface Seller {
+  id: string;
+  name: string;
+  whatsapp: string;
+  active: boolean;
+  created_at?: string;
+}
+
 export interface Message {
   role: 'user' | 'model';
   text: string;
@@ -38,4 +46,5 @@ export interface FilterOptions {
   year?: string;
   maxPrice?: string;
   search?: string;
+  vehicleType?: string;
 }

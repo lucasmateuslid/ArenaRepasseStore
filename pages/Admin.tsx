@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { fetchCars, createCar, updateCar, deleteCar, uploadCarImage, fetchUsers, createUser, deleteUser } from '../supabaseClient';
-import { Car, AppUser } from '../types';
+import { fetchCars, createCar, updateCar, deleteCar, uploadCarImage, fetchUsers, createUser, deleteUser, fetchSellers, createSeller, deleteSeller } from '../supabaseClient';
+import { Car, AppUser, Seller } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { FaTrash, FaEdit, FaPlus, FaSave, FaTimes, FaCar, FaDollarSign, FaCloudUploadAlt, FaSearchDollar, FaSync, FaUsers, FaUserPlus, FaUserShield, FaSignOutAlt } from 'react-icons/fa';
+import { FaTrash, FaEdit, FaPlus, FaSave, FaTimes, FaCar, FaDollarSign, FaCloudUploadAlt, FaSearchDollar, FaSync, FaUsers, FaUserPlus, FaUserShield, FaSignOutAlt, FaHeadset, FaWhatsapp } from 'react-icons/fa';
 
 // Interfaces FIPE e outros tipos
 interface FipeBrand { codigo: string; nome: string; }
@@ -15,11 +15,12 @@ interface FipeResult { Valor: string; Marca: string; Modelo: string; AnoModelo: 
 export const Admin = () => {
   const { appUser, signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers'>('dashboard');
   
   // Data States
   const [cars, setCars] = useState<Car[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Form States (Cars)
@@ -32,6 +33,10 @@ export const Admin = () => {
   // Form States (Users)
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [userFormData, setUserFormData] = useState<Partial<AppUser>>({ role: 'editor' });
+
+  // Form States (Sellers)
+  const [isCreatingSeller, setIsCreatingSeller] = useState(false);
+  const [sellerFormData, setSellerFormData] = useState<Partial<Seller>>({ active: true });
 
   // UI States
   const [saving, setSaving] = useState(false);
@@ -57,12 +62,13 @@ export const Admin = () => {
     setLoading(true);
     const carsRes = await fetchCars({});
     const usersRes = await fetchUsers();
+    const sellersRes = await fetchSellers();
     
     if (carsRes.error) showNotification("Erro carros: " + carsRes.error, 'error');
-    if (usersRes.error) showNotification("Erro usuários: " + usersRes.error, 'error');
-
+    
     setCars(carsRes.data || []);
     setUsers(usersRes.data || []);
+    setSellers(sellersRes.data || []);
     setLoading(false);
   };
 
@@ -203,6 +209,36 @@ export const Admin = () => {
     }
   };
 
+  // --- SELLER ACTIONS ---
+  const handleSellerSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sellerFormData.name || !sellerFormData.whatsapp) {
+      showNotification("Preencha Nome e WhatsApp", 'error');
+      return;
+    }
+    setSaving(true);
+    const { error } = await createSeller(sellerFormData as any);
+    setSaving(false);
+    
+    if (error) showNotification(error.message, 'error');
+    else {
+      showNotification("Vendedor adicionado!", 'success');
+      setIsCreatingSeller(false);
+      setSellerFormData({ active: true });
+      loadAllData();
+    }
+  };
+
+  const handleSellerDelete = async (id: string) => {
+    if (!confirm("Remover este vendedor?")) return;
+    const { error } = await deleteSeller(id);
+    if (error) showNotification(error.message, 'error');
+    else {
+      showNotification("Vendedor removido.", 'success');
+      loadAllData();
+    }
+  };
+
   // --- FIPE LOGIC ---
   const loadFipeBrands = async () => {
     try { 
@@ -238,7 +274,6 @@ export const Admin = () => {
       const data: FipeResult = await res.json();
       const val = parseFloat(data.Valor.replace('R$ ', '').replace('.','').replace(',','.'));
       
-      // Auto-detect category based on model name keywords
       let detectedCategory = 'Hatch';
       const modelLower = data.Modelo.toLowerCase();
       if(vehicleType === 'motos') detectedCategory = 'Moto';
@@ -262,20 +297,11 @@ export const Admin = () => {
     } catch(e) {} finally { setLoadingFipe(false); }
   };
 
-  // --- UI HELPERS ---
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   const totalStockValue = cars.reduce((acc, c) => acc + (Number(c.price) || 0), 0);
-  const totalFipeValue = cars.reduce((acc, c) => acc + (Number(c.fipeprice) || 0), 0);
-  const potentialProfit = totalFipeValue - totalStockValue;
-
-  // Count by category
-  const categories = cars.reduce((acc, car) => {
-    const cat = car.category || 'Outros';
-    acc[cat] = (acc[cat] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const potentialProfit = cars.reduce((acc, c) => acc + (Number(c.fipeprice) || 0), 0) - totalStockValue;
+  const categories = cars.reduce((acc, car) => { const cat = car.category || 'Outros'; acc[cat] = (acc[cat] || 0) + 1; return acc; }, {} as Record<string, number>);
   
-  // --- SUB-COMPONENTS (INLINE FOR SIMPLICITY) ---
   const DashboardView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -283,28 +309,23 @@ export const Admin = () => {
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-brand-orange text-6xl"><FaCar/></div>
             <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Total Veículos</h3>
             <p className="text-4xl font-black text-white">{cars.length}</p>
-            <div className="mt-4 text-xs text-green-500 font-bold flex items-center gap-1"><FaSync className="text-[10px]"/> Atualizado agora</div>
         </div>
         <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-green-500 text-6xl"><FaDollarSign/></div>
             <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Valor em Estoque</h3>
             <p className="text-4xl font-black text-white">{new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(totalStockValue)}</p>
-            <div className="mt-4 text-xs text-gray-500">Valor de venda</div>
         </div>
         <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-yellow-500 text-6xl"><FaSearchDollar/></div>
             <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Gap FIPE</h3>
             <p className="text-4xl font-black text-white">{new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(potentialProfit)}</p>
-            <div className="mt-4 text-xs text-gray-500">Diferença FIPE vs Preço</div>
         </div>
         <div className="bg-brand-surface border border-gray-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-blue-500 text-6xl"><FaUsers/></div>
-            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Admin</h3>
-            <p className="text-4xl font-black text-white">{users.length}</p>
-            <button onClick={() => setActiveTab('users')} className="mt-4 text-xs text-blue-400 hover:text-blue-300 underline">Gerenciar</button>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Equipe</h3>
+            <p className="text-4xl font-black text-white">{sellers.length}</p>
         </div>
       </div>
-      
       <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl">
         <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Estoque por Categoria</h3>
         <div className="flex flex-wrap gap-4">
@@ -321,262 +342,149 @@ export const Admin = () => {
 
   return (
     <div className="min-h-screen bg-brand-dark font-sans text-gray-100 flex flex-col md:flex-row">
-      {/* SIDEBAR NAVIGATION */}
       <aside className="w-full md:w-64 bg-brand-surface border-r border-gray-800 flex flex-col">
         <div className="h-20 flex items-center justify-center border-b border-gray-800">
            <Link to="/" className="text-xl font-black italic tracking-tighter hover:opacity-80 transition">
              ARENA<span className="text-brand-orange">ADMIN</span>
            </Link>
         </div>
-        
         <nav className="flex-1 p-4 space-y-2">
-           <button onClick={() => { setActiveTab('dashboard'); setIsEditingCar(false); setIsCreatingUser(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-brand-orange text-white shadow-glow' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
-             <FaSearchDollar /> Dashboard
-           </button>
-           <button onClick={() => { setActiveTab('cars'); setIsEditingCar(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'cars' ? 'bg-brand-orange text-white shadow-glow' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
-             <FaCar /> Veículos
-           </button>
-           <button onClick={() => { setActiveTab('users'); setIsCreatingUser(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-brand-orange text-white shadow-glow' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
-             <FaUsers /> Usuários
-           </button>
+           <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-brand-orange text-white' : 'text-gray-400 hover:bg-gray-800'}`}><FaSearchDollar /> Dashboard</button>
+           <button onClick={() => setActiveTab('cars')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'cars' ? 'bg-brand-orange text-white' : 'text-gray-400 hover:bg-gray-800'}`}><FaCar /> Veículos</button>
+           <button onClick={() => setActiveTab('sellers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'sellers' ? 'bg-brand-orange text-white' : 'text-gray-400 hover:bg-gray-800'}`}><FaHeadset /> Vendedores</button>
+           <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-brand-orange text-white' : 'text-gray-400 hover:bg-gray-800'}`}><FaUsers /> Usuários</button>
         </nav>
-
         <div className="p-4 border-t border-gray-800">
-          <Link to="/" className="flex items-center gap-2 text-xs text-gray-500 hover:text-brand-orange transition justify-center">
-             <i className="fa-solid fa-arrow-left"></i> Voltar ao Site
-          </Link>
+          <Link to="/" className="flex items-center gap-2 text-xs text-gray-500 hover:text-brand-orange transition justify-center"><i className="fa-solid fa-arrow-left"></i> Voltar ao Site</Link>
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* TOP BAR */}
         <header className="h-20 bg-brand-dark/95 backdrop-blur border-b border-gray-800 flex items-center justify-between px-8">
            <h2 className="text-xl font-bold text-white capitalize">{activeTab}</h2>
            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                 <div className="text-right hidden sm:block">
-                   <p className="text-xs font-bold text-white">{appUser?.name || 'Administrador'}</p>
-                   <p className="text-[10px] text-gray-400">{appUser?.email}</p>
-                 </div>
-                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-red-800 flex items-center justify-center text-xs font-bold border border-white/20">
-                   {appUser?.name ? appUser.name.charAt(0).toUpperCase() : 'A'}
-                 </div>
-              </div>
-              <button onClick={handleLogout} className="text-gray-400 hover:text-white transition" title="Sair">
-                <FaSignOutAlt className="text-lg"/>
-              </button>
+              <span className="text-xs font-bold text-white hidden sm:block">{appUser?.name}</span>
+              <button onClick={handleLogout} className="text-gray-400 hover:text-white"><FaSignOutAlt className="text-lg"/></button>
            </div>
         </header>
 
-        {/* NOTIFICATION TOAST */}
-        {notification && (
-          <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl border-l-4 animate-fade-in ${notification.type === 'success' ? 'bg-green-900/90 border-green-500' : 'bg-red-900/90 border-red-500'} backdrop-blur-md`}>
-             <p className="font-bold text-sm">{notification.msg}</p>
-          </div>
-        )}
+        {notification && <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl border-l-4 animate-fade-in ${notification.type === 'success' ? 'bg-green-900/90 border-green-500' : 'bg-red-900/90 border-red-500'}`}><p className="font-bold text-sm">{notification.msg}</p></div>}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-black/20">
-           
            {activeTab === 'dashboard' && <DashboardView />}
 
-           {activeTab === 'cars' && (
-             <>
-               {!isEditingCar ? (
-                 <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
-                    <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                       <h3 className="font-bold text-white">Inventário de Veículos</h3>
-                       <button onClick={handleCarCreate} className="bg-brand-orange hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition shadow-glow">
-                         <FaPlus /> Adicionar Novo
-                       </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                       <table className="w-full text-left">
-                         <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-                           <tr>
-                             <th className="px-6 py-4">Carro</th>
-                             <th className="px-6 py-4">Status</th>
-                             <th className="px-6 py-4">Preço</th>
-                             <th className="px-6 py-4">FIPE</th>
-                             <th className="px-6 py-4 text-right">Ações</th>
-                           </tr>
-                         </thead>
-                         <tbody className="divide-y divide-gray-800 text-sm">
-                           {cars.map(c => (
-                             <tr key={c.id} className="hover:bg-white/5 transition">
-                                <td className="px-6 py-4 flex items-center gap-3">
-                                  <img src={c.image} className="w-10 h-10 rounded-lg object-cover bg-gray-900" onError={(e) => {e.currentTarget.src='https://via.placeholder.com/50'}}/>
-                                  <div>
-                                    <span className="font-bold text-white block">{c.make} {c.model}</span>
-                                    <span className="text-[10px] text-gray-500">{c.category} • {c.year}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button onClick={() => toggleCarStatus(c)} className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${c.status === 'sold' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'}`}>
-                                    {c.status === 'sold' ? 'Vendido' : 'Disponível'}
-                                  </button>
-                                </td>
-                                <td className="px-6 py-4 font-bold text-white">{formatCurrency(c.price)}</td>
-                                <td className="px-6 py-4 text-gray-500">{formatCurrency(c.fipeprice)}</td>
-                                <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                   <button onClick={() => handleCarEdit(c)} className="p-2 bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition"><FaEdit/></button>
-                                   <button onClick={() => handleCarDelete(c.id)} className="p-2 bg-red-500/10 text-red-400 rounded hover:bg-red-500 hover:text-white transition"><FaTrash/></button>
-                                </td>
-                             </tr>
-                           ))}
-                         </tbody>
-                       </table>
-                    </div>
-                 </div>
-               ) : (
-                 <div className="max-w-4xl mx-auto bg-brand-surface border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl animate-slide-up">
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-                       <h3 className="text-xl font-bold text-white">{carFormData.id ? 'Editar Veículo' : 'Novo Veículo'}</h3>
-                       <button onClick={() => setIsEditingCar(false)} className="text-gray-500 hover:text-white"><FaTimes/></button>
-                    </div>
-                    
-                    {/* FIPE WIDGET */}
-                    <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4 mb-8">
-                       <div className="flex items-center justify-between mb-3">
-                         <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase"><FaSearchDollar /> Preenchimento Automático FIPE</div>
-                         <div className="flex gap-2">
-                            {['carros', 'motos', 'caminhoes'].map(t => (
-                              <button key={t} onClick={() => setVehicleType(t)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${vehicleType === t ? 'bg-blue-500 text-white border-blue-500' : 'bg-black/30 text-gray-500 border-gray-700'}`}>
-                                {t}
-                              </button>
-                            ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300 outline-none" onChange={e => handleFipeBrand(e.target.value)} value={selectedFipeBrand}>
-                             <option value="">1. Marca</option>
-                             {fipeBrands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
-                          </select>
-                          <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300 outline-none" onChange={e => handleFipeModel(e.target.value)} value={selectedFipeModel} disabled={!selectedFipeBrand}>
-                             <option value="">2. Modelo</option>
-                             {fipeModels.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}
-                          </select>
-                          <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300 outline-none" onChange={e => handleFipeYear(e.target.value)} disabled={!selectedFipeModel}>
-                             <option value="">3. Ano</option>
-                             {fipeYears.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
-                          </select>
-                       </div>
-                    </div>
-
-                    <form onSubmit={handleCarSave} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       {/* IMAGE UPLOAD */}
-                       <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
-                          <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Foto Principal</label>
-                            <div className="relative h-48 bg-black/40 rounded-xl border-2 border-dashed border-gray-700 hover:border-brand-orange transition flex flex-col items-center justify-center cursor-pointer group">
-                               <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => { if(e.target.files?.[0]) { setMainImageFile(e.target.files[0]); setMainImagePreview(URL.createObjectURL(e.target.files[0])); } }} accept="image/*" />
-                               {mainImagePreview ? <img src={mainImagePreview} className="w-full h-full object-cover rounded-xl opacity-60 group-hover:opacity-40" /> : <FaCloudUploadAlt className="text-3xl text-gray-600 mb-2"/>}
-                               <span className="absolute bottom-2 text-xs text-gray-400 bg-black/50 px-2 rounded pointer-events-none">Clique para alterar</span>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Galeria (+Fotos)</label>
-                            <div className="relative h-48 bg-black/40 rounded-xl border-2 border-dashed border-gray-700 p-2 overflow-y-auto">
-                               <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e => e.target.files && setGalleryFiles(Array.from(e.target.files))} accept="image/*" />
-                               <div className="grid grid-cols-3 gap-2">
-                                  {carFormData.gallery?.map((url, i) => <img key={i} src={url} className="h-14 w-full object-cover rounded border border-gray-600" />)}
-                                  {galleryFiles.map((f, i) => <div key={i} className="h-14 w-full bg-green-500/20 border border-green-500 rounded flex items-center justify-center text-[8px] text-green-500">Novo</div>)}
-                                  <div className="flex items-center justify-center h-14 bg-gray-800 rounded text-gray-500 text-xs"><FaPlus/></div>
-                               </div>
-                            </div>
-                          </div>
-                       </div>
-                       
-                       {/* FIELDS */}
-                       {[
-                         { label: 'Marca', key: 'make', type: 'text' },
-                         { label: 'Modelo', key: 'model', type: 'text' },
-                         { label: 'Ano', key: 'year', type: 'number' },
-                         { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Coupe', 'Moto', 'Caminhão', 'Outros'] },
-                         { label: 'KM', key: 'mileage', type: 'number' },
-                         { label: 'Preço Venda', key: 'price', type: 'number' },
-                         { label: 'Preço FIPE', key: 'fipeprice', type: 'number' },
-                         { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico'] },
-                         { label: 'Câmbio', key: 'transmission', type: 'select', opts: ['Manual','Automático','CVT'] },
-                         { label: 'Status', key: 'status', type: 'select', opts: ['available', 'sold'] },
-                         { label: 'Cidade', key: 'location', type: 'text' },
-                       ].map((field: any) => (
-                         <div key={field.key} className={field.key === 'description' ? 'md:col-span-2' : ''}>
-                           <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">{field.label}</label>
-                           {field.type === 'select' ? (
-                             <select className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})}>
-                               {field.opts.map((o:string) => <option key={o} value={o === 'available' ? 'Disponível' : o === 'sold' ? 'Vendido' : o}>{o === 'available' ? 'Disponível' : o === 'sold' ? 'Vendido' : o}</option>)}
-                             </select>
-                           ) : (
-                             <input type={field.type} className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})} />
-                           )}
-                         </div>
+           {activeTab === 'cars' && !isEditingCar && (
+             <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in">
+                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                   <h3 className="font-bold text-white">Inventário</h3>
+                   <button onClick={handleCarCreate} className="bg-brand-orange hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2"><FaPlus /> Novo</button>
+                </div>
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
+                       <tr><th className="px-6 py-4">Carro</th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Preço</th><th className="px-6 py-4 text-right">Ações</th></tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-800 text-sm">
+                       {cars.map(c => (
+                         <tr key={c.id} className="hover:bg-white/5 transition">
+                            <td className="px-6 py-4 flex items-center gap-3">
+                              <img src={c.image} className="w-10 h-10 rounded-lg object-cover" onError={(e) => {e.currentTarget.src='https://via.placeholder.com/50'}}/>
+                              <div><span className="font-bold text-white block">{c.make} {c.model}</span><span className="text-[10px] text-gray-500">{c.year} • ID: {c.id.substring(0,6)}</span></div>
+                            </td>
+                            <td className="px-6 py-4"><button onClick={() => toggleCarStatus(c)} className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${c.status === 'sold' ? 'text-red-500 border-red-500' : 'text-green-500 border-green-500'}`}>{c.status === 'sold' ? 'Vendido' : 'Disponível'}</button></td>
+                            <td className="px-6 py-4 font-bold text-white">{formatCurrency(c.price)}</td>
+                            <td className="px-6 py-4 text-right flex justify-end gap-2"><button onClick={() => handleCarEdit(c)} className="p-2 text-blue-400 hover:text-white"><FaEdit/></button><button onClick={() => handleCarDelete(c.id)} className="p-2 text-red-400 hover:text-white"><FaTrash/></button></td>
+                         </tr>
                        ))}
-                       
-                       <div className="md:col-span-2">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">Descrição</label>
-                          <textarea className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none h-24" value={carFormData.description || ''} onChange={e => setCarFormData({...carFormData, description: e.target.value})}></textarea>
-                       </div>
+                     </tbody>
+                   </table>
+                </div>
+             </div>
+           )}
 
-                       <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-800">
-                          <button type="button" onClick={() => setIsEditingCar(false)} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 font-bold text-xs uppercase tracking-wide">Cancelar</button>
-                          <button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange hover:bg-brand-orangeHover text-white font-bold text-xs uppercase tracking-wide shadow-glow flex items-center gap-2">
-                            {saving ? <FaSync className="animate-spin"/> : <FaSave />} Salvar Alterações
-                          </button>
-                       </div>
-                    </form>
-                 </div>
-               )}
-             </>
+           {activeTab === 'cars' && isEditingCar && (
+             <div className="max-w-4xl mx-auto bg-brand-surface border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl animate-slide-up">
+                <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-white">{carFormData.id ? 'Editar Veículo' : 'Novo Veículo'}</h3><button onClick={() => setIsEditingCar(false)} className="text-gray-500 hover:text-white"><FaTimes/></button></div>
+                <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4 mb-8">
+                   <div className="flex items-center justify-between mb-3">
+                     <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase"><FaSearchDollar /> FIPE Automático</div>
+                     <div className="flex gap-2">{['carros', 'motos', 'caminhoes'].map(t => <button key={t} onClick={() => setVehicleType(t)} className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${vehicleType === t ? 'bg-blue-500 text-white' : 'text-gray-500 border-gray-700'}`}>{t}</button>)}</div>
+                   </div>
+                   <div className="grid grid-cols-3 gap-3">
+                      <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300" onChange={e => handleFipeBrand(e.target.value)} value={selectedFipeBrand}><option value="">Marca</option>{fipeBrands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}</select>
+                      <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300" onChange={e => handleFipeModel(e.target.value)} value={selectedFipeModel} disabled={!selectedFipeBrand}><option value="">Modelo</option>{fipeModels.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}</select>
+                      <select className="bg-black/30 border border-blue-500/20 rounded-lg p-2 text-xs text-gray-300" onChange={e => handleFipeYear(e.target.value)} disabled={!selectedFipeModel}><option value="">Ano</option>{fipeYears.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}</select>
+                   </div>
+                </div>
+                <form onSubmit={handleCarSave} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="md:col-span-2 grid grid-cols-2 gap-6 mb-2">
+                      <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Foto Principal</label><div className="relative h-48 bg-black/40 rounded-xl border-2 border-dashed border-gray-700 hover:border-brand-orange flex items-center justify-center cursor-pointer"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => { if(e.target.files?.[0]) { setMainImageFile(e.target.files[0]); setMainImagePreview(URL.createObjectURL(e.target.files[0])); } }} accept="image/*" />{mainImagePreview ? <img src={mainImagePreview} className="w-full h-full object-cover rounded-xl" /> : <FaCloudUploadAlt className="text-3xl text-gray-600"/>}</div></div>
+                      <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Galeria</label><div className="relative h-48 bg-black/40 rounded-xl border-2 border-dashed border-gray-700 p-2 overflow-y-auto"><input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e => e.target.files && setGalleryFiles(Array.from(e.target.files))} accept="image/*" /><div className="grid grid-cols-3 gap-2">{carFormData.gallery?.map((url, i) => <img key={i} src={url} className="h-14 w-full object-cover rounded" />)}{galleryFiles.map((f, i) => <div key={i} className="h-14 w-full bg-green-500/20 border border-green-500 rounded flex items-center justify-center text-[8px] text-green-500">Novo</div>)}<div className="flex items-center justify-center h-14 bg-gray-800 rounded text-gray-500"><FaPlus/></div></div></div></div>
+                   </div>
+                   {[ { label: 'Marca', key: 'make', type: 'text' }, { label: 'Modelo', key: 'model', type: 'text' }, { label: 'Ano', key: 'year', type: 'number' }, { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão'] }, { label: 'KM', key: 'mileage', type: 'number' }, { label: 'Preço', key: 'price', type: 'number' }, { label: 'FIPE', key: 'fipeprice', type: 'number' }, { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico'] }, { label: 'Câmbio', key: 'transmission', type: 'select', opts: ['Manual','Automático','CVT'] }, { label: 'Cidade', key: 'location', type: 'text' } ].map((field: any) => (<div key={field.key}><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">{field.label}</label>{field.type === 'select' ? <select className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})}>{field.opts.map((o:string) => <option key={o} value={o}>{o}</option>)}</select> : <input type={field.type} className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})} />}</div>))}
+                   <div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-500 uppercase block mb-1.5">Descrição</label><textarea className="w-full bg-black/30 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white h-24" value={carFormData.description || ''} onChange={e => setCarFormData({...carFormData, description: e.target.value})}></textarea></div>
+                   <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-800"><button type="button" onClick={() => setIsEditingCar(false)} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400">Cancelar</button><button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange text-white font-bold text-xs uppercase shadow-glow flex items-center gap-2">{saving ? <FaSync className="animate-spin"/> : <FaSave />} Salvar</button></div>
+                </form>
+             </div>
+           )}
+
+           {activeTab === 'sellers' && (
+             <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in max-w-4xl mx-auto">
+                <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                    <h3 className="font-bold text-white flex items-center gap-2"><FaHeadset className="text-brand-orange"/> Vendedores</h3>
+                    <button onClick={() => setIsCreatingSeller(!isCreatingSeller)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2">
+                      {isCreatingSeller ? <FaTimes/> : <FaPlus />} {isCreatingSeller ? 'Cancelar' : 'Adicionar'}
+                    </button>
+                </div>
+                {isCreatingSeller && (
+                   <form onSubmit={handleSellerSave} className="p-6 bg-blue-900/10 border-b border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                      <div><label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Nome</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={sellerFormData.name || ''} onChange={e => setSellerFormData({...sellerFormData, name: e.target.value})} placeholder="Ex: João Silva" /></div>
+                      <div><label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">WhatsApp (Só números)</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={sellerFormData.whatsapp || ''} onChange={e => setSellerFormData({...sellerFormData, whatsapp: e.target.value})} placeholder="Ex: 5511999999999" /></div>
+                      <div className="md:col-span-2"><button type="submit" className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg font-bold text-sm h-10 w-full">Salvar Vendedor</button></div>
+                   </form>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                     <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider"><tr><th className="px-6 py-4">Nome</th><th className="px-6 py-4">WhatsApp</th><th className="px-6 py-4 text-right">Ações</th></tr></thead>
+                     <tbody className="divide-y divide-gray-800 text-sm">{sellers.map(s => (
+                         <tr key={s.id} className="hover:bg-white/5 transition">
+                           <td className="px-6 py-4 font-bold text-white">{s.name}</td>
+                           <td className="px-6 py-4 text-gray-400 flex items-center gap-2"><FaWhatsapp className="text-green-500"/> {s.whatsapp}</td>
+                           <td className="px-6 py-4 text-right"><button onClick={() => handleSellerDelete(s.id)} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded transition"><FaTrash/></button></td>
+                         </tr>
+                       ))}</tbody>
+                  </table>
+                  {sellers.length === 0 && <div className="p-8 text-center text-gray-500">Nenhum vendedor cadastrado.</div>}
+                </div>
+             </div>
            )}
 
            {activeTab === 'users' && (
              <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden shadow-xl animate-fade-in max-w-4xl mx-auto">
                 <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <h3 className="font-bold text-white flex items-center gap-2"><FaUserShield className="text-brand-orange"/> Gestão de Acesso</h3>
-                    <button onClick={() => setIsCreatingUser(!isCreatingUser)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition">
-                      {isCreatingUser ? <FaTimes/> : <FaUserPlus />} {isCreatingUser ? 'Cancelar' : 'Adicionar Usuário'}
+                    <h3 className="font-bold text-white flex items-center gap-2"><FaUserShield className="text-brand-orange"/> Usuários Admin</h3>
+                    <button onClick={() => setIsCreatingUser(!isCreatingUser)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2">
+                      {isCreatingUser ? <FaTimes/> : <FaUserPlus />} {isCreatingUser ? 'Cancelar' : 'Adicionar'}
                     </button>
                 </div>
-                
                 {isCreatingUser && (
-                   <form onSubmit={handleUserSave} className="p-6 bg-blue-900/10 border-b border-gray-800 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div>
-                        <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Nome</label>
-                        <input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={userFormData.name || ''} onChange={e => setUserFormData({...userFormData, name: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Email</label>
-                        <input type="email" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={userFormData.email || ''} onChange={e => setUserFormData({...userFormData, email: e.target.value})} />
-                      </div>
-                      <button type="submit" className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg font-bold text-sm h-10 w-full">Salvar</button>
+                   <form onSubmit={handleUserSave} className="p-6 bg-blue-900/10 border-b border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                      <div><label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Nome</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={userFormData.name || ''} onChange={e => setUserFormData({...userFormData, name: e.target.value})} /></div>
+                      <div><label className="text-[10px] text-gray-400 uppercase font-bold mb-1 block">Email</label><input type="email" className="w-full bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" value={userFormData.email || ''} onChange={e => setUserFormData({...userFormData, email: e.target.value})} /></div>
+                      <div className="md:col-span-2"><button type="submit" className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg font-bold text-sm h-10 w-full">Salvar Usuário</button></div>
                    </form>
                 )}
-
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
-                     <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-                       <tr>
-                         <th className="px-6 py-4">Usuário</th>
-                         <th className="px-6 py-4">Email</th>
-                         <th className="px-6 py-4">Permissão</th>
-                         <th className="px-6 py-4 text-right">Ações</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-gray-800 text-sm">
-                       {users.map(u => (
+                     <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider"><tr><th className="px-6 py-4">Usuário</th><th className="px-6 py-4">Email</th><th className="px-6 py-4 text-right">Ações</th></tr></thead>
+                     <tbody className="divide-y divide-gray-800 text-sm">{users.map(u => (
                          <tr key={u.id} className="hover:bg-white/5 transition">
                            <td className="px-6 py-4 font-bold text-white">{u.name}</td>
                            <td className="px-6 py-4 text-gray-400">{u.email}</td>
-                           <td className="px-6 py-4"><span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs font-bold uppercase">{u.role}</span></td>
-                           <td className="px-6 py-4 text-right">
-                              <button onClick={() => handleUserDelete(u.id)} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded transition"><FaTrash/></button>
-                           </td>
+                           <td className="px-6 py-4 text-right"><button onClick={() => handleUserDelete(u.id)} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded transition"><FaTrash/></button></td>
                          </tr>
-                       ))}
-                     </tbody>
+                       ))}</tbody>
                   </table>
-                  {users.length === 0 && <div className="p-8 text-center text-gray-500">Nenhum usuário cadastrado.</div>}
                 </div>
              </div>
            )}

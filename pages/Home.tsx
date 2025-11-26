@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Car, FilterOptions } from '../types';
-import { fetchCars } from '../supabaseClient';
+import { Car, FilterOptions, Seller } from '../types';
+import { fetchCars, fetchSellers, fetchAvailableBrands } from '../supabaseClient';
 
 // Importing Components
 import { Header } from '../components/Header';
@@ -21,93 +22,97 @@ export const Home = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null); 
   const [searchTerm, setSearchTerm] = useState('');
-  const [tempFilters, setTempFilters] = useState({
-    make: '',
-    maxPrice: '',
-    year: ''
-  });
+  const [tempFilters, setTempFilters] = useState({ make: '', maxPrice: '', year: '', vehicleType: '' });
+  const [availableMakes, setAvailableMakes] = useState<string[]>([]);
+  
+  // Vendedores State
+  const [sellers, setSellers] = useState<Seller[]>([]);
 
   const loadInventory = async (options: FilterOptions = {}) => {
     setLoading(true);
+    // Safety timeout to prevent infinite loading
+    const timeout = setTimeout(() => setLoading(false), 5000);
+    
     const { data } = await fetchCars(options);
+    clearTimeout(timeout);
+    
     setCars(data || []);
     setLoading(false);
     setDisplayLimit(12);
   };
 
+  const loadBrands = async (vehicleType?: string) => {
+    const brands = await fetchAvailableBrands(vehicleType);
+    setAvailableMakes(brands);
+  };
+
   useEffect(() => {
-    const loadSpecialOffers = async () => {
-      const { data } = await fetchCars({});
-      if (data && data.length > 0) {
-        setSpecialOffersCars(data);
-      }
+    const initData = async () => {
+       const carsRes = await fetchCars({});
+       if (carsRes.data) setSpecialOffersCars(carsRes.data);
+       
+       const sellersRes = await fetchSellers();
+       if (sellersRes.data) setSellers(sellersRes.data);
+
+       await loadBrands();
     };
-    loadSpecialOffers();
+    initData();
   }, []);
 
   useEffect(() => {
     loadInventory();
   }, []);
 
+  // Recarregar marcas quando o tipo de veículo muda no filtro
+  useEffect(() => {
+    loadBrands(tempFilters.vehicleType);
+  }, [tempFilters.vehicleType]);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting) {
-          setDisplayLimit(prev => prev + 12);
-        }
-      },
+      entries => { if (entries[0].isIntersecting) setDisplayLimit(prev => prev + 12); },
       { threshold: 0.1 }
     );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    return () => { if (observerTarget.current) observer.unobserve(observerTarget.current); };
   }, [cars, loading]); 
 
   const applyFilters = () => {
-    loadInventory({
-      ...tempFilters,
-      search: searchTerm
-    });
+    loadInventory({ ...tempFilters, search: searchTerm });
   };
 
   const clearFilters = () => {
-    setTempFilters({
-      make: '',
-      maxPrice: '',
-      year: ''
-    });
-    loadInventory({
-      search: searchTerm
-    });
+    setTempFilters({ make: '', maxPrice: '', year: '', vehicleType: '' });
+    loadInventory({ search: searchTerm });
   };
 
   const handleSearch = () => {
-    loadInventory({
-      ...tempFilters,
-      search: searchTerm
-    });
+    loadInventory({ ...tempFilters, search: searchTerm });
   };
 
   const resetApp = () => {
-    setTempFilters({make:'', maxPrice:'', year:''});
+    setTempFilters({make:'', maxPrice:'', year:'', vehicleType: ''});
     setSearchTerm('');
     loadInventory();
     window.scrollTo(0,0);
   }
 
+  // Lógica de sorteio de vendedor
+  const getRandomSeller = () => {
+    if (sellers.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * sellers.length);
+    return sellers[randomIndex];
+  };
+
   const handleWhatsApp = (car?: Car) => {
-    const phone = "5511999999999";
-    let text = "Olá! Gostaria de saber mais sobre as ofertas do Arena Repasse.";
+    const seller = getRandomSeller();
+    const phone = seller ? seller.whatsapp.replace(/\D/g, '') : "5511999999999"; // Fallback
+    const sellerName = seller ? seller.name.split(' ')[0] : "Consultor";
+
+    let text = `Olá ${sellerName}! Gostaria de saber mais sobre as ofertas do Arena Repasse.`;
     
     if (car) {
-      text = `Olá! Vi o *${car.make} ${car.model} ${car.year}* por *${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(car.price)}* no site e tenho interesse.`;
+      text = `Olá ${sellerName}! Estou interessado no carro: *${car.make} ${car.model} ${car.year}* (ID: ${car.id}). Gostaria de mais informações.`;
     }
     
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
@@ -119,8 +124,7 @@ export const Home = () => {
   };
 
   const visibleCars = cars.slice(0, displayLimit);
-  const availableMakes = ['Chevrolet', 'Fiat', 'Volkswagen', 'Renault', 'Toyota', 'Jeep', 'Hyundai', 'Honda', 'Ford', 'Nissan', 'Mitsubishi'];
-  const hasActiveFilters = Boolean(tempFilters.make || tempFilters.maxPrice || tempFilters.year);
+  const hasActiveFilters = Boolean(tempFilters.make || tempFilters.maxPrice || tempFilters.year || tempFilters.vehicleType);
 
   return (
     <div className="min-h-screen bg-brand-dark text-gray-200 flex flex-col font-sans selection:bg-brand-orange selection:text-white">

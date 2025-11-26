@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Car } from '../types';
 
@@ -30,11 +31,14 @@ export const CarGrid: React.FC<CarGridProps> = ({
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {visibleCars.map(car => {
+            {visibleCars.map((car, index) => {
               const fipe = Number(car.fipeprice) || 0;
               const price = Number(car.price) || 0;
               const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
               const economy = fipe - price;
+
+              // LCP Otimização: Os primeiros 4 cards são carregados com prioridade alta
+              const isPriority = index < 4;
 
               return (
                 <div 
@@ -43,11 +47,16 @@ export const CarGrid: React.FC<CarGridProps> = ({
                   className="bg-brand-surface border border-gray-700 rounded-2xl overflow-hidden group hover:border-brand-orange transition-all duration-300 flex flex-col hover:-translate-y-2 shadow-card cursor-pointer"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
+                    {/* ID Badge */}
+                    <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur text-gray-300 text-[9px] font-mono px-2 py-1 rounded border border-gray-700">
+                      ID: {car.id.slice(0, 6)}...
+                    </div>
                     <img 
                       src={car.image} 
                       alt={car.model} 
                       className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" 
-                      loading="lazy" 
+                      loading={isPriority ? "eager" : "lazy"}
+                      fetchPriority={isPriority ? "high" : "low"}
                       decoding="async"
                       width="400"
                       height="300"
@@ -70,10 +79,18 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       {car.model}
                     </h3>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-6 bg-brand-dark/30 p-3 rounded-lg border border-gray-800">
-                      <div className="flex items-center gap-2"><i className="fa-solid fa-gauge text-brand-orange"></i> {car.mileage.toLocaleString()} km</div>
-                      <div className="flex items-center gap-2"><i className="fa-solid fa-gas-pump text-brand-orange"></i> {car.fuel}</div>
-                      <div className="flex items-center gap-2"><i className="fa-solid fa-gears text-brand-orange"></i> {car.transmission}</div>
-                      <div className="flex items-center gap-2"><i className="fa-solid fa-location-dot text-brand-orange"></i> {car.location ? car.location.split(',')[0] : 'Brasil'}</div>
+                      <div className="flex items-center gap-2 cursor-help" title={`Quilometragem: ${car.mileage.toLocaleString()} km`}>
+                        <i className="fa-solid fa-gauge text-brand-orange"></i> {car.mileage.toLocaleString()} km
+                      </div>
+                      <div className="flex items-center gap-2 cursor-help" title={`Combustível: ${car.fuel}`}>
+                        <i className="fa-solid fa-gas-pump text-brand-orange"></i> {car.fuel}
+                      </div>
+                      <div className="flex items-center gap-2 cursor-help" title={`Câmbio: ${car.transmission}`}>
+                        <i className="fa-solid fa-gears text-brand-orange"></i> {car.transmission}
+                      </div>
+                      <div className="flex items-center gap-2 cursor-help" title={`Localização: ${car.location ? car.location.split(',')[0] : 'Brasil'}`}>
+                        <i className="fa-solid fa-location-dot text-brand-orange"></i> {car.location ? car.location.split(',')[0] : 'Brasil'}
+                      </div>
                     </div>
                     <div className="mt-auto pt-4 border-t border-gray-800/50">
                       <div className="flex items-center justify-between mb-1">
@@ -85,16 +102,23 @@ export const CarGrid: React.FC<CarGridProps> = ({
                         <span className="text-3xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="flex gap-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); openModal(car); }}
                           className="flex-1 h-10 bg-transparent border border-gray-600 hover:border-brand-orange text-gray-300 hover:text-brand-orange text-xs font-bold uppercase rounded-lg transition-all flex items-center justify-center gap-2 hover:bg-brand-orange/10"
                         >
-                          <i className="fa-solid fa-eye"></i> Ver Detalhes
+                          Ver Detalhes
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openModal(car); }}
+                          className="h-10 w-10 bg-blue-600/20 border border-blue-500 text-blue-400 rounded-lg flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-lg active:scale-95 group/share"
+                          title="Compartilhar"
+                        >
+                           <i className="fa-solid fa-share-nodes group-hover/share:scale-110 transition-transform"></i>
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }}
-                          className="h-10 w-12 bg-green-600 border border-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-500 transition-all shadow-lg active:scale-95"
+                          className="h-10 w-10 bg-green-600 border border-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-500 transition-all shadow-lg active:scale-95"
                           title="Negociar no WhatsApp"
                         >
                           <i className="fa-brands fa-whatsapp text-xl"></i>

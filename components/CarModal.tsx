@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Car } from '../types';
 
 interface CarModalProps {
@@ -10,9 +11,11 @@ interface CarModalProps {
 
 export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp, formatCurrency }) => {
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+  const [copyStatus, setCopyStatus] = useState<string>('Copiar Link');
 
   React.useEffect(() => {
     setSelectedImageIndex(0);
+    setCopyStatus('Copiar Link');
   }, [car]);
 
   if (!car) return null;
@@ -22,8 +25,35 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
   const images = (car.gallery && car.gallery.length > 0) ? car.gallery : [car.image];
 
+  const shareUrl = window.location.href; // Em um SPA sem rotas dinâmicas, compartilhamos a home
+  const shareText = `Confira este ${car.make} ${car.model} ${car.year} por ${formatCurrency(price)} no Arena Repasse!`;
+  
+  const handleCopyLink = () => {
+    const textToCopy = `${shareText} Acesse: ${shareUrl}`;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopyStatus('Copiado!');
+      setTimeout(() => setCopyStatus('Copiar Link'), 2000);
+    });
+  };
+
+  const shareToSocial = (platform: 'whatsapp' | 'facebook' | 'twitter') => {
+    let url = '';
+    const text = encodeURIComponent(shareText);
+    const link = encodeURIComponent(shareUrl);
+
+    if (platform === 'whatsapp') {
+      url = `https://wa.me/?text=${text}%20${link}`;
+    } else if (platform === 'facebook') {
+      url = `https://www.facebook.com/sharer/sharer.php?u=${link}&quote=${text}`;
+    } else if (platform === 'twitter') {
+      url = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
+    }
+    
+    window.open(url, '_blank');
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative bg-brand-surface w-full md:max-w-5xl h-full md:h-auto md:max-h-[95vh] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
         <button onClick={onClose} className="absolute top-4 right-4 z-20 md:hidden bg-black/60 text-white p-2 rounded-full backdrop-blur-sm">
@@ -35,6 +65,9 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
                 src={images[selectedImageIndex]} 
                 className="max-w-full max-h-full object-contain" 
                 alt={`${car.model} view ${selectedImageIndex + 1}`}
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
                 onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
              />
              {images.length > 1 && (
@@ -55,6 +88,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
               <img 
                 key={idx}
                 src={img}
+                loading="lazy"
                 className={`h-12 md:h-16 w-16 md:w-24 object-cover rounded cursor-pointer border-2 transition-all ${selectedImageIndex === idx ? 'border-brand-orange opacity-100 scale-105' : 'border-transparent opacity-50 hover:opacity-100'}`}
                 onClick={() => setSelectedImageIndex(idx)}
                 onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
@@ -88,6 +122,25 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             <h4 className="font-bold text-white mb-2 text-sm">Sobre o veículo</h4>
             <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 md:line-clamp-none">{car.description}</p>
           </div>
+
+          {/* Share Section */}
+          <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
+            <h4 className="font-bold text-gray-400 text-xs uppercase mb-3 flex items-center gap-2">
+              <i className="fa-solid fa-share-nodes"></i> Compartilhar Oferta
+            </h4>
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={() => shareToSocial('whatsapp')} className="flex items-center justify-center gap-2 bg-green-600/20 hover:bg-green-600 text-green-500 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-green-600/30">
+                <i className="fa-brands fa-whatsapp text-base"></i> WhatsApp
+              </button>
+              <button onClick={() => shareToSocial('facebook')} className="flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-blue-600/30">
+                <i className="fa-brands fa-facebook text-base"></i> Facebook
+              </button>
+              <button onClick={handleCopyLink} className="flex items-center justify-center gap-2 bg-gray-700/30 hover:bg-gray-700 text-gray-400 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-gray-700">
+                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : 'fa-link'}`}></i> {copyStatus}
+              </button>
+            </div>
+          </div>
+
           <div className="mt-auto space-y-3 pt-2 border-t border-gray-800/50">
              <div className="flex justify-between items-center text-xs text-gray-500 px-1">
                 <span>FIPE: {formatCurrency(fipe)}</span>
