@@ -36,11 +36,6 @@ export const signOut = async () => {
   return { error };
 };
 
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-};
-
 // --- CARROS ---
 
 export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
@@ -52,8 +47,6 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     }
     
     if (filters.year) {
-      // Se o usuário filtrar por ano, buscamos carros desse ano ou mais novos
-      // Ou, se preferir exato, mude para .eq
       query = query.gte('year', Number(filters.year));
     }
     
@@ -75,14 +68,14 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
     const { data, error } = await query;
 
     if (error) {
-      return { data: [], error };
+      return { data: [], error: error.message || "Erro ao buscar veículos" };
     }
 
     return { data: data as Car[], error: null };
 
   } catch (err: any) {
     console.error("Erro crítico na conexão:", err);
-    return { data: [], error: err };
+    return { data: [], error: err.message || "Erro de conexão" };
   }
 };
 
@@ -120,7 +113,7 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
     if (error || !data) return [];
 
     // Retorna anos únicos ordenados do mais recente para o mais antigo
-    const years = Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a, b) => b - a);
+    const years = Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a: number, b: number) => b - a);
     return years as number[];
   } catch (e) {
     console.error("Erro ao buscar anos:", e);
@@ -135,10 +128,11 @@ export const createCar = async (car: Omit<Car, 'id'>) => {
     .select()
     .single();
   
-  return { data, error };
+  return { data, error: error ? { message: error.message } : null };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
+  // Remove campos que não devem ser atualizados manualmente
   const { id: _, created_at: __, ...cleanUpdates } = updates as any;
 
   const { data, error } = await supabase
@@ -148,7 +142,7 @@ export const updateCar = async (id: string, updates: Partial<Car>) => {
     .select()
     .single();
 
-  return { data, error };
+  return { data, error: error ? { message: error.message } : null };
 };
 
 export const deleteCar = async (id: string) => {
@@ -157,7 +151,7 @@ export const deleteCar = async (id: string) => {
     .delete()
     .eq('id', id);
 
-  return { error };
+  return { error: error ? { message: error.message } : null };
 };
 
 // --- VENDEDORES (sellers) ---
@@ -168,7 +162,7 @@ export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
     .select('*')
     .eq('active', true);
 
-  if (error) return { data: [], error };
+  if (error) return { data: [], error: error.message };
   return { data: data as Seller[], error: null };
 };
 
@@ -178,7 +172,7 @@ export const createSeller = async (seller: Omit<Seller, 'id'>) => {
     .insert([seller])
     .select()
     .single();
-  return { data, error };
+  return { data, error: error ? { message: error.message } : null };
 };
 
 export const deleteSeller = async (id: string) => {
@@ -186,7 +180,7 @@ export const deleteSeller = async (id: string) => {
     .from('sellers')
     .delete()
     .eq('id', id);
-  return { error };
+  return { error: error ? { message: error.message } : null };
 };
 
 
@@ -198,7 +192,7 @@ export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) return { data: [], error };
+  if (error) return { data: [], error: error.message };
   return { data: data as AppUser[], error: null };
 };
 
@@ -208,7 +202,7 @@ export const createUser = async (user: Omit<AppUser, 'id'>) => {
     .insert([user])
     .select()
     .single();
-  return { data, error };
+  return { data, error: error ? { message: error.message } : null };
 };
 
 export const deleteUser = async (id: string) => {
@@ -216,37 +210,54 @@ export const deleteUser = async (id: string) => {
     .from('app_users')
     .delete()
     .eq('id', id);
-  return { error };
+  return { error: error ? { message: error.message } : null };
 };
 
 // --- STORAGE ---
 
+const sanitizeFileName = (fileName: string): string => {
+  // Remove acentos e caracteres especiais, mantendo apenas letras, números, traços e pontos
+  return fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^a-zA-Z0-9.-]/g, "_") // Substitui espaços e chars estranhos por underline
+    .toLowerCase();
+};
+
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${fileName}`;
-
+    const originalName = file.name.split('.').slice(0, -1).join('.');
+    const cleanName = sanitizeFileName(originalName);
+    
+    // Nome único: timestamp + nome_limpo + string_aleatoria + ext
+    const fileName = `${Date.now()}_${cleanName}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
     // Upload direto para o bucket 'car-images'
     const { error: uploadError } = await supabase.storage
       .from('car-images')
-      .upload(filePath, file, {
+      .upload(fileName, file, {
         cacheControl: '3600',
         upsert: false
       });
 
     if (uploadError) {
+      const errString = JSON.stringify(uploadError);
+      if (errString.includes('recursion') || errString.includes('policy')) {
+         throw new Error("Erro de Permissão no Storage: Execute o script SQL de correção 'Politica Anti Recursao' no painel do Supabase.");
+      }
       console.error("Erro no upload (Supabase):", uploadError);
-      throw uploadError; // Lança o erro para ser capturado no catch
+      throw uploadError;
     }
 
     const { data } = supabase.storage
       .from('car-images')
-      .getPublicUrl(filePath);
+      .getPublicUrl(fileName);
 
     return data.publicUrl;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro detalhado no upload:", error);
-    throw error; // Repassa o erro para o Admin exibir a mensagem
+    if (error.message && error.message.includes("Permissão")) throw error;
+    throw new Error("Falha ao fazer upload da imagem. " + (error.message || "Erro desconhecido."));
   }
 };
