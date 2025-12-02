@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { signIn, signUp } from '../supabaseClient';
-import { FaLock, FaEnvelope, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
+import { FaLock, FaEnvelope, FaSignInAlt, FaUserPlus, FaArrowLeft } from 'react-icons/fa';
 
 export const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -96,10 +96,14 @@ export const Login = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center pt-6 border-t border-gray-800">
+        <div className="mt-6 text-center pt-6 border-t border-gray-800 flex flex-col gap-4">
           <button onClick={() => setIsLogin(!isLogin)} className="text-xs text-gray-500 hover:text-white transition underline">
             {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Fazer Login"}
           </button>
+          
+          <Link to="/" className="text-xs font-bold text-gray-400 hover:text-brand-orange transition flex items-center justify-center gap-2 py-2">
+            <FaArrowLeft /> Voltar para o Site
+          </Link>
         </div>
       </div>
     </div>

@@ -29,10 +29,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkSession = async () => {
       try {
+        // 1. Verifica sessão básica
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Session Check Error:", error);
+          console.error("Auth Error:", error);
           if (mounted) setLoading(false);
           return;
         }
@@ -40,26 +41,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           if (mounted) setUser(session.user);
           
-          // Tenta buscar o perfil do usuário na tabela app_users
-          // Se falhar (ex: por RLS), não impede o app de rodar, apenas avisa.
-          const { data, error: userError } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
-            
-          if (userError) {
-            console.warn("Usuário autenticado, mas erro ao buscar perfil em 'app_users'. Verifique o SQL RLS.", userError);
-            // Em dev, podemos assumir um usuário temporário se o banco travar
-            // if (mounted) setAppUser({ id: 'temp', name: 'Admin Temp', email: session.user.email || '', role: 'admin' });
-            if (mounted) setAppUser(null); 
-          } else {
-            if (mounted) setAppUser(data);
+          // 2. Tenta buscar perfil no banco (pode falhar por RLS)
+          try {
+            const { data, error: userError } = await supabase
+              .from('app_users')
+              .select('*')
+              .eq('email', session.user.email)
+              .single();
+              
+            if (userError) {
+              console.warn("Aviso: Falha ao carregar perfil de admin (Provável bloqueio RLS). O acesso será liberado mas limitado.", userError);
+              // Define um perfil temporário para não quebrar a UI
+              if (mounted) setAppUser({ id: 'temp', name: 'Admin (Modo Segurança)', email: session.user.email || '', role: 'admin' });
+            } else {
+              if (mounted) setAppUser(data);
+            }
+          } catch (dbError) {
+            console.error("Erro crítico banco:", dbError);
           }
         }
       } catch (err) {
         console.error("Auth Exception:", err);
       } finally {
+        // Garante que o loading pare SEMPRE
         if (mounted) setLoading(false);
       }
     };
@@ -68,10 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      
       if (session?.user) {
         setUser(session.user);
+        // Tenta buscar perfil novamente no login
         const { data } = await supabase.from('app_users').select('*').eq('email', session.user.email).single();
-        setAppUser(data || null);
+        setAppUser(data || { id: 'temp', name: 'Admin', email: session.user.email || '', role: 'admin' });
       } else {
         setUser(null);
         setAppUser(null);

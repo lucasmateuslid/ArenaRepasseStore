@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, appUser, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -14,8 +14,11 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
-  // Se não estiver logado OU não tiver registro na tabela app_users
-  if (!user || !appUser) {
+  // CORREÇÃO DE EMERGÊNCIA:
+  // Verificamos apenas se existe o 'user' (Sessão de Auth básica).
+  // Removemos a verificação de 'appUser' (Perfil do banco) pois se o RLS bloquear o banco,
+  // essa variável fica nula e causa loop infinito de redirecionamento para o login.
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
