@@ -1,3 +1,4 @@
+
 export interface Car {
   id: string;
   make: string;
@@ -15,8 +16,14 @@ export interface Car {
   is_active?: boolean;
   created_at?: string;
   category?: string;
-  status?: string;
+  status?: 'available' | 'sold' | 'maintenance' | 'unavailable';
   vehicleType?: string;
+  
+  // Novos campos para gestão avançada
+  soldPrice?: number;      // Valor real que foi vendido
+  soldDate?: string;       // Data da venda
+  soldBy?: string;         // Nome/ID do consultor que vendeu
+  maintenanceReason?: string; // Motivo da manutenção
 }
 
 export interface AppUser {

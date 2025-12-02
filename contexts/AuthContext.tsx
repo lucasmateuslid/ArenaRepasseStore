@@ -29,45 +29,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkSession = async () => {
       try {
-        // Timeout de segurança: Se o Supabase demorar mais de 3s, destrava a tela
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
-        const sessionPromise = supabase.auth.getSession();
-
-        // Corrida entre a sessão e o timeout
-        const result: any = await Promise.race([sessionPromise, timeoutPromise]);
-
-        if (!result || !result.data) {
-           // Caiu no timeout ou erro
-           console.warn("Auth check timed out or failed");
-           if (mounted) setLoading(false);
-           return;
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session Check Error:", error);
+          if (mounted) setLoading(false);
+          return;
         }
 
-        const { data: { session } } = result;
-        
         if (session?.user) {
           if (mounted) setUser(session.user);
           
-          const { data, error } = await supabase
+          // Tenta buscar o perfil do usuário na tabela app_users
+          // Se falhar (ex: por RLS), não impede o app de rodar, apenas avisa.
+          const { data, error: userError } = await supabase
             .from('app_users')
             .select('*')
             .eq('email', session.user.email)
             .single();
             
-          if (data && !error) {
-            if (mounted) setAppUser(data);
+          if (userError) {
+            console.warn("Usuário autenticado, mas erro ao buscar perfil em 'app_users'. Verifique o SQL RLS.", userError);
+            // Em dev, podemos assumir um usuário temporário se o banco travar
+            // if (mounted) setAppUser({ id: 'temp', name: 'Admin Temp', email: session.user.email || '', role: 'admin' });
+            if (mounted) setAppUser(null); 
           } else {
-            console.warn("Usuário autenticado mas sem permissão em app_users");
-            if (mounted) setAppUser(null);
-          }
-        } else {
-          if (mounted) {
-            setUser(null);
-            setAppUser(null);
+            if (mounted) setAppUser(data);
           }
         }
-      } catch (error) {
-        console.error("Erro auth check:", error);
+      } catch (err) {
+        console.error("Auth Exception:", err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -77,15 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      
       if (session?.user) {
         setUser(session.user);
-        // Tenta buscar permissões novamente ao logar
-        const { data } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
+        const { data } = await supabase.from('app_users').select('*').eq('email', session.user.email).single();
         setAppUser(data || null);
       } else {
         setUser(null);
