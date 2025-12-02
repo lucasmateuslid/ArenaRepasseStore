@@ -24,6 +24,7 @@ export interface Car {
   soldDate?: string;       // Data da venda
   soldBy?: string;         // Nome/ID do consultor que vendeu
   maintenanceReason?: string; // Motivo da manutenção
+  licensePlate?: string;   // Placa do veículo
 }
 
 export interface AppUser {

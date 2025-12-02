@@ -2,9 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Car, AppUser, FilterOptions, Seller } from './types';
 
-// --- CONFIGURAÇÃO DE CONEXÃO BLINDADA ---
-// Usamos as chaves diretamente para garantir que a conexão funcione em qualquer ambiente (Local/Preview/Prod)
-// sem depender de arquivos .env que podem falhar no carregamento.
+// --- CONFIGURAÇÃO ---
 const SUPABASE_URL = 'https://dmpmbdveubwjznmyxdml.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
 
@@ -20,21 +18,59 @@ type FetchResponse<T> = {
   error: any;
 };
 
-// --- AUTH ---
+// Helper para invocar funções com tratamento de erro padrão
+const invokeEdgeFunction = async <T>(
+  functionName: string, 
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE', 
+  body?: any,
+  queryParams?: Record<string, string>
+): Promise<{ data: T | null, error: any }> => {
+  try {
+    const options: any = {
+      method,
+      headers: {
+        // O Supabase JS SDK já anexa o Authorization Bearer automaticamente se o usuário estiver logado
+      }
+    };
+
+    if (body && method !== 'GET') {
+      options.body = body;
+    }
+
+    // Monta Query String para GET
+    let urlSuffix = '';
+    if (queryParams) {
+      const params = new URLSearchParams();
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value) params.append(key, String(value));
+      });
+      urlSuffix = `?${params.toString()}`;
+    }
+
+    // A chamada 'invoke' envia o token do usuário atual automaticamente
+    const { data, error } = await supabase.functions.invoke(`${functionName}${urlSuffix}`, options);
+
+    if (error) {
+      console.error(`Erro na Edge Function [${functionName}]:`, error);
+      return { data: null, error: error.message || error };
+    }
+
+    return { data, error: null };
+  } catch (err: any) {
+    console.error(`Exceção ao chamar [${functionName}]:`, err);
+    return { data: null, error: err.message };
+  }
+};
+
+// --- AUTH (Mantém direto via SDK Client pois é seguro e padrão) ---
 
 export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   return { data, error };
 };
 
 export const signUp = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  const { data, error } = await supabase.auth.signUp({ email, password });
   return { data, error };
 };
 
@@ -43,169 +79,121 @@ export const signOut = async () => {
   return { error };
 };
 
-// --- CARROS ---
-
-export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
-  try {
-    let query = supabase.from('cars').select('*');
-
-    if (filters.make) {
-      query = query.eq('make', filters.make);
-    }
-    
-    if (filters.year) {
-      query = query.gte('year', Number(filters.year));
-    }
-    
-    if (filters.maxPrice) {
-      query = query.lte('price', Number(filters.maxPrice));
-    }
-
-    if (filters.vehicleType) {
-      query = query.eq('vehicleType', filters.vehicleType);
-    }
-    
-    if (filters.search) {
-      const searchTerm = filters.search;
-      query = query.or(`model.ilike.%${searchTerm}%,make.ilike.%${searchTerm}%`);
-    }
-
-    query = query.order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Erro Supabase (Cars):", error.message);
-      return { data: [], error: error.message };
-    }
-
-    return { data: data as Car[], error: null };
-
-  } catch (err: any) {
-    console.error("Erro crítico na conexão:", err);
-    return { data: [], error: err.message || "Erro de conexão" };
-  }
+export const updateAuthPassword = async (newPassword: string) => {
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+  return { data, error };
 };
 
+// --- CARROS (Via Edge Function: cars-api) ---
+
+export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
+  // Converter filtros para query params simples
+  const params: Record<string, string> = {};
+  if (filters.make) params.make = filters.make;
+  if (filters.vehicleType) params.vehicleType = filters.vehicleType;
+  if (filters.maxPrice) params.maxPrice = filters.maxPrice;
+  // Nota: Filtros complexos como 'search' (LIKE) ou 'year' (GTE) devem ser implementados na lógica da Edge Function.
+  // Neste exemplo básico, passamos o que a API suporta.
+  
+  const { data, error } = await invokeEdgeFunction<Car[]>('cars-api', 'GET', undefined, params);
+  
+  if (error) return { data: [], error };
+  
+  // Filtragem extra no cliente caso a API não suporte todos os filtros ainda (ex: busca textual complexa)
+  let result = data || [];
+  if (filters.search) {
+     const t = filters.search.toLowerCase();
+     result = result.filter(c => c.model.toLowerCase().includes(t) || c.make.toLowerCase().includes(t));
+  }
+  if (filters.year) {
+     result = result.filter(c => c.year >= Number(filters.year));
+  }
+
+  return { data: result, error: null };
+};
+
+// Helpers de filtro visual mantidos localmente ou movidos para API se desejar
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
-  try {
-    let query = supabase.from('cars').select('make');
-    if (vehicleType) query = query.eq('vehicleType', vehicleType);
-
-    const { data, error } = await query;
-    if (error || !data) return [];
-
-    const brands = Array.from(new Set(data.map((c: any) => c.make))).sort();
-    return brands as string[];
-  } catch (e) { return []; }
+  const { data } = await fetchCars({ vehicleType });
+  if (!data) return [];
+  return Array.from(new Set(data.map((c: any) => c.make))).sort();
 };
 
 export const fetchAvailableYears = async (vehicleType?: string): Promise<number[]> => {
-  try {
-    let query = supabase.from('cars').select('year');
-    if (vehicleType) query = query.eq('vehicleType', vehicleType);
-
-    const { data, error } = await query;
-    if (error || !data) return [];
-
-    const years = Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a: number, b: number) => b - a);
-    return years as number[];
-  } catch (e) { return []; }
+  const { data } = await fetchCars({ vehicleType });
+  if (!data) return [];
+  return Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a: number, b: number) => b - a);
 };
 
 export const createCar = async (car: Omit<Car, 'id'>) => {
-  const { data, error } = await supabase.from('cars').insert([car]).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('cars-api', 'POST', car);
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
-  const { id: _, created_at: __, ...cleanUpdates } = updates as any;
-  const { data, error } = await supabase.from('cars').update(cleanUpdates).eq('id', id).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  // A API espera um PUT com ID na URL ou body. Vamos passar na URL query param.
+  return await invokeEdgeFunction('cars-api', 'PUT', updates, { id });
 };
 
 export const deleteCar = async (id: string) => {
-  const { error } = await supabase.from('cars').delete().eq('id', id);
-  return { error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('cars-api', 'DELETE', undefined, { id });
 };
 
-// --- VENDEDORES ---
+// --- VENDEDORES (Via Edge Function: sellers-api) ---
 
 export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
-  const { data, error } = await supabase.from('sellers').select('*').order('created_at', { ascending: false });
-  if (error) return { data: [], error: error.message };
-  return { data: data as Seller[], error: null };
+  const { data, error } = await invokeEdgeFunction<Seller[]>('sellers-api', 'GET');
+  return { data: data || [], error };
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
-  const { data, error } = await supabase.from('sellers').insert([seller]).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('sellers-api', 'POST', seller);
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
-  const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('sellers-api', 'PUT', updates, { id });
 };
 
 export const deleteSeller = async (id: string) => {
-  const { error } = await supabase.from('sellers').delete().eq('id', id);
-  return { error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('sellers-api', 'DELETE', undefined, { id });
 };
 
-// --- USUÁRIOS ---
+// --- USUÁRIOS (Via Edge Function: users-api) ---
 
 export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
-  const { data, error } = await supabase.from('app_users').select('*').order('created_at', { ascending: false });
-  if (error) return { data: [], error: error.message };
-  return { data: data as AppUser[], error: null };
+  const { data, error } = await invokeEdgeFunction<AppUser[]>('users-api', 'GET');
+  return { data: data || [], error };
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
-  const { data, error } = await supabase.from('app_users').insert([user]).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('users-api', 'POST', user);
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
-  const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select().single();
-  return { data, error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('users-api', 'PUT', updates, { id });
 };
 
 export const deleteUser = async (id: string) => {
-  const { error } = await supabase.from('app_users').delete().eq('id', id);
-  return { error: error ? { message: error.message } : null };
+  return await invokeEdgeFunction('users-api', 'DELETE', undefined, { id });
 };
 
-// --- STORAGE (UPLOAD) ---
-
-const sanitizeFileName = (fileName: string): string => {
-  return fileName
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9.-]/g, "_")
-    .toLowerCase();
-};
+// --- STORAGE (Via Edge Function: upload-api) ---
 
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
-    const fileExt = file.name.split('.').pop();
-    const cleanName = sanitizeFileName(file.name.split('.').slice(0, -1).join('.'));
-    const fileName = `${Date.now()}_${cleanName}.${fileExt}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('car-images')
-      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+    const formData = new FormData();
+    formData.append('file', file);
 
-    if (uploadError) {
-      const errStr = JSON.stringify(uploadError);
-      if (errStr.includes('recursion') || errStr.includes('policy')) {
-         throw new Error("Erro de Permissão (Recursion/Policy). Rode o SQL de correção no painel do Supabase.");
-      }
-      throw uploadError;
-    }
+    const { data, error } = await supabase.functions.invoke('upload-api', {
+      method: 'POST',
+      body: formData, // Supabase Client lida com o Content-Type multipart automaticamente
+    });
 
-    const { data } = supabase.storage.from('car-images').getPublicUrl(fileName);
-    return data.publicUrl;
+    if (error) throw error;
+    if (!data?.url) throw new Error("URL não retornada pela API");
+
+    return data.url;
   } catch (error: any) {
-    console.error("Upload Error:", error);
-    throw new Error(error.message || "Falha no upload");
+    console.error("Upload Error (Edge):", error);
+    throw new Error(error.message || "Falha no upload via Edge Function");
   }
 };

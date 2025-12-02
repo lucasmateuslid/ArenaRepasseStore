@@ -1,15 +1,15 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, FaChevronRight 
+  FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, FaChevronRight, FaUserCog, FaChevronDown 
 } from 'react-icons/fa';
 import { AppUser } from '../../types';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers') => void;
+  setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers' | 'profile') => void;
   appUser: AppUser | null;
   handleLogout: () => void;
   notification: { msg: string, type: 'success' | 'error' } | null;
@@ -18,6 +18,8 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ 
   children, activeTab, setActiveTab, appUser, handleLogout, notification 
 }) => {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
   const menuItems = [
     { id: 'dashboard', icon: FaChartPie, label: 'Visão Geral' },
     { id: 'cars', icon: FaCar, label: 'Inventário' },
@@ -67,20 +69,51 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <span className="text-[9px] font-bold uppercase">{item.label}</span>
            </button> 
          ))}
+         <button 
+             onClick={() => setActiveTab('profile')} 
+             className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${activeTab === 'profile' ? 'text-brand-orange bg-brand-orange/10' : 'text-gray-500'}`}
+            >
+              <FaUserCog className="text-lg mb-1"/>
+              <span className="text-[9px] font-bold uppercase">Perfil</span>
+           </button> 
       </nav>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col md:pl-64 min-h-screen">
         <header className="h-16 md:h-20 bg-brand-dark/95 backdrop-blur border-b border-gray-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
            <div className="md:hidden text-lg font-black italic">ARENA<span className="text-brand-orange">ADMIN</span></div>
-           <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest">Painel Administrativo &bull; {activeTab}</h2>
-           <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-white">{appUser?.name}</p>
-                <p className="text-[10px] text-gray-500">{appUser?.role}</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                {appUser?.name?.charAt(0) || 'A'}
+           <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest">Painel Administrativo &bull; {activeTab === 'profile' ? 'Meu Perfil' : activeTab}</h2>
+           
+           {/* Dropdown de Usuário */}
+           <div className="relative group">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                onBlur={() => setTimeout(() => setIsProfileOpen(false), 200)}
+                className="flex items-center gap-3 hover:bg-gray-800/50 p-2 rounded-xl transition cursor-pointer outline-none"
+              >
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-bold text-white">{appUser?.name || 'Usuário'}</p>
+                  <p className="text-[10px] text-gray-500">{appUser?.role}</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg border border-gray-700">
+                  {appUser?.name?.charAt(0) || 'A'}
+                </div>
+                <FaChevronDown className={`text-gray-500 text-xs transition-transform ${isProfileOpen ? 'rotate-180' : ''}`}/>
+              </button>
+
+              {/* Menu Dropdown */}
+              <div className={`absolute right-0 top-full mt-2 w-48 bg-brand-surface border border-gray-800 rounded-xl shadow-2xl overflow-hidden transition-all transform origin-top-right z-50 ${isProfileOpen ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
+                 <div className="p-3 border-b border-gray-800 block sm:hidden">
+                    <p className="text-xs font-bold text-white">{appUser?.name}</p>
+                    <p className="text-[10px] text-gray-500 uppercase">{appUser?.role}</p>
+                 </div>
+                 <button onClick={() => setActiveTab('profile')} className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2 transition">
+                    <FaUserCog className="text-brand-orange"/> Meu Perfil
+                 </button>
+                 <div className="h-px bg-gray-800 mx-2"></div>
+                 <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-900/20 flex items-center gap-2 transition">
+                    <FaSignOutAlt/> Sair
+                 </button>
               </div>
            </div>
         </header>

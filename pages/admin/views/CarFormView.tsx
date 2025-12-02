@@ -150,6 +150,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
               {[ 
                  { label: 'Marca', key: 'make', type: 'text' }, 
                  { label: 'Modelo', key: 'model', type: 'text' }, 
+                 { label: 'Placa', key: 'licensePlate', type: 'text', placeholder: 'ABC-1234' },
                  { label: 'Ano', key: 'year', type: 'number' }, 
                  { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'] }, 
                  { label: 'KM', key: 'mileage', type: 'text' }, 
@@ -164,7 +165,17 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                        <select className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none appearance-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})}>
                          {field.opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
                        </select> : 
-                       <input type={field.type} className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})} />
+                       <input 
+                          type={field.type} 
+                          placeholder={field.placeholder || ''}
+                          className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
+                          value={(carFormData as any)[field.key] || ''} 
+                          onChange={e => {
+                            const val = field.key === 'licensePlate' ? e.target.value.toUpperCase() : e.target.value;
+                            setCarFormData({...carFormData, [field.key]: val})
+                          }} 
+                          maxLength={field.key === 'licensePlate' ? 8 : undefined}
+                       />
                      }
                      {field.icon && <div className="absolute right-3 top-1/2 -translate-y-1/2">{field.icon}</div>}
                    </div>

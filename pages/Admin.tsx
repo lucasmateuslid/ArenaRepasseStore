@@ -15,6 +15,7 @@ import { DashboardView } from './admin/views/DashboardView';
 import { InventoryView } from './admin/views/InventoryView';
 import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
+import { ProfileView } from './admin/views/ProfileView';
 
 // Interfaces FIPE
 interface FipeBrand { codigo: string; nome: string; }
@@ -25,7 +26,7 @@ interface FipeResult { Valor: string; Marca: string; Modelo: string; AnoModelo: 
 export const Admin = () => {
   const { appUser, signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile'>('dashboard');
   
   // Data State
   const [cars, setCars] = useState<Car[]>([]);
@@ -146,6 +147,10 @@ export const Admin = () => {
     >
       {activeTab === 'dashboard' && (
         <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab} />
+      )}
+
+      {activeTab === 'profile' && (
+        <ProfileView appUser={appUser} showNotification={showNotification} />
       )}
 
       {activeTab === 'cars' && !isEditingCar && (

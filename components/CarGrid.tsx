@@ -47,10 +47,8 @@ export const CarGrid: React.FC<CarGridProps> = ({
                   className="bg-brand-surface border border-gray-700 rounded-2xl overflow-hidden group hover:border-brand-orange transition-all duration-300 flex flex-col hover:-translate-y-2 shadow-card cursor-pointer"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
-                    {/* ID Badge */}
-                    <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur text-gray-300 text-[9px] font-mono px-2 py-1 rounded border border-gray-700">
-                      ID: {car.id.slice(0, 6)}...
-                    </div>
+                    {/* ID removido conforme solicitação */}
+                    
                     <img 
                       src={car.image} 
                       alt={car.model} 

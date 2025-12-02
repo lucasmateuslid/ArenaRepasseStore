@@ -20,7 +20,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   const filteredCars = cars.filter((c: Car) => 
     c.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.status?.includes(searchTerm.toLowerCase())
+    c.status?.includes(searchTerm.toLowerCase()) ||
+    c.licensePlate?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusBadge = (status: string) => {
@@ -49,7 +50,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           <div className="relative max-w-md">
             <input 
               type="text" 
-              placeholder="Buscar por nome, status..." 
+              placeholder="Buscar por nome, placa, status..." 
               value={searchTerm} 
               onChange={e => setSearchTerm(e.target.value)} 
               className="w-full bg-black/40 border border-gray-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
@@ -71,7 +72,10 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <h4 className="font-bold text-white text-sm truncate">{c.make} {c.model}</h4>
                   {getStatusBadge(c.status || 'available')}
                 </div>
-                <p className="text-xs text-gray-500 mb-1">{c.year} • {c.category}</p>
+                <div className="text-xs text-gray-500 mb-1 space-y-0.5">
+                  <p>{c.year} • {c.category}</p>
+                  <p className="font-mono text-[10px] text-gray-600">ID: {c.id.slice(0,6)}... | Placa: {c.licensePlate || '-'}</p>
+                </div>
                 <p className="text-brand-orange font-bold text-sm mb-2">R$ {c.price.toLocaleString('pt-BR')}</p>
                 <button onClick={() => onEdit(c)} className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs font-medium border border-gray-700">Gerenciar / Editar</button>
               </div>
@@ -90,7 +94,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 <tr key={c.id} className="hover:bg-white/5 transition group">
                   <td className="px-6 py-4 flex items-center gap-4">
                     <img src={c.image} className="w-12 h-12 rounded-lg object-cover bg-gray-900 border border-gray-800" />
-                    <div><span className="font-bold text-white block">{c.model}</span><span className="text-xs text-brand-orange">{c.make} • {c.year}</span></div>
+                    <div>
+                      <span className="font-bold text-white block">{c.model}</span>
+                      <span className="text-xs text-brand-orange">{c.make} • {c.year}</span>
+                      <span className="text-[10px] text-gray-500 block font-mono mt-0.5">ID: {c.id.slice(0,8)} • Placa: {c.licensePlate || 'N/A'}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     {getStatusBadge(c.status || 'available')}
