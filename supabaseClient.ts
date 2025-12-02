@@ -18,7 +18,8 @@ type FetchResponse<T> = {
   error: any;
 };
 
-// Helper para invocar funções com tratamento de erro padrão
+// Helper genérico para chamar Edge Functions
+// O SDK do Supabase injeta automaticamente o token do usuário no header Authorization
 const invokeEdgeFunction = async <T>(
   functionName: string, 
   method: 'GET' | 'POST' | 'PUT' | 'DELETE', 
@@ -28,16 +29,11 @@ const invokeEdgeFunction = async <T>(
   try {
     const options: any = {
       method,
-      headers: {
-        // O Supabase JS SDK já anexa o Authorization Bearer automaticamente se o usuário estiver logado
-      }
+      // body é automaticamente serializado para JSON pelo invoke se for objeto
+      body: body,
     };
 
-    if (body && method !== 'GET') {
-      options.body = body;
-    }
-
-    // Monta Query String para GET
+    // Monta Query String
     let urlSuffix = '';
     if (queryParams) {
       const params = new URLSearchParams();
@@ -47,7 +43,6 @@ const invokeEdgeFunction = async <T>(
       urlSuffix = `?${params.toString()}`;
     }
 
-    // A chamada 'invoke' envia o token do usuário atual automaticamente
     const { data, error } = await supabase.functions.invoke(`${functionName}${urlSuffix}`, options);
 
     if (error) {
@@ -62,7 +57,7 @@ const invokeEdgeFunction = async <T>(
   }
 };
 
-// --- AUTH (Mantém direto via SDK Client pois é seguro e padrão) ---
+// --- AUTH (Mantém direto via SDK Client pois é o padrão seguro) ---
 
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -84,22 +79,20 @@ export const updateAuthPassword = async (newPassword: string) => {
   return { data, error };
 };
 
-// --- CARROS (Via Edge Function: cars-api) ---
+// --- CARROS (cars-api) ---
 
 export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
-  // Converter filtros para query params simples
   const params: Record<string, string> = {};
   if (filters.make) params.make = filters.make;
   if (filters.vehicleType) params.vehicleType = filters.vehicleType;
   if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-  // Nota: Filtros complexos como 'search' (LIKE) ou 'year' (GTE) devem ser implementados na lógica da Edge Function.
-  // Neste exemplo básico, passamos o que a API suporta.
-  
+
+  // Chamada à Edge Function
   const { data, error } = await invokeEdgeFunction<Car[]>('cars-api', 'GET', undefined, params);
   
   if (error) return { data: [], error };
   
-  // Filtragem extra no cliente caso a API não suporte todos os filtros ainda (ex: busca textual complexa)
+  // Filtros de texto/ano ainda feitos no client (ou podem ser movidos para API depois)
   let result = data || [];
   if (filters.search) {
      const t = filters.search.toLowerCase();
@@ -112,7 +105,7 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
   return { data: result, error: null };
 };
 
-// Helpers de filtro visual mantidos localmente ou movidos para API se desejar
+// Helpers de filtro (reutilizam fetchCars para consistência)
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
   const { data } = await fetchCars({ vehicleType });
   if (!data) return [];
@@ -130,7 +123,6 @@ export const createCar = async (car: Omit<Car, 'id'>) => {
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
-  // A API espera um PUT com ID na URL ou body. Vamos passar na URL query param.
   return await invokeEdgeFunction('cars-api', 'PUT', updates, { id });
 };
 
@@ -138,7 +130,7 @@ export const deleteCar = async (id: string) => {
   return await invokeEdgeFunction('cars-api', 'DELETE', undefined, { id });
 };
 
-// --- VENDEDORES (Via Edge Function: sellers-api) ---
+// --- VENDEDORES (sellers-api) ---
 
 export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
   const { data, error } = await invokeEdgeFunction<Seller[]>('sellers-api', 'GET');
@@ -157,7 +149,7 @@ export const deleteSeller = async (id: string) => {
   return await invokeEdgeFunction('sellers-api', 'DELETE', undefined, { id });
 };
 
-// --- USUÁRIOS (Via Edge Function: users-api) ---
+// --- USUÁRIOS (users-api) ---
 
 export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
   const { data, error } = await invokeEdgeFunction<AppUser[]>('users-api', 'GET');
@@ -176,16 +168,18 @@ export const deleteUser = async (id: string) => {
   return await invokeEdgeFunction('users-api', 'DELETE', undefined, { id });
 };
 
-// --- STORAGE (Via Edge Function: upload-api) ---
+// --- UPLOAD (upload-api) ---
 
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
 
+    // invoke lida com JSON por padrão, mas para FormData precisamos passar o body direto.
+    // O browser define o Content-Type multipart/form-data com o boundary correto automaticamente.
     const { data, error } = await supabase.functions.invoke('upload-api', {
       method: 'POST',
-      body: formData, // Supabase Client lida com o Content-Type multipart automaticamente
+      body: formData, 
     });
 
     if (error) throw error;
