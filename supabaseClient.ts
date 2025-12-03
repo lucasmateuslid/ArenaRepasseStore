@@ -68,7 +68,7 @@ export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchRespo
 
     let result = data as Car[];
 
-    // Filtros de texto e ano (client-side por enquanto, ou poderiam ser DB)
+    // Filtros de texto e ano (client-side por enquanto)
     if (filters.search) {
       const t = filters.search.toLowerCase();
       result = result.filter(c => 
@@ -99,7 +99,9 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
 };
 
 export const createCar = async (car: Omit<Car, 'id'>) => {
-  const { data, error } = await supabase.from('cars').insert([car]).select();
+  // Garante que o ID não seja enviado na criação
+  const { id, ...cleanCar } = car as any;
+  const { data, error } = await supabase.from('cars').insert([cleanCar]).select();
   return { data, error };
 };
 
@@ -114,26 +116,37 @@ export const deleteCar = async (id: string) => {
 };
 
 /**
- * Registra a venda de um carro usando a Edge Function 'sell-car-api'.
- * Se a Edge Function não estiver deployada, você pode substituir o conteúdo
- * pelo método direto: supabase.from('cars').update({...}).eq('id', id)
+ * Registra a venda de um carro. 
+ * Prioriza Edge Function, mas faz fallback automático se falhar (ex: ambiente preview).
  */
 export const sellCar = async (id: string, salesData: { soldPrice: number, soldDate: string, soldBy: string }) => {
   try {
+    // Tentativa via Edge Function (Segurança Ideal)
     const { data, error } = await supabase.functions.invoke('sell-car-api', {
       body: { id, ...salesData }
     });
     
-    // Fallback para conexão direta se a Edge Function falhar no preview
-    if (error) {
-       console.warn("Edge Function falhou (possivelmente preview), tentando acesso direto ao DB...", error);
-       return await supabase.from('cars').update({ status: 'sold', ...salesData }).eq('id', id).select();
-    }
+    if (!error) return { data, error: null };
     
-    return { data, error };
+    console.warn("Edge Function indisponível, usando fallback direto.", error);
+    
+    // Fallback Direto (Database Update)
+    return await supabase.from('cars').update({
+       status: 'sold',
+       soldPrice: salesData.soldPrice,
+       soldDate: salesData.soldDate,
+       soldBy: salesData.soldBy
+    }).eq('id', id).select();
+
   } catch (err: any) {
-    // Fallback de segurança
-    return await supabase.from('cars').update({ status: 'sold', ...salesData }).eq('id', id).select();
+    console.error("Erro fatal ao vender, usando fallback direto:", err);
+    // Fallback Final
+    return await supabase.from('cars').update({
+       status: 'sold',
+       soldPrice: salesData.soldPrice,
+       soldDate: salesData.soldDate,
+       soldBy: salesData.soldBy
+    }).eq('id', id).select();
   }
 };
 

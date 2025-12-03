@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   fetchCars, createCar, updateCar, deleteCar, uploadCarImage, 
   fetchUsers, createUser, updateUser, deleteUser, 
-  fetchSellers, createSeller, updateSeller, deleteSeller 
+  fetchSellers, createSeller, updateSeller, deleteSeller,
+  sellCar
 } from '../supabaseClient';
 import { Car, AppUser, Seller } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,12 +63,10 @@ export const Admin = () => {
   const [selectedFipeModel, setSelectedFipeModel] = useState('');
 
   // --- Initial Data Loading ---
-  // Carrega dados APENAS na montagem do componente ou quando explicitamente solicitado
   useEffect(() => { 
     loadAllData(); 
   }, []);
 
-  // Carrega FIPE APENAS quando o tipo de veículo muda
   useEffect(() => {
     loadFipeBrands();
   }, [vehicleType]);
@@ -87,7 +86,12 @@ export const Admin = () => {
   // --- Handlers ---
   const handleLogout = async () => { await signOut(); navigate('/'); };
   const showNotification = (msg: string, type: 'success' | 'error') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 5000); };
-  const cleanNumber = (val: any): number => { if (!val) return 0; if (typeof val === 'number') return val; const str = String(val).replace(/\./g, '').replace(',', '.'); const num = parseFloat(str); return isNaN(num) ? 0 : num; };
+  
+  const getNumber = (val: any): number => {
+    if (!val) return 0;
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+  };
 
   // CRUD: Carros
   const handleCarSave = async (e: React.FormEvent) => {
@@ -95,6 +99,30 @@ export const Admin = () => {
     if (!carFormData.make || !carFormData.model) return showNotification("Preencha Marca e Modelo", 'error');
     setSaving(true);
     try {
+      // 1. Definição de Valores Efetivos (Fallback seguro para valores vazios)
+      const effectivePrice = getNumber(carFormData.price);
+      const effectiveFipe = getNumber(carFormData.fipeprice);
+      const effectiveMileage = getNumber(carFormData.mileage);
+      const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
+      
+      // Lógica de Venda
+      const isSold = carFormData.status === 'sold';
+      
+      // Se status for vendido mas data estiver vazia, define HOJE
+      const effectiveSoldDate = (isSold && !carFormData.soldDate) 
+        ? new Date().toISOString().split('T')[0] 
+        : carFormData.soldDate;
+        
+      const effectiveSoldPrice = isSold ? getNumber(carFormData.soldPrice) : null;
+      const effectiveSoldBy = isSold ? carFormData.soldBy : null;
+
+      // 2. Validação Específica de Venda
+      if (isSold) {
+        if (!effectiveSoldPrice || effectiveSoldPrice <= 0) throw new Error("Informe o valor final da venda.");
+        if (!effectiveSoldBy) throw new Error("Selecione o vendedor responsável.");
+      }
+
+      // 3. Upload de Imagem
       let finalImage = carFormData.image;
       if (mainImageFile) {
         const url = await uploadCarImage(mainImageFile);
@@ -102,30 +130,70 @@ export const Admin = () => {
         else throw new Error("Erro no upload da imagem principal.");
       }
       if (!finalImage) throw new Error("Foto principal obrigatória");
+      
       const newGalleryUrls = [];
       for (const file of galleryFiles) {
         const url = await uploadCarImage(file);
         if (url) newGalleryUrls.push(url);
       }
       const finalGallery = [...(carFormData.gallery || []), ...newGalleryUrls];
+      
+      // 4. Construção do Payload Base
       const payload = {
         ...carFormData,
-        price: cleanNumber(carFormData.price),
-        fipeprice: cleanNumber(carFormData.fipeprice),
-        mileage: cleanNumber(carFormData.mileage),
-        year: cleanNumber(carFormData.year) || new Date().getFullYear(),
-        soldPrice: carFormData.status === 'sold' ? cleanNumber(carFormData.soldPrice) : null,
+        price: effectivePrice,
+        fipeprice: effectiveFipe,
+        mileage: effectiveMileage,
+        year: effectiveYear,
+        // Garante que campos de venda sejam salvos corretamente
+        soldPrice: effectiveSoldPrice,
+        soldDate: effectiveSoldDate,
+        soldBy: effectiveSoldBy,
+        
         image: finalImage,
         gallery: finalGallery,
         is_active: true,
         vehicleType: vehicleType,
         status: carFormData.status || 'available'
       };
-      if (carFormData.id) { const { error } = await updateCar(carFormData.id, payload); if (error) throw error; } 
-      else { const { error } = await createCar(payload as any); if (error) throw error; }
-      showNotification("Veículo salvo!", 'success'); setIsEditingCar(false); loadAllData();
-    } catch (err: any) { showNotification(err.message || "Erro ao salvar", 'error'); } 
-    finally { setSaving(false); }
+
+      if (carFormData.id) { 
+        // 5. Atualização ou Venda
+        if (isSold) {
+           // Primeiro salva as edições normais
+           const { error: updateError } = await updateCar(carFormData.id, payload);
+           if (updateError) throw updateError;
+
+           // Dispara a lógica de venda (Edge Function ou Fallback)
+           const { error: sellError } = await sellCar(carFormData.id, {
+             soldPrice: effectiveSoldPrice!,
+             soldDate: effectiveSoldDate!,
+             soldBy: effectiveSoldBy!
+           });
+           if (sellError) throw sellError;
+
+        } else {
+           // Atualização comum
+           const { error } = await updateCar(carFormData.id, payload); 
+           if (error) throw error; 
+        }
+      } else { 
+        // Criação (Remove ID para evitar erro)
+        const { id, ...createPayload } = payload;
+        const { error } = await createCar(createPayload as any); 
+        if (error) throw error; 
+      }
+      
+      showNotification("Veículo salvo com sucesso!", 'success'); 
+      setIsEditingCar(false); 
+      loadAllData();
+
+    } catch (err: any) { 
+      console.error(err);
+      showNotification(err.message || "Erro ao salvar", 'error'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const handleCarDelete = async (id: string) => { if (confirm("Excluir veículo permanentemente?")) { const { error } = await deleteCar(id); if (error) showNotification(String(error.message), 'error'); else { showNotification("Veículo excluído.", 'success'); loadAllData(); } } };

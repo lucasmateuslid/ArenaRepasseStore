@@ -77,7 +77,24 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   <p className="font-mono text-[10px] text-gray-600">ID: {c.id.slice(0,6)}... | Placa: {c.licensePlate || '-'}</p>
                 </div>
                 <p className="text-brand-orange font-bold text-sm mb-2">R$ {c.price.toLocaleString('pt-BR')}</p>
-                <button onClick={() => onEdit(c)} className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs font-medium border border-gray-700">Gerenciar / Editar</button>
+                
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
+                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs font-medium border border-gray-700"
+                  >
+                    Gerenciar
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
+                    className="px-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-500/30 transition flex items-center justify-center"
+                    title="Excluir"
+                  >
+                    <FaTrash size={12}/>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -111,8 +128,22 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition">
-                       <button onClick={() => onEdit(c)} className="px-3 py-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 rounded-lg transition text-xs font-bold" title="Editar">GERENCIAR</button>
-                       <button onClick={() => onDelete(c.id)} className="p-2 text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 rounded-lg transition" title="Excluir"><FaTrash/></button>
+                       <button 
+                         type="button"
+                         onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
+                         className="px-3 py-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 rounded-lg transition text-xs font-bold" 
+                         title="Editar"
+                       >
+                         GERENCIAR
+                       </button>
+                       <button 
+                         type="button"
+                         onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
+                         className="p-2 text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 rounded-lg transition" 
+                         title="Excluir"
+                       >
+                         <FaTrash/>
+                       </button>
                     </div>
                   </td>
                 </tr>

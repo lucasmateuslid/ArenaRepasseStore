@@ -79,15 +79,15 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
              <div className="mt-4 space-y-3 animate-fade-in bg-green-500/5 p-3 rounded-xl border border-green-500/20">
                <div>
                   <label className="text-[10px] font-bold text-green-500 uppercase mb-1 block">Valor Final de Venda (R$)</label>
-                  <input type="text" required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white" placeholder="0,00" value={carFormData.soldPrice || ''} onChange={e => setCarFormData({...carFormData, soldPrice: Number(e.target.value)})} />
+                  <input type="number" step="0.01" required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white focus:border-green-500 outline-none" placeholder="0.00" value={carFormData.soldPrice || ''} onChange={e => setCarFormData({...carFormData, soldPrice: Number(e.target.value)})} />
                </div>
                <div>
                   <label className="text-[10px] font-bold text-green-500 uppercase mb-1 block">Data da Venda</label>
-                  <input type="date" required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white" value={carFormData.soldDate || new Date().toISOString().split('T')[0]} onChange={e => setCarFormData({...carFormData, soldDate: e.target.value})} />
+                  <input type="date" required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white focus:border-green-500 outline-none" value={carFormData.soldDate || new Date().toISOString().split('T')[0]} onChange={e => setCarFormData({...carFormData, soldDate: e.target.value})} />
                </div>
                <div>
                   <label className="text-[10px] font-bold text-green-500 uppercase mb-1 block">Consultor Responsável</label>
-                  <select required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white" value={carFormData.soldBy || ''} onChange={e => setCarFormData({...carFormData, soldBy: e.target.value})}>
+                  <select required className="w-full bg-black/30 border border-green-500/30 rounded-lg p-2 text-sm text-white focus:border-green-500 outline-none" value={carFormData.soldBy || ''} onChange={e => setCarFormData({...carFormData, soldBy: e.target.value})}>
                     <option value="">Selecione...</option>
                     {sellers.map((s: Seller) => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
@@ -153,7 +153,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  { label: 'Placa', key: 'licensePlate', type: 'text', placeholder: 'ABC-1234' },
                  { label: 'Ano', key: 'year', type: 'number' }, 
                  { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'] }, 
-                 { label: 'KM', key: 'mileage', type: 'text' }, 
+                 { label: 'KM', key: 'mileage', type: 'number' }, 
                  { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico','Híbrido'] }, 
                  { label: 'Câmbio', key: 'transmission', type: 'select', opts: ['Manual','Automático','CVT'] }, 
                  { label: 'Cidade', key: 'location', type: 'text', icon: <FaMapMarkerAlt onClick={onGetLocation} className="cursor-pointer text-brand-orange hover:scale-110 transition"/> } 
@@ -166,7 +166,8 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                          {field.opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
                        </select> : 
                        <input 
-                          type={field.type} 
+                          type={field.type === 'number' ? 'number' : 'text'} 
+                          step={field.type === 'number' ? "any" : undefined}
                           placeholder={field.placeholder || ''}
                           className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
                           value={(carFormData as any)[field.key] || ''} 
@@ -186,11 +187,11 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
            <div className="grid grid-cols-2 gap-5 pt-4 border-t border-gray-800">
               <div className="space-y-1.5">
                  <label className="text-[10px] font-bold text-brand-orange uppercase">Preço Venda (R$)</label>
-                 <input type="text" className="w-full bg-black/30 border border-brand-orange/50 rounded-lg px-3 py-3 text-lg font-bold text-white focus:border-brand-orange outline-none" placeholder="0,00" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} />
+                 <input type="number" step="0.01" className="w-full bg-black/30 border border-brand-orange/50 rounded-lg px-3 py-3 text-lg font-bold text-white focus:border-brand-orange outline-none" placeholder="0.00" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} />
               </div>
               <div className="space-y-1.5">
                  <label className="text-[10px] font-bold text-gray-500 uppercase">Tabela FIPE (R$)</label>
-                 <input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-3 text-lg font-bold text-gray-400 focus:border-blue-500 outline-none" placeholder="0,00" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} />
+                 <input type="number" step="0.01" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-3 text-lg font-bold text-gray-400 focus:border-blue-500 outline-none" placeholder="0.00" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} />
               </div>
            </div>
 
