@@ -1,9 +1,12 @@
 
 import React, { useMemo } from 'react';
 import { 
-  FaDollarSign, FaChartPie, FaCar, FaHeadset, FaToolbox, FaBan, FaCalendarCheck, FaUsers, 
-  FaTrophy, FaMedal, FaChartLine, FaTag
+  FaDollarSign, FaChartPie, FaCar, FaTag, FaTrophy, FaMedal, FaChartLine 
 } from 'react-icons/fa';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { Car, Seller } from '../../../types';
 import { StatCard, SectionHeader } from '../components/AdminUI';
 
@@ -12,6 +15,26 @@ interface DashboardViewProps {
   sellers: Seller[];
   setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers') => void;
 }
+
+// Custom Tooltip for Recharts to match Dark Mode theme
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-brand-surface border border-gray-700 p-3 rounded-lg shadow-xl">
+        <p className="text-gray-400 text-xs font-bold mb-1">{label}</p>
+        <p className="text-brand-orange font-black text-sm">
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payload[0].value)}
+        </p>
+        {payload[0].payload.count !== undefined && (
+          <p className="text-gray-500 text-xs mt-1">{payload[0].payload.count} vendas</p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
+const COLORS = ['#DC2626', '#EA580C', '#D97706', '#65A30D', '#059669', '#0284C7', '#7C3AED', '#DB2777'];
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, setActiveTab }) => {
   const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
@@ -86,16 +109,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
     const topModel = groupBy('model');
     const topCategory = groupBy('category');
 
-    // 5. Estoque
+    // 5. Estoque e Distribuição
     const availableCars = cars.filter(c => c.status === 'available' || !c.status);
     const totalStockValue = availableCars.reduce((acc, c) => acc + (Number(c.price) || 0), 0);
     
-    // Categorias Disponíveis
     const categoriesAvailable = availableCars.reduce((acc: any, car) => { 
         const cat = car.category || 'Outros'; 
         acc[cat] = (acc[cat] || 0) + 1; 
         return acc; 
     }, {} as Record<string, number>);
+
+    // Transform for Recharts Pie
+    const pieData = Object.entries(categoriesAvailable).map(([name, value]) => ({ name, value }));
 
     return {
       revenueThisMonth,
@@ -114,7 +139,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
       availableCount: availableCars.length,
       maintenanceCount: cars.filter(c => c.status === 'maintenance').length,
       unavailableCount: cars.filter(c => c.status === 'unavailable').length,
-      categoriesAvailable
+      categoriesAvailable,
+      pieData
     };
   }, [cars]);
 
@@ -157,42 +183,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* 2. Histórico de Faturamento (Gráfico de Barras) */}
-        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl">
+        {/* 2. Histórico de Faturamento (Area Chart) */}
+        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px]">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2">
-             <FaChartLine /> Histórico de Receita (6 Meses)
+             <FaChartLine /> Tendência de Vendas (6 Meses)
            </h3>
-           <div className="flex items-end justify-between h-48 md:h-64 gap-2 md:gap-4">
-             {stats.last6Months.map((m, idx) => {
-               const heightPercent = Math.max((m.value / stats.maxHistoryValue) * 100, 5); // min 5% height
-               return (
-                 <div key={idx} className="flex flex-col items-center flex-1 group">
-                   <div className="w-full bg-gray-800/50 rounded-t-lg relative flex items-end overflow-hidden hover:bg-gray-800 transition-colors h-full">
-                     <div 
-                       className="w-full bg-gradient-to-t from-brand-orange to-red-600 opacity-80 group-hover:opacity-100 transition-all duration-700 relative"
-                       style={{ height: `${heightPercent}%` }}
-                     >
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-brand-dark text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
-                          {formatMoney(m.value)}
-                        </div>
-                     </div>
-                   </div>
-                   <div className="mt-3 text-center">
-                     <p className="text-[10px] font-bold text-gray-400">{m.label}</p>
-                     <p className="text-[9px] text-gray-600">{m.count} v.</p>
-                   </div>
-                 </div>
-               );
-             })}
+           <div className="w-full h-[300px]">
+             <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.last6Months}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                  <XAxis 
+                    dataKey="label" 
+                    stroke="#9CA3AF" 
+                    tick={{fontSize: 12}} 
+                    tickLine={false}
+                    axisLine={false}
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF" 
+                    tick={{fontSize: 10}} 
+                    tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)}
+                    tickLine={false}
+                    axisLine={false}
+                    dx={-10}
+                  />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#4B5563', strokeWidth: 1 }} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#DC2626" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorValue)" 
+                    activeDot={{ r: 6, fill: '#fff', stroke: '#DC2626', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+             </ResponsiveContainer>
            </div>
         </div>
 
-        {/* 3. Top Vendedores */}
-        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col">
+        {/* 3. Top Vendedores (List) */}
+        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px]">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
              <FaTrophy className="text-yellow-500"/> Ranking de Vendas
            </h3>
-           <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+           <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
              {stats.ranking.length === 0 ? <p className="text-gray-600 text-sm">Nenhuma venda registrada.</p> :
                stats.ranking.map((seller, index) => (
                  <div key={index} className="flex items-center gap-3 p-3 bg-black/20 rounded-xl border border-gray-800/50 hover:border-brand-orange/30 transition">
@@ -213,10 +255,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
         </div>
       </div>
 
-      {/* 4. Campeões de Vendas & Categorias */}
+      {/* 4. Distribuição e Campeões */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Campeões */}
-        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl">
+        
+        {/* Distribuição por Categoria (Pie Chart) */}
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px] flex flex-col">
+           <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+             <FaChartPie /> Estoque por Categoria
+           </h3>
+           <div className="w-full h-[250px]">
+             {stats.pieData.length > 0 ? (
+               <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                     <Pie
+                        data={stats.pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                     >
+                        {stats.pieData.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                     </Pie>
+                     <RechartsTooltip 
+                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#374151', borderRadius: '8px' }}
+                        itemStyle={{ color: '#fff', fontSize: '12px' }}
+                     />
+                     <Legend 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                     />
+                  </PieChart>
+               </ResponsiveContainer>
+             ) : (
+               <div className="flex items-center justify-center h-full text-gray-600 text-sm">Sem dados de estoque.</div>
+             )}
+           </div>
+        </div>
+
+        {/* Campeões de Vendas */}
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px]">
           <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2"><FaMedal /> Campeões de Vendas</h3>
           <div className="space-y-4">
              <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg">
@@ -243,47 +328,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
           </div>
         </div>
 
-        {/* Distribuição de Estoque (Existente) */}
-        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl">
-           <div className="flex items-center justify-between mb-6">
-             <h3 className="text-sm font-bold text-gray-400 uppercase flex items-center gap-2"><FaChartPie /> Estoque Disponível</h3>
+        {/* Resumo Rápido Estoque */}
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px] flex flex-col justify-between">
+           <div className="flex items-center justify-between mb-4">
+             <h3 className="text-sm font-bold text-gray-400 uppercase flex items-center gap-2"><FaCar /> Status Geral</h3>
              <button onClick={() => setActiveTab('cars')} className="text-xs text-brand-orange hover:underline">Ver Inventário</button>
            </div>
            
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-black/20 p-3 rounded-lg border border-gray-800 text-center">
-                 <p className="text-2xl font-black text-white">{stats.availableCount}</p>
+           <div className="grid grid-cols-2 gap-4">
+              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
+                 <p className="text-3xl font-black text-white">{stats.availableCount}</p>
                  <p className="text-[10px] uppercase text-gray-500">Disponíveis</p>
               </div>
-              <div className="bg-black/20 p-3 rounded-lg border border-gray-800 text-center">
-                 <p className="text-2xl font-black text-orange-500">{stats.maintenanceCount}</p>
+              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
+                 <p className="text-3xl font-black text-orange-500">{stats.maintenanceCount}</p>
                  <p className="text-[10px] uppercase text-gray-500">Manutenção</p>
               </div>
-              <div className="bg-black/20 p-3 rounded-lg border border-gray-800 text-center">
-                 <p className="text-2xl font-black text-gray-500">{stats.unavailableCount}</p>
+              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
+                 <p className="text-3xl font-black text-gray-500">{stats.unavailableCount}</p>
                  <p className="text-[10px] uppercase text-gray-500">Indisponíveis</p>
               </div>
-              <div className="bg-black/20 p-3 rounded-lg border border-gray-800 text-center">
-                 <p className="text-2xl font-black text-green-500">{stats.salesCount}</p>
+              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
+                 <p className="text-3xl font-black text-green-500">{stats.salesCount}</p>
                  <p className="text-[10px] uppercase text-gray-500">Total Vendido</p>
               </div>
-           </div>
-
-           <div className="space-y-3">
-             {Object.entries(stats.categoriesAvailable).map(([cat, count]: any) => {
-               const percentage = Math.round((Number(count) / stats.availableCount) * 100) || 0;
-               return (
-                 <div key={cat} className="group">
-                   <div className="flex justify-between text-xs mb-1 text-gray-400 font-medium">
-                     <span>{cat}</span>
-                     <span>{count} un. ({percentage}%)</span>
-                   </div>
-                   <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                     <div className="bg-brand-orange h-1.5 rounded-full" style={{ width: `${percentage}%` }}></div>
-                   </div>
-                 </div>
-               )
-             })}
            </div>
         </div>
       </div>

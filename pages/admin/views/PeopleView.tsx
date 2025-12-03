@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FaPlus, FaWhatsapp, FaTrash } from 'react-icons/fa';
 import { Seller, AppUser } from '../../../types';
@@ -13,17 +12,21 @@ interface SellersViewProps {
   setIsCreating: (val: boolean) => void;
   formData: Partial<Seller>;
   setFormData: (data: Partial<Seller>) => void;
+  isAdmin: boolean;
 }
 
 export const SellersView: React.FC<SellersViewProps> = ({ 
-  sellers, onSave, onDelete, saving, isCreating, setIsCreating, formData, setFormData 
+  sellers, onSave, onDelete, saving, isCreating, setIsCreating, formData, setFormData, isAdmin 
 }) => {
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
       <SectionHeader title="Consultores" subtitle="Gerencie sua equipe de vendas" 
-        action={<button onClick={() => { setIsCreating(!isCreating); setFormData({ active: true }); }} className="bg-brand-orange text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow"><FaPlus /> {isCreating ? 'Cancelar' : 'Novo'}</button>}
+        // Botão Novo: Apenas Admin
+        action={isAdmin && <button onClick={() => { setIsCreating(!isCreating); setFormData({ active: true }); }} className="bg-brand-orange text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow"><FaPlus /> {isCreating ? 'Cancelar' : 'Novo'}</button>}
       />
-      {isCreating && (
+      
+      {/* Formulário: Apenas Admin */}
+      {isAdmin && isCreating && (
         <form onSubmit={onSave} className="bg-brand-surface border border-gray-800 rounded-2xl p-6 mb-6">
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Nome</label><input type="text" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
@@ -32,6 +35,7 @@ export const SellersView: React.FC<SellersViewProps> = ({
            <button type="submit" disabled={saving} className="mt-4 px-6 py-2 bg-brand-orange text-white rounded-lg font-bold text-xs uppercase hover:bg-red-600 transition">{saving ? '...' : 'Salvar'}</button>
         </form>
       )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sellers.map((s: Seller) => (
           <div key={s.id} className="bg-brand-surface border border-gray-800 p-4 rounded-xl flex items-center justify-between group">
@@ -39,7 +43,10 @@ export const SellersView: React.FC<SellersViewProps> = ({
                 <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center text-lg"><FaWhatsapp/></div>
                 <div><h4 className="font-bold text-white text-sm">{s.name}</h4><p className="text-xs text-gray-500">{s.whatsapp}</p></div>
              </div>
-             <button onClick={() => onDelete(s.id)} className="p-2 text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition"><FaTrash size={12}/></button>
+             {/* Excluir: Apenas Admin */}
+             {isAdmin && (
+               <button onClick={() => onDelete(s.id)} className="p-2 text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition"><FaTrash size={12}/></button>
+             )}
           </div>
         ))}
       </div>

@@ -13,10 +13,13 @@ export const Login = () => {
   const [msg, setMsg] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
   const navigate = useNavigate();
 
-  // Redirecionamento Seguro
+  // Redirecionamento Seguro e Reativo
   useEffect(() => {
-    // Só redireciona se a autenticação terminou (loading false) E temos usuário E temos o perfil carregado
-    // Isso evita o "chute" de volta do ProtectedRoute
+    // Só redireciona se:
+    // 1. O AuthContext terminou de carregar (authLoading = false)
+    // 2. Temos um usuário autenticado (user)
+    // 3. Temos os dados do perfil carregados (appUser)
+    // Isso evita o erro de ser chutado de volta para o login pelo ProtectedRoute
     if (!authLoading && user && appUser) {
       navigate('/admin', { replace: true });
     }
@@ -29,9 +32,9 @@ export const Login = () => {
 
     try {
       if (isLogin) {
+        // Apenas chamamos o signIn. O redirecionamento acontece automaticamente pelo useEffect acima.
         const { error } = await signIn(email, password);
         if (error) throw error;
-        // Não navegamos aqui manualmente. O useEffect acima fará isso quando o estado atualizar.
       } else {
         const { error } = await signUp(email, password);
         if (error) throw error;
@@ -45,7 +48,7 @@ export const Login = () => {
     }
   };
 
-  // Se o AuthContext ainda está carregando, mostra um loader simples para evitar piscadas
+  // Enquanto verifica sessão inicial, mostra spinner para evitar flash de tela de login
   if (authLoading) {
     return (
       <div className="min-h-screen bg-brand-dark flex items-center justify-center">

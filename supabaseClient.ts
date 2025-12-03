@@ -1,219 +1,234 @@
+// ============================================================================
+// SUPABASE CLIENT
+// ============================================================================
+
 import { createClient } from '@supabase/supabase-js';
 import { Car, AppUser, FilterOptions, Seller } from './types';
+import { getEnv } from './utils/env';
 
-// --- CONFIGURAÇÃO ---
-// Tenta ler do .env (Vite), se não existir, usa o fallback hardcoded
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
-const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
+// ============================================================================
+// ENVIRONMENT LOAD & VALIDATION
+// ============================================================================
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não configuradas.");
+const envUrl = getEnv("VITE_SUPABASE_URL") || getEnv("SUPABASE_URL");
+const envKey = getEnv("VITE_SUPABASE_ANON_KEY") || getEnv("SUPABASE_ANON_KEY");
+
+// Validação Crítica
+if (!envUrl || !envKey || envUrl.includes('Sua_URL')) {
+  const msg = "🔴 ERRO FATAL: Credenciais do Supabase não configuradas.\n\nEdite o arquivo .env e adicione suas chaves VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.";
+  console.error(msg);
+  alert(msg); // Alerta visual para o desenvolvedor
+  throw new Error(msg); // Interrompe a execução para não carregar UI quebrada
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+// ============================================================================
+// CLIENT
+// ============================================================================
+
+export const supabase = createClient(envUrl, envKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // CRUCIAL para MemoryRouter: Evita conflitos de URL e loops de refresh
-  }
+    detectSessionInUrl: false, // Compatibilidade com HashRouter
+  },
 });
 
-type FetchResponse<T> = {
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface ApiResponse<T> {
+  data: T | null;
+  error: any | null;
+}
+
+export interface ApiListResponse<T> {
   data: T[];
-  error: any;
+  error: any | null;
+}
+
+// ============================================================================
+// AUTH
+// ============================================================================
+
+export const signIn = async (email: string, password: string): Promise<ApiResponse<any>> => {
+  return supabase.auth.signInWithPassword({ email, password });
 };
 
-// --- AUTH ---
-
-export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  return { data, error };
+export const signUp = async (email: string, password: string): Promise<ApiResponse<any>> => {
+  return supabase.auth.signUp({ email, password });
 };
 
-export const signUp = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  return { data, error };
-};
+export const signOut = async () => supabase.auth.signOut();
 
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-};
+export const updateAuthPassword = async (newPassword: string) =>
+  supabase.auth.updateUser({ password: newPassword });
 
-export const updateAuthPassword = async (newPassword: string) => {
-  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
-  return { data, error };
-};
+// ============================================================================
+// CARS
+// ============================================================================
 
-// --- CARROS ---
-
-export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
+export const fetchCars = async (
+  filters: FilterOptions = {}
+): Promise<ApiListResponse<Car>> => {
   try {
     let query = supabase
       .from('cars')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (filters.make) {
-      query = query.eq('make', filters.make);
-    }
-    if (filters.vehicleType) {
-      query = query.eq('vehicleType', filters.vehicleType);
-    }
-    if (filters.maxPrice) {
-      query = query.lte('price', filters.maxPrice);
-    }
+    if (filters.make) query = query.eq('make', filters.make);
+    if (filters.vehicleType) query = query.eq('vehicleType', filters.vehicleType);
+    if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
 
     const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching cars:', error);
-      return { data: [], error };
-    }
+    if (error) return { data: [], error };
 
     let result = data as Car[];
 
-    // Filtros de texto e ano (client-side por enquanto)
     if (filters.search) {
       const t = filters.search.toLowerCase();
-      result = result.filter(c => 
-        c.model.toLowerCase().includes(t) || 
-        c.make.toLowerCase().includes(t)
+      result = result.filter(c =>
+        c.make.toLowerCase().includes(t) ||
+        c.model.toLowerCase().includes(t)
       );
     }
+
     if (filters.year) {
       result = result.filter(c => c.year >= Number(filters.year));
     }
 
     return { data: result, error: null };
+
   } catch (err: any) {
-    return { data: [], error: err.message };
+    return { data: [], error: err };
   }
 };
 
+// ============================================================================
+// FILTER HELPERS
+// ============================================================================
+
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
-  const { data } = await fetchCars({ vehicleType });
-  if (!data) return [];
-  return Array.from(new Set(data.map((c: any) => c.make))).sort();
+  const { data, error } = await fetchCars({ vehicleType });
+  if (error || !data) return [];
+  return [...new Set(data.map(c => c.make))].sort();
 };
 
 export const fetchAvailableYears = async (vehicleType?: string): Promise<number[]> => {
-  const { data } = await fetchCars({ vehicleType });
-  if (!data) return [];
-  return Array.from(new Set(data.map((c: any) => Number(c.year)))).sort((a: number, b: number) => b - a);
+  const { data, error } = await fetchCars({ vehicleType });
+  if (error || !data) return [];
+  return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
 
+// ============================================================================
+// CRUD: CARS
+// ============================================================================
+
 export const createCar = async (car: Omit<Car, 'id'>) => {
-  // Garante que o ID não seja enviado na criação
-  const { id, ...cleanCar } = car as any;
-  const { data, error } = await supabase.from('cars').insert([cleanCar]).select();
+  const { id, ...clean } = car as any;
+  const { data, error } = await supabase.from('cars').insert([clean]).select().single();
   return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
-  const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select();
+  const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteCar = async (id: string) => {
   const { error } = await supabase.from('cars').delete().eq('id', id);
-  return { error };
+  return { data: null, error };
 };
 
-/**
- * Registra a venda de um carro. 
- * Fallback robusto para atualização direta caso Edge Function falhe.
- */
-export const sellCar = async (id: string, salesData: { soldPrice: number, soldDate: string, soldBy: string }) => {
+export const sellCar = async (
+  id: string,
+  salesData: { soldPrice: number; soldDate: string; soldBy: string }
+) => {
   try {
-    // Tenta Edge Function primeiro
+    // Tenta usar Edge Function se disponível
     try {
-      const { data, error } = await supabase.functions.invoke('sell-car-api', {
-        body: { id, ...salesData }
+      const { data, error } = await supabase.functions.invoke("sell-car-api", {
+        body: { id, ...salesData },
       });
-      if (!error && data) return { data, error: null };
-    } catch (edgeError) {
-      // Ignora erro de edge function e segue para o fallback
+      if (!error) return { data, error: null };
+    } catch (e) {
+      // Falha silenciosa da Edge Function, fallback para update direto
     }
-    
-    // Fallback Direto (Database Update)
-    return await supabase.from('cars').update({
-       status: 'sold',
-       soldPrice: salesData.soldPrice,
-       soldDate: salesData.soldDate,
-       soldBy: salesData.soldBy
-    }).eq('id', id).select();
 
-  } catch (err: any) {
-    console.error("Erro fatal ao vender:", err);
+    // Fallback: Update direto no banco
+    return updateCar(id, { status: 'sold', ...salesData });
+
+  } catch (err) {
     return { data: null, error: err };
   }
 };
 
-// --- VENDEDORES ---
+// ============================================================================
+// SELLERS
+// ============================================================================
 
-export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
+export const fetchSellers = async () => {
   const { data, error } = await supabase.from('sellers').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
-  const { data, error } = await supabase.from('sellers').insert([seller]).select();
+  const { data, error } = await supabase.from('sellers').insert([seller]).select().single();
   return { data, error };
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
-  const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select();
+  const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteSeller = async (id: string) => {
   const { error } = await supabase.from('sellers').delete().eq('id', id);
-  return { error };
+  return { data: null, error };
 };
 
-// --- USUÁRIOS ---
+// ============================================================================
+// USERS – Controlado por RLS
+// ============================================================================
 
-export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
+export const fetchUsers = async () => {
   const { data, error } = await supabase.from('app_users').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
-  const { data, error } = await supabase.from('app_users').insert([user]).select();
+  const { data, error } = await supabase.from('app_users').insert([user]).select().single();
   return { data, error };
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
-  const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select();
+  const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteUser = async (id: string) => {
   const { error } = await supabase.from('app_users').delete().eq('id', id);
-  return { error };
+  return { data: null, error };
 };
 
-// --- UPLOAD ---
+// ============================================================================
+// STORAGE
+// ============================================================================
 
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('car-images')
-      .upload(filePath, file);
+    const { error } = await supabase.storage.from('car-images').upload(fileName, file);
+    if (error) throw error;
 
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage.from('car-images').getPublicUrl(filePath);
+    const { data } = supabase.storage.from('car-images').getPublicUrl(fileName);
     return data.publicUrl;
-  } catch (error: any) {
-    console.error("Upload Error:", error);
+
+  } catch (err) {
+    console.error('Upload Error:', err);
     return null;
   }
 };

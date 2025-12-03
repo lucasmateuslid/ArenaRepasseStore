@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FaPlus, FaFilter, FaTrash, FaBan } from 'react-icons/fa';
 import { Car } from '../../../types';
@@ -12,10 +11,11 @@ interface InventoryViewProps {
   onEdit: (car: Car) => void;
   onDelete: (id: string) => void;
   onToggleStatus: (car: Car) => void;
+  isAdmin: boolean;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({ 
-  cars, searchTerm, setSearchTerm, onNew, onEdit, onDelete, onToggleStatus 
+  cars, searchTerm, setSearchTerm, onNew, onEdit, onDelete, onToggleStatus, isAdmin 
 }) => {
   const filteredCars = cars.filter((c: Car) => 
     c.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -39,9 +39,12 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         title="Controle de Frota" 
         subtitle="Gerencie disponibilidade, vendas e manutenções"
         action={
-          <button onClick={onNew} className="bg-brand-orange hover:bg-brand-orangeHover text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow transition transform active:scale-95 w-full md:w-auto justify-center">
-            <FaPlus /> Novo Veículo
-          </button>
+          // Apenas ADMIN vê o botão de criar
+          isAdmin && (
+            <button onClick={onNew} className="bg-brand-orange hover:bg-brand-orangeHover text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow transition transform active:scale-95 w-full md:w-auto justify-center">
+              <FaPlus /> Novo Veículo
+            </button>
+          )
         }
       />
 
@@ -78,23 +81,25 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </div>
                 <p className="text-brand-orange font-bold text-sm mb-2">R$ {c.price.toLocaleString('pt-BR')}</p>
                 
-                <div className="flex gap-2">
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
-                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs font-medium border border-gray-700"
-                  >
-                    Gerenciar
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
-                    className="px-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-500/30 transition flex items-center justify-center"
-                    title="Excluir"
-                  >
-                    <FaTrash size={12}/>
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
+                      className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs font-medium border border-gray-700"
+                    >
+                      Gerenciar
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
+                      className="px-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-500/30 transition flex items-center justify-center"
+                      title="Excluir"
+                    >
+                      <FaTrash size={12}/>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -104,7 +109,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
-              <tr><th className="px-6 py-4">Veículo</th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Financeiro</th><th className="px-6 py-4 text-right">Ações</th></tr>
+              <tr>
+                <th className="px-6 py-4">Veículo</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Financeiro</th>
+                {/* Apenas mostra coluna Ações se for admin */}
+                {isAdmin && <th className="px-6 py-4 text-right">Ações</th>}
+              </tr>
             </thead>
             <tbody className="divide-y divide-gray-800 text-sm">
               {filteredCars.map((c: Car) => (
@@ -126,26 +137,28 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     <p className="font-bold text-white">R$ {c.price.toLocaleString('pt-BR')}</p>
                     {c.status === 'sold' && <p className="text-[10px] text-green-500">Vendido por: R$ {Number(c.soldPrice).toLocaleString('pt-BR')}</p>}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition">
-                       <button 
-                         type="button"
-                         onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
-                         className="px-3 py-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 rounded-lg transition text-xs font-bold" 
-                         title="Editar"
-                       >
-                         GERENCIAR
-                       </button>
-                       <button 
-                         type="button"
-                         onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
-                         className="p-2 text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 rounded-lg transition" 
-                         title="Excluir"
-                       >
-                         <FaTrash/>
-                       </button>
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition">
+                         <button 
+                           type="button"
+                           onClick={(e) => { e.stopPropagation(); onEdit(c); }} 
+                           className="px-3 py-1.5 text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 rounded-lg transition text-xs font-bold" 
+                           title="Editar"
+                         >
+                           GERENCIAR
+                         </button>
+                         <button 
+                           type="button"
+                           onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} 
+                           className="p-2 text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 rounded-lg transition" 
+                           title="Excluir"
+                         >
+                           <FaTrash/>
+                         </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
 import { Car, Message } from '../types';
@@ -21,9 +22,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const aiClient = React.useMemo(() => {
-    // Vite usa import.meta.env. process.env não existe no browser em produção (exceto se polyfilled)
-    // Usamos um fallback seguro
-    const apiKey = (import.meta as any).env?.VITE_GOOGLE_API_KEY || (typeof process !== 'undefined' ? process.env?.API_KEY : '') || '';
+    // Safe access to environment variables
+    const getEnv = (key: string) => {
+      try {
+        // @ts-ignore
+        return (import.meta as any).env?.[key] || '';
+      } catch {
+        return '';
+      }
+    };
+
+    const apiKey = getEnv('VITE_GOOGLE_API_KEY');
     
     if (!apiKey) {
       console.warn("API Key não encontrada.");
