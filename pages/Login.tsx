@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signIn, signUp } from '../supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
 import { FaLock, FaEnvelope, FaSignInAlt, FaUserPlus, FaArrowLeft } from 'react-icons/fa';
 
 export const Login = () => {
+  const { user, appUser, loading: authLoading } = useAuth(); 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string, type: 'error' | 'success' } | null>(null);
   const navigate = useNavigate();
+
+  // Redirecionamento Seguro
+  useEffect(() => {
+    // Só redireciona se a autenticação terminou (loading false) E temos usuário E temos o perfil carregado
+    // Isso evita o "chute" de volta do ProtectedRoute
+    if (!authLoading && user && appUser) {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, appUser, authLoading, navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,13 +29,11 @@ export const Login = () => {
 
     try {
       if (isLogin) {
-        const { data, error } = await signIn(email, password);
+        const { error } = await signIn(email, password);
         if (error) throw error;
-        // Se sucesso, o AuthContext vai detectar e redirecionar se o usuário tiver permissão
-        // Mas podemos forçar uma verificação rápida ou apenas esperar
-        navigate('/admin'); 
+        // Não navegamos aqui manualmente. O useEffect acima fará isso quando o estado atualizar.
       } else {
-        const { data, error } = await signUp(email, password);
+        const { error } = await signUp(email, password);
         if (error) throw error;
         setMsg({ text: "Cadastro realizado! Se seu email já estiver liberado pelo admin, você pode logar.", type: 'success' });
         setIsLogin(true);
@@ -35,6 +44,15 @@ export const Login = () => {
       setLoading(false);
     }
   };
+
+  // Se o AuthContext ainda está carregando, mostra um loader simples para evitar piscadas
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-orange border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-dark flex items-center justify-center px-4 relative overflow-hidden">

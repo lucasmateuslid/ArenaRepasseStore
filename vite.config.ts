@@ -4,11 +4,13 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  define: {
-    // Isso evita o erro "process is not defined" no navegador
-    'process.env': process.env
-  },
+  // Garante caminhos relativos para ativos (css, js, imagens) funcionarem em qualquer subdiretório
+  base: './', 
   server: {
     host: true
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false
   }
 })

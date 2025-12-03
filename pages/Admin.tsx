@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   fetchCars, createCar, updateCar, deleteCar, uploadCarImage, 
@@ -33,6 +32,7 @@ export const Admin = () => {
   const [cars, setCars] = useState<Car[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
   
   // UI State
   const [saving, setSaving] = useState(false);
@@ -62,30 +62,55 @@ export const Admin = () => {
   const [selectedFipeBrand, setSelectedFipeBrand] = useState('');
   const [selectedFipeModel, setSelectedFipeModel] = useState('');
 
-  // --- Initial Data Loading ---
+  // --- Data Loading Wrapped in useCallback to prevent loops ---
+  const loadAllData = useCallback(async () => {
+    setDataLoading(true);
+    try {
+      const [carsRes, usersRes, sellersRes] = await Promise.all([
+        fetchCars({}),
+        fetchUsers(),
+        fetchSellers()
+      ]);
+
+      if (carsRes.error) console.error("Erro ao carregar carros:", carsRes.error);
+      
+      setCars(carsRes.data || []);
+      setUsers(usersRes.data || []);
+      setSellers(sellersRes.data || []);
+    } catch (error) {
+      console.error("Erro crítico ao carregar dados:", error);
+      showNotification("Erro de conexão. Tente recarregar.", 'error');
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  const loadFipeBrands = useCallback(async () => { 
+    try { 
+      setFipeBrands([]); 
+      const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`); 
+      setFipeBrands(await res.json()); 
+    } catch (e) {
+      console.error("Erro FIPE:", e);
+    } 
+  }, [vehicleType]);
+
+  // --- Effects ---
   useEffect(() => { 
     loadAllData(); 
-  }, []);
+  }, [loadAllData]);
 
   useEffect(() => {
     loadFipeBrands();
-  }, [vehicleType]);
-
-  const loadAllData = async () => {
-    const carsRes = await fetchCars({});
-    const usersRes = await fetchUsers();
-    const sellersRes = await fetchSellers();
-    if (carsRes.error) showNotification(String(carsRes.error), 'error');
-    setCars(carsRes.data || []);
-    setUsers(usersRes.data || []);
-    setSellers(sellersRes.data || []);
-  };
-
-  const loadFipeBrands = async () => { try { setFipeBrands([]); const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`); setFipeBrands(await res.json()); } catch (e) {} };
+  }, [loadFipeBrands]);
 
   // --- Handlers ---
   const handleLogout = async () => { await signOut(); navigate('/'); };
-  const showNotification = (msg: string, type: 'success' | 'error') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 5000); };
+  
+  const showNotification = (msg: string, type: 'success' | 'error') => { 
+    setNotification({ msg, type }); 
+    setTimeout(() => setNotification(null), 5000); 
+  };
   
   const getNumber = (val: any): number => {
     if (!val) return 0;

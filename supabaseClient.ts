@@ -1,15 +1,20 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Car, AppUser, FilterOptions, Seller } from './types';
 
 // --- CONFIGURAÇÃO ---
-const SUPABASE_URL = 'https://dmpmbdveubwjznmyxdml.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
+// Tenta ler do .env (Vite), se não existir, usa o fallback hardcoded
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://dmpmbdveubwjznmyxdml.supabase.co';
+const SUPABASE_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtcG1iZHZldWJ3anpubXl4ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODg1MTIsImV4cCI6MjA3OTY2NDUxMn0.km57K39yOTo9_5xRdaXfDWSmXJ8ZXBXbWJmXhjnlFCI';
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não configuradas.");
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // CRUCIAL para MemoryRouter: Evita conflitos de URL e loops de refresh
   }
 });
 
@@ -117,18 +122,19 @@ export const deleteCar = async (id: string) => {
 
 /**
  * Registra a venda de um carro. 
- * Prioriza Edge Function, mas faz fallback automático se falhar (ex: ambiente preview).
+ * Fallback robusto para atualização direta caso Edge Function falhe.
  */
 export const sellCar = async (id: string, salesData: { soldPrice: number, soldDate: string, soldBy: string }) => {
   try {
-    // Tentativa via Edge Function (Segurança Ideal)
-    const { data, error } = await supabase.functions.invoke('sell-car-api', {
-      body: { id, ...salesData }
-    });
-    
-    if (!error) return { data, error: null };
-    
-    console.warn("Edge Function indisponível, usando fallback direto.", error);
+    // Tenta Edge Function primeiro
+    try {
+      const { data, error } = await supabase.functions.invoke('sell-car-api', {
+        body: { id, ...salesData }
+      });
+      if (!error && data) return { data, error: null };
+    } catch (edgeError) {
+      // Ignora erro de edge function e segue para o fallback
+    }
     
     // Fallback Direto (Database Update)
     return await supabase.from('cars').update({
@@ -139,14 +145,8 @@ export const sellCar = async (id: string, salesData: { soldPrice: number, soldDa
     }).eq('id', id).select();
 
   } catch (err: any) {
-    console.error("Erro fatal ao vender, usando fallback direto:", err);
-    // Fallback Final
-    return await supabase.from('cars').update({
-       status: 'sold',
-       soldPrice: salesData.soldPrice,
-       soldDate: salesData.soldDate,
-       soldBy: salesData.soldBy
-    }).eq('id', id).select();
+    console.error("Erro fatal ao vender:", err);
+    return { data: null, error: err };
   }
 };
 

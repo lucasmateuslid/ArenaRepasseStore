@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
 import { Car, Message } from '../types';
@@ -22,9 +21,12 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const aiClient = React.useMemo(() => {
-    const apiKey = process.env.API_KEY || '';
+    // Vite usa import.meta.env. process.env não existe no browser em produção (exceto se polyfilled)
+    // Usamos um fallback seguro
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_API_KEY || (typeof process !== 'undefined' ? process.env?.API_KEY : '') || '';
+    
     if (!apiKey) {
-      console.warn("API Key não encontrada em process.env.API_KEY");
+      console.warn("API Key não encontrada.");
       return null;
     }
     return new GoogleGenAI({ apiKey });
@@ -57,7 +59,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     if (!inputMessage.trim()) return;
 
     if (!aiClient) {
-      setMessages(prev => [...prev, { role: "model", text: "Erro: chave de API não configurada no sistema." }]);
+      setMessages(prev => [...prev, { role: "model", text: "Desculpe, meu sistema de IA não está configurado corretamente (Chave de API ausente)." }]);
       return;
     }
 
@@ -71,7 +73,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
     try {
       // 1. Prepara o Histórico para o Gemini
-      // Mapeia o estado do React para o formato que a API espera (Content[])
       const history: Content[] = messages.map(m => ({
         role: m.role,
         parts: [{ text: m.text }]
@@ -82,7 +83,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
         `ID:${c.id} | ${c.make} ${c.model} ${c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category} | ${(c.description || '').substring(0, 50)}...`
       ).join("\n");
 
-      // 3. Define a Persona e Regras (System Instruction)
+      // 3. Define a Persona e Regras
       const systemInstruction = `
 VOCÊ É Caio, consultor especialista da Arena Repasse.
 
@@ -93,37 +94,36 @@ ${inventory}
 REGRAS DE CONTEXTO E MEMÓRIA:
 1. Você DEVE lembrar do que foi dito nas mensagens anteriores (history).
 2. Se o usuário disser "gostei desse", "tem automático?", "e o preço?", refira-se ao último carro mencionado no histórico.
-3. Se o usuário mudar de assunto (ex: pedir outro tipo de carro), esqueça o anterior e foque no novo.
+3. Se o usuário mudar de assunto, foque no novo.
 
 REGRAS DE RESPOSTA (JSON):
-1. Responda APENAS com JSON válido. NADA de markdown.
+1. Responda APENAS com JSON válido.
 2. Formato:
 {
   "reply": "texto curto, persuasivo e humano (máx 200 caracteres)",
   "car_ids": ["id_encontrado_1"]
 }
-3. Se não encontrar carros exatos, sugira similares e explique o porquê.
-4. Se o usuário só estiver cumprimentando ou agradecendo, mande "car_ids": [] e converse normalmente.
+3. Se não encontrar carros exatos, sugira similares.
+4. Se for conversa fiada, mande "car_ids": [].
 
 IDENTIDADE:
 - Vendedor experiente, ágil e educado.
-- Use gatilhos mentais: "oportunidade única", "abaixo da tabela", "tá saindo rápido".
-- Tente sempre fechar uma visita ou contato no WhatsApp.
+- Use gatilhos mentais.
 
 PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
       `.trim();
 
-      // 4. Cria a Sessão de Chat com Histórico
+      // 4. Cria a Sessão
       const chatSession = aiClient.chats.create({
         model: "gemini-2.5-flash",
         config: {
-          temperature: 0.3, // Baixa temperatura para fidelidade aos dados
+          temperature: 0.3,
           systemInstruction: systemInstruction,
         },
-        history: history // Injeta o histórico aqui
+        history: history
       });
 
-      // 5. Envia a nova mensagem
+      // 5. Envia
       const result: GenerateContentResponse = await chatSession.sendMessage({
         message: `Responda estritamente em JSON.`
       });
@@ -131,7 +131,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
       const parsed = cleanAndParseJSON(result.text || "");
 
       if (parsed && parsed.reply) {
-        // Valida IDs retornados
         const validIds = Array.isArray(parsed.car_ids)
           ? parsed.car_ids.filter((id: string) => cars.some(c => c.id === id))
           : [];
@@ -141,7 +140,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
           { role: "model", text: parsed.reply, recommendedCarIds: validIds }
         ]);
       } else {
-        // Fallback caso a IA não retorne JSON
         setMessages(prev => [
           ...prev,
           { role: "model", text: "Entendi. Pode me dar mais detalhes do que você precisa?", recommendedCarIds: [] }
@@ -152,7 +150,7 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
       console.error(err);
       setMessages(prev => [
         ...prev,
-        { role: "model", text: "Desculpe, tive uma pequena falha de conexão. Pode repetir?" }
+        { role: "model", text: "Tive um problema de conexão. Poderia repetir?" }
       ]);
     } finally {
       setIsTyping(false);
@@ -161,7 +159,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
 
   return (
     <>
-      {/* Floating Buttons */}
       <div className="fixed bottom-6 right-4 flex flex-col gap-3 z-40">
         <button
           onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
@@ -179,11 +176,9 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
         </button>
       </div>
 
-      {/* Main Chat */}
       {isChatOpen && (
         <div className="fixed bottom-24 right-4 left-4 md:left-auto md:w-96 bg-brand-surface rounded-xl shadow-2xl z-40 flex flex-col border border-gray-700 overflow-hidden animate-slide-up" style={{ height: '500px', maxHeight: '70vh' }}>
           
-          {/* Header */}
           <div className="bg-gradient-to-r from-brand-darkRed to-black p-4 flex items-center gap-3 border-b border-gray-700 shadow-md">
             <div className="relative">
               <div className="w-10 h-10 bg-brand-surface rounded-full flex items-center justify-center text-brand-orange text-lg border-2 border-brand-orange">
@@ -202,7 +197,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
             </button>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 bg-brand-dark p-4 overflow-y-auto space-y-4 scroll-smooth">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}>
@@ -215,15 +209,12 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
                   {msg.text}
                 </div>
 
-                {/* Recomendações */}
                 {msg.role === 'model' && msg.recommendedCarIds && msg.recommendedCarIds.length > 0 && (
                   <div className="flex gap-2 w-full overflow-x-auto py-3 no-scrollbar pl-1 mt-1">
                     {msg.recommendedCarIds.map(id => {
                       const car = cars.find(c => c.id === id);
                       if (!car) return null;
-
                       const fipe = Number(car.fipeprice) || 0;
-
                       return (
                         <div
                           key={car.id}
@@ -274,7 +265,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
             <div ref={chatEndRef}></div>
           </div>
 
-          {/* Input */}
           <div className="p-3 bg-brand-surface border-t border-gray-700 flex gap-2 items-center">
             <input
               type="text"
@@ -300,4 +290,3 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
     </>
   );
 };
-    
