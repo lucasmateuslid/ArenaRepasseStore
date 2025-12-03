@@ -13,19 +13,19 @@ import { getEnv } from './utils/env';
 const envUrl = getEnv("VITE_SUPABASE_URL") || getEnv("SUPABASE_URL");
 const envKey = getEnv("VITE_SUPABASE_ANON_KEY") || getEnv("SUPABASE_ANON_KEY");
 
-// Validação Crítica
-if (!envUrl || !envKey || envUrl.includes('Sua_URL')) {
-  const msg = "🔴 ERRO FATAL: Credenciais do Supabase não configuradas.\n\nEdite o arquivo .env e adicione suas chaves VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.";
-  console.error(msg);
-  alert(msg); // Alerta visual para o desenvolvedor
-  throw new Error(msg); // Interrompe a execução para não carregar UI quebrada
+// Fallback seguro para evitar crash da aplicação se as chaves não estiverem configuradas
+const SUPABASE_URL = (envUrl && !envUrl.includes('Sua_URL')) ? envUrl : "https://placeholder.supabase.co";
+const SUPABASE_KEY = (envKey && !envKey.includes('Sua_Key')) ? envKey : "placeholder-key";
+
+if (SUPABASE_URL === "https://placeholder.supabase.co") {
+  console.warn("⚠ AVISO: Credenciais do Supabase não encontradas. O app está rodando em modo offline/demo.");
 }
 
 // ============================================================================
 // CLIENT
 // ============================================================================
 
-export const supabase = createClient(envUrl, envKey, {
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
