@@ -62,7 +62,15 @@ export const Admin = () => {
   const [selectedFipeModel, setSelectedFipeModel] = useState('');
 
   // --- Initial Data Loading ---
-  useEffect(() => { loadAllData(); loadFipeBrands(); }, [vehicleType]);
+  // Carrega dados APENAS na montagem do componente ou quando explicitamente solicitado
+  useEffect(() => { 
+    loadAllData(); 
+  }, []);
+
+  // Carrega FIPE APENAS quando o tipo de veículo muda
+  useEffect(() => {
+    loadFipeBrands();
+  }, [vehicleType]);
 
   const loadAllData = async () => {
     const carsRes = await fetchCars({});

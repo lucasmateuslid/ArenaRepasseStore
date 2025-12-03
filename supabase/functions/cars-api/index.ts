@@ -17,7 +17,6 @@ serve(async (req) => {
 
   try {
     // 2. Setup do Cliente Supabase
-    // Usamos o Auth Header do request para criar um cliente que respeita o RLS do usuário logado
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const authHeader = req.headers.get('Authorization')
@@ -40,9 +39,15 @@ serve(async (req) => {
 
         if (id) {
             // Buscar um carro específico
-            const { data, error } = await query.eq('id', id).single()
+            // REMOVIDO .single() para evitar erro 406 se RLS bloquear ou ID não existir
+            const { data, error } = await query.eq('id', id)
+            
             if (error) throw error
-            return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            if (!data || data.length === 0) {
+                 return new Response(JSON.stringify({ error: 'Car not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            return new Response(JSON.stringify(data[0]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         } else {
             // Filtros via Query Params
             const make = url.searchParams.get('make')
@@ -64,23 +69,43 @@ serve(async (req) => {
 
     // --- POST: Criar Veículo ---
     if (method === 'POST') {
-        const body = await req.json()
-        const { data, error } = await supabase.from('cars').insert([body]).select().single()
+        let body;
+        try {
+            body = await req.json()
+        } catch (e) {
+            throw new Error('Invalid JSON body')
+        }
+
+        const { data, error } = await supabase.from('cars').insert([body]).select()
         if (error) throw error
-        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify(data?.[0] || {}), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // --- PUT: Atualizar Veículo ---
     if (method === 'PUT') {
         if (!id) throw new Error('ID is required for update')
-        const body = await req.json()
+        
+        let body;
+        try {
+            body = await req.json()
+        } catch (e) {
+            throw new Error('Invalid JSON body')
+        }
         
         // Remove campos que não devem ser atualizados diretamente ou que vêm sujos
         const { id: _, created_at: __, ...updates } = body
 
-        const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single()
+        // REMOVIDO .single()
+        const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select()
+        
         if (error) throw error
-        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        
+        // Verifica se houve atualização
+        if (!data || data.length === 0) {
+             return new Response(JSON.stringify({ error: 'Update failed or ID not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        return new Response(JSON.stringify(data[0]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // --- DELETE: Remover Veículo ---

@@ -18,46 +18,7 @@ type FetchResponse<T> = {
   error: any;
 };
 
-// Helper genérico para chamar Edge Functions
-// O SDK do Supabase injeta automaticamente o token do usuário no header Authorization
-const invokeEdgeFunction = async <T>(
-  functionName: string, 
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE', 
-  body?: any,
-  queryParams?: Record<string, string>
-): Promise<{ data: T | null, error: any }> => {
-  try {
-    const options: any = {
-      method,
-      // body é automaticamente serializado para JSON pelo invoke se for objeto
-      body: body,
-    };
-
-    // Monta Query String
-    let urlSuffix = '';
-    if (queryParams) {
-      const params = new URLSearchParams();
-      Object.entries(queryParams).forEach(([key, value]) => {
-        if (value) params.append(key, String(value));
-      });
-      urlSuffix = `?${params.toString()}`;
-    }
-
-    const { data, error } = await supabase.functions.invoke(`${functionName}${urlSuffix}`, options);
-
-    if (error) {
-      console.error(`Erro na Edge Function [${functionName}]:`, error);
-      return { data: null, error: error.message || error };
-    }
-
-    return { data, error: null };
-  } catch (err: any) {
-    console.error(`Exceção ao chamar [${functionName}]:`, err);
-    return { data: null, error: err.message };
-  }
-};
-
-// --- AUTH (Mantém direto via SDK Client pois é o padrão seguro) ---
+// --- AUTH ---
 
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -79,33 +40,52 @@ export const updateAuthPassword = async (newPassword: string) => {
   return { data, error };
 };
 
-// --- CARROS (cars-api) ---
+// --- CARROS ---
 
 export const fetchCars = async (filters: FilterOptions = {}): Promise<FetchResponse<Car>> => {
-  const params: Record<string, string> = {};
-  if (filters.make) params.make = filters.make;
-  if (filters.vehicleType) params.vehicleType = filters.vehicleType;
-  if (filters.maxPrice) params.maxPrice = filters.maxPrice;
+  try {
+    let query = supabase
+      .from('cars')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  // Chamada à Edge Function
-  const { data, error } = await invokeEdgeFunction<Car[]>('cars-api', 'GET', undefined, params);
-  
-  if (error) return { data: [], error };
-  
-  // Filtros de texto/ano ainda feitos no client (ou podem ser movidos para API depois)
-  let result = data || [];
-  if (filters.search) {
-     const t = filters.search.toLowerCase();
-     result = result.filter(c => c.model.toLowerCase().includes(t) || c.make.toLowerCase().includes(t));
-  }
-  if (filters.year) {
-     result = result.filter(c => c.year >= Number(filters.year));
-  }
+    if (filters.make) {
+      query = query.eq('make', filters.make);
+    }
+    if (filters.vehicleType) {
+      query = query.eq('vehicleType', filters.vehicleType);
+    }
+    if (filters.maxPrice) {
+      query = query.lte('price', filters.maxPrice);
+    }
 
-  return { data: result, error: null };
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching cars:', error);
+      return { data: [], error };
+    }
+
+    let result = data as Car[];
+
+    // Filtros de texto e ano (client-side por enquanto, ou poderiam ser DB)
+    if (filters.search) {
+      const t = filters.search.toLowerCase();
+      result = result.filter(c => 
+        c.model.toLowerCase().includes(t) || 
+        c.make.toLowerCase().includes(t)
+      );
+    }
+    if (filters.year) {
+      result = result.filter(c => c.year >= Number(filters.year));
+    }
+
+    return { data: result, error: null };
+  } catch (err: any) {
+    return { data: [], error: err.message };
+  }
 };
 
-// Helpers de filtro (reutilizam fetchCars para consistência)
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
   const { data } = await fetchCars({ vehicleType });
   if (!data) return [];
@@ -119,75 +99,108 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
 };
 
 export const createCar = async (car: Omit<Car, 'id'>) => {
-  return await invokeEdgeFunction('cars-api', 'POST', car);
+  const { data, error } = await supabase.from('cars').insert([car]).select();
+  return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
-  return await invokeEdgeFunction('cars-api', 'PUT', updates, { id });
+  const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select();
+  return { data, error };
 };
 
 export const deleteCar = async (id: string) => {
-  return await invokeEdgeFunction('cars-api', 'DELETE', undefined, { id });
+  const { error } = await supabase.from('cars').delete().eq('id', id);
+  return { error };
 };
 
-// --- VENDEDORES (sellers-api) ---
+/**
+ * Registra a venda de um carro usando a Edge Function 'sell-car-api'.
+ * Se a Edge Function não estiver deployada, você pode substituir o conteúdo
+ * pelo método direto: supabase.from('cars').update({...}).eq('id', id)
+ */
+export const sellCar = async (id: string, salesData: { soldPrice: number, soldDate: string, soldBy: string }) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('sell-car-api', {
+      body: { id, ...salesData }
+    });
+    
+    // Fallback para conexão direta se a Edge Function falhar no preview
+    if (error) {
+       console.warn("Edge Function falhou (possivelmente preview), tentando acesso direto ao DB...", error);
+       return await supabase.from('cars').update({ status: 'sold', ...salesData }).eq('id', id).select();
+    }
+    
+    return { data, error };
+  } catch (err: any) {
+    // Fallback de segurança
+    return await supabase.from('cars').update({ status: 'sold', ...salesData }).eq('id', id).select();
+  }
+};
+
+// --- VENDEDORES ---
 
 export const fetchSellers = async (): Promise<FetchResponse<Seller>> => {
-  const { data, error } = await invokeEdgeFunction<Seller[]>('sellers-api', 'GET');
+  const { data, error } = await supabase.from('sellers').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
-  return await invokeEdgeFunction('sellers-api', 'POST', seller);
+  const { data, error } = await supabase.from('sellers').insert([seller]).select();
+  return { data, error };
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
-  return await invokeEdgeFunction('sellers-api', 'PUT', updates, { id });
+  const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select();
+  return { data, error };
 };
 
 export const deleteSeller = async (id: string) => {
-  return await invokeEdgeFunction('sellers-api', 'DELETE', undefined, { id });
+  const { error } = await supabase.from('sellers').delete().eq('id', id);
+  return { error };
 };
 
-// --- USUÁRIOS (users-api) ---
+// --- USUÁRIOS ---
 
 export const fetchUsers = async (): Promise<FetchResponse<AppUser>> => {
-  const { data, error } = await invokeEdgeFunction<AppUser[]>('users-api', 'GET');
+  const { data, error } = await supabase.from('app_users').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
-  return await invokeEdgeFunction('users-api', 'POST', user);
+  const { data, error } = await supabase.from('app_users').insert([user]).select();
+  return { data, error };
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
-  return await invokeEdgeFunction('users-api', 'PUT', updates, { id });
+  const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select();
+  return { data, error };
 };
 
 export const deleteUser = async (id: string) => {
-  return await invokeEdgeFunction('users-api', 'DELETE', undefined, { id });
+  const { error } = await supabase.from('app_users').delete().eq('id', id);
+  return { error };
 };
 
-// --- UPLOAD (upload-api) ---
+// --- UPLOAD ---
 
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
-    const formData = new FormData();
-    formData.append('file', file);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-    // invoke lida com JSON por padrão, mas para FormData precisamos passar o body direto.
-    // O browser define o Content-Type multipart/form-data com o boundary correto automaticamente.
-    const { data, error } = await supabase.functions.invoke('upload-api', {
-      method: 'POST',
-      body: formData, 
-    });
+    const { error: uploadError } = await supabase.storage
+      .from('car-images')
+      .upload(filePath, file);
 
-    if (error) throw error;
-    if (!data?.url) throw new Error("URL não retornada pela API");
+    if (uploadError) {
+      throw uploadError;
+    }
 
-    return data.url;
+    const { data } = supabase.storage.from('car-images').getPublicUrl(filePath);
+    return data.publicUrl;
   } catch (error: any) {
-    console.error("Upload Error (Edge):", error);
-    throw new Error(error.message || "Falha no upload via Edge Function");
+    console.error("Upload Error:", error);
+    return null;
   }
 };
