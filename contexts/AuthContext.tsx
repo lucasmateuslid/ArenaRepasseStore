@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { AppUser } from '../types';
 
@@ -26,6 +26,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
+  
+  // Ref para rastrear o usuário atual sem depender do ciclo de renderização
+  // Isso evita race conditions dentro do listener do Supabase
+  const currentUserRef = useRef<string | null>(null);
 
   /**
    * -------------------------------------------------------------------
@@ -79,76 +83,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * --------------------------------------------------------------
-   *  Inicialização da sessão + carregamento do app_user
+   *  Inicialização e Listener
    * --------------------------------------------------------------
    */
   useEffect(() => {
     let mounted = true;
 
-    const loadInitialSession = async () => {
+    // Função única para processar o login e carregar dados
+    const handleSession = async (sessionUser: any) => {
+      if (!mounted) return;
+      
+      // CRÍTICO: Prevenção de Loop de Loading
+      // Se já temos este usuário carregado e o perfil existe, não fazemos nada.
+      // Isso corrige o erro de tela de loading ao navegar 'Voltar' ou trocar de abas.
+      if (currentUserRef.current === sessionUser.id && appUser) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        setLoading(true);
+        currentUserRef.current = sessionUser.id;
+        setUser(sessionUser);
 
-        if (!mounted) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          const profile = await fetchProfileAndRole(session.user);
-          if (mounted) setAppUser(profile);
-        } else {
-          setUser(null);
-          setAppUser(null);
-          setIsAdmin(false);
+        const profile = await fetchProfileAndRole(sessionUser);
+        
+        if (mounted) {
+          setAppUser(profile);
         }
-      } catch (err) {
-        console.error('Erro ao carregar sessão inicial:', err);
+      } catch (error) {
+        console.error("Erro ao processar sessão:", error);
+        // Em caso de erro, definimos um usuário básico para não travar o app
+        if (mounted && !appUser) {
+           setAppUser({
+             id: sessionUser.id,
+             name: 'Usuário',
+             email: sessionUser.email,
+             role: 'viewer'
+           });
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    loadInitialSession();
+    const initAuth = async () => {
+      // 1. Check Inicial
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await handleSession(session.user);
+      } else {
+        if (mounted) setLoading(false);
+      }
 
-    /**
-     * --------------------------------------------------------------
-     *  Listener para mudanças no estado de autenticação
-     * --------------------------------------------------------------
-     */
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
+      // 2. Listener de Eventos
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return;
+          // console.log(`Auth Event: ${event}`);
 
-        switch (event) {
-          case 'SIGNED_OUT':
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            if (session?.user) {
+              await handleSession(session.user);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            currentUserRef.current = null;
             setUser(null);
             setAppUser(null);
             setIsAdmin(false);
             setLoading(false);
-            break;
-
-          case 'SIGNED_IN':
-          case 'INITIAL_SESSION':
-            if (session?.user) {
-              setLoading(true);
-              setUser(session.user);
-              const profile = await fetchProfileAndRole(session.user);
-              if (mounted) {
-                setAppUser(profile);
-                setLoading(false);
-              }
-            }
-            break;
+          }
+          // Ignoramos TOKEN_REFRESHED explicitamente para evitar re-renderizações
         }
-      }
-    );
+      );
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
+
+    initAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, [fetchProfileAndRole]);
+  }, [fetchProfileAndRole]); // Removido 'appUser' das dependências para evitar loops
 
   /**
    * --------------------------------------------------------------
@@ -158,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     setLoading(true);
     await supabase.auth.signOut();
+    currentUserRef.current = null;
     setUser(null);
     setAppUser(null);
     setIsAdmin(false);
