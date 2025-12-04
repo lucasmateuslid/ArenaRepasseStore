@@ -71,7 +71,9 @@ export const CarGrid: React.FC<CarGridProps> = ({
                   <div className="p-5 flex-grow flex flex-col relative">
                     <div className="flex justify-between items-center mb-1">
                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{car.make}</span>
-                       <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded border border-gray-600">{car.year}</span>
+                       <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded border border-gray-600">
+                         {car.year === 3200 ? 'Zero KM' : car.year}
+                       </span>
                     </div>
                     <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-brand-orange transition-colors line-clamp-1">
                       {car.model}

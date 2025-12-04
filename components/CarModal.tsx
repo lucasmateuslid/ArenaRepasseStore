@@ -24,9 +24,11 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const price = Number(car.price) || 0;
   const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
   const images = (car.gallery && car.gallery.length > 0) ? car.gallery : [car.image];
+  
+  const displayYear = car.year === 3200 ? 'Zero KM' : car.year;
 
   const shareUrl = window.location.href; // Em um SPA sem rotas dinâmicas, compartilhamos a home
-  const shareText = `Confira este ${car.make} ${car.model} ${car.year} por ${formatCurrency(price)} no Arena Repasse!`;
+  const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
   const handleCopyLink = () => {
     const textToCopy = `${shareText} Acesse: ${shareUrl}`;
@@ -107,7 +109,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
              </button>
           </div>
           <div className="flex items-center gap-3 mb-4">
-            <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{car.year}</span>
+            <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{displayYear}</span>
             <span className="text-gray-400 text-xs md:text-sm">{car.mileage.toLocaleString()} km</span>
           </div>
           <div className="bg-brand-dark/40 rounded-xl p-3 md:p-4 mb-4 border border-gray-700">

@@ -140,9 +140,31 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                 <select className="bg-black/20 border border-blue-500/20 rounded-lg p-2 text-xs text-blue-100 outline-none focus:border-blue-500" onChange={e => onFipeBrand(e.target.value)}><option value="">1. Marca</option>{fipeBrands.map((b) => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}</select>
-                 <select className="bg-black/20 border border-blue-500/20 rounded-lg p-2 text-xs text-blue-100 outline-none focus:border-blue-500" onChange={e => onFipeModel(e.target.value)} disabled={fipeModels.length === 0}><option value="">2. Modelo</option>{fipeModels.map((m) => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}</select>
-                 <select className="bg-black/20 border border-blue-500/20 rounded-lg p-2 text-xs text-blue-100 outline-none focus:border-blue-500" onChange={e => onFipeYear(e.target.value)} disabled={fipeYears.length === 0}><option value="">3. Ano</option>{fipeYears.map((y) => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}</select>
+                 <select 
+                    className="w-full bg-gray-900 border border-blue-500/30 rounded-lg p-2.5 text-xs text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                    onChange={e => onFipeBrand(e.target.value)}
+                  >
+                    <option value="" className="bg-gray-900 text-gray-400">1. Marca</option>
+                    {fipeBrands.map((b) => <option key={b.codigo} value={b.codigo} className="bg-gray-900 text-white">{b.nome}</option>)}
+                  </select>
+                 
+                 <select 
+                    className="w-full bg-gray-900 border border-blue-500/30 rounded-lg p-2.5 text-xs text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50" 
+                    onChange={e => onFipeModel(e.target.value)} 
+                    disabled={fipeModels.length === 0}
+                 >
+                    <option value="" className="bg-gray-900 text-gray-400">2. Modelo</option>
+                    {fipeModels.map((m) => <option key={m.codigo} value={m.codigo} className="bg-gray-900 text-white">{m.nome}</option>)}
+                 </select>
+                 
+                 <select 
+                    className="w-full bg-gray-900 border border-blue-500/30 rounded-lg p-2.5 text-xs text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50" 
+                    onChange={e => onFipeYear(e.target.value)} 
+                    disabled={fipeYears.length === 0}
+                 >
+                    <option value="" className="bg-gray-900 text-gray-400">3. Ano</option>
+                    {fipeYears.map((y) => <option key={y.codigo} value={y.codigo} className="bg-gray-900 text-white">{y.nome}</option>)}
+                 </select>
               </div>
            </div>
 
@@ -151,7 +173,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  { label: 'Marca', key: 'make', type: 'text' }, 
                  { label: 'Modelo', key: 'model', type: 'text' }, 
                  { label: 'Placa', key: 'licensePlate', type: 'text', placeholder: 'ABC-1234' },
-                 { label: 'Ano', key: 'year', type: 'number' }, 
+                 { label: 'Ano', key: 'year', type: 'number', hint: '(3200 = Zero KM)' }, 
                  { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'] }, 
                  { label: 'KM', key: 'mileage', type: 'number' }, 
                  { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico','Híbrido'] }, 
@@ -159,7 +181,9 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  { label: 'Cidade', key: 'location', type: 'text', icon: <FaMapMarkerAlt onClick={onGetLocation} className="cursor-pointer text-brand-orange hover:scale-110 transition"/> } 
                ].map((field: any) => (
                  <div key={field.key} className="space-y-1.5">
-                   <label className="text-[10px] font-bold text-gray-500 uppercase">{field.label}</label>
+                   <label className="text-[10px] font-bold text-gray-500 uppercase">
+                     {field.label} {field.hint && <span className="text-gray-600 normal-case ml-1">{field.hint}</span>}
+                   </label>
                    <div className="relative">
                      {field.type === 'select' ? 
                        <select className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none appearance-none" value={(carFormData as any)[field.key] || ''} onChange={e => setCarFormData({...carFormData, [field.key]: e.target.value})}>

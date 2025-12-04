@@ -34,6 +34,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }
   };
 
+  const displayYear = (year: number) => year === 3200 ? 'Zero KM' : year;
+
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
       <SectionHeader 
@@ -77,7 +79,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   {getStatusBadge(c.status || 'available')}
                 </div>
                 <div className="text-xs text-gray-500 mb-1 space-y-0.5">
-                  <p>{c.year} • {c.category}</p>
+                  <p>{displayYear(c.year)} • {c.category}</p>
                   <p className="font-mono text-[10px] text-gray-600">ID: {c.id.slice(0,6)}... | Placa: {c.licensePlate || '-'}</p>
                 </div>
                 <p className="text-brand-orange font-bold text-sm mb-2">R$ {c.price.toLocaleString('pt-BR')}</p>
@@ -125,7 +127,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                     <img src={c.image} className="w-12 h-12 rounded-lg object-cover bg-gray-900 border border-gray-800" />
                     <div>
                       <span className="font-bold text-white block">{c.model}</span>
-                      <span className="text-xs text-brand-orange">{c.make} • {c.year}</span>
+                      <span className="text-xs text-brand-orange">{c.make} • {displayYear(c.year)}</span>
                       <span className="text-[10px] text-gray-500 block font-mono mt-0.5">ID: {c.id.slice(0,8)} • Placa: {c.licensePlate || 'N/A'}</span>
                     </div>
                   </td>

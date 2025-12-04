@@ -79,7 +79,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <div className={iconWrapperClass}><FaCalendarAlt /></div>
               <select id="year" className={selectClass} value={tempFilters.year} onChange={(e) => handleChange(e, 'year')}>
                 <option value="">Ano Mínimo</option>
-                {availableYears.map((year) => (<option key={year} value={year}>{year}</option>))}
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year === 3200 ? 'Zero KM' : year}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

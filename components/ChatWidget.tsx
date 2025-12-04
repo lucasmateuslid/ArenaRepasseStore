@@ -89,7 +89,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
       // 2. Prepara o Estoque (Contexto Dinâmico)
       const inventory = cars.map(c => 
-        `ID:${c.id} | ${c.make} ${c.model} ${c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category} | ${(c.description || '').substring(0, 50)}...`
+        `ID:${c.id} | ${c.make} ${c.model} ${c.year === 3200 ? 'Zero KM' : c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category} | ${(c.description || '').substring(0, 50)}...`
       ).join("\n");
 
       // 3. Define a Persona e Regras
