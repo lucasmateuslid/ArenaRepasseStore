@@ -68,4 +68,5 @@ export interface FilterOptions {
   maxPrice?: string;
   search?: string;
   vehicleType?: string;
+  status?: string; // Novo filtro de status
 }

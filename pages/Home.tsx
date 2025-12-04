@@ -38,7 +38,8 @@ export const Home = () => {
     // Safety timeout to prevent infinite loading
     const timeout = setTimeout(() => setLoading(false), 5000);
     
-    const { data } = await fetchCars(options);
+    // Força o filtro de status 'available' para a página pública
+    const { data } = await fetchCars({ ...options, status: 'available' });
     clearTimeout(timeout);
     
     setCars(data || []);
@@ -55,7 +56,8 @@ export const Home = () => {
 
   useEffect(() => {
     const initData = async () => {
-       const carsRes = await fetchCars({});
+       // Busca carros disponíveis para ofertas
+       const carsRes = await fetchCars({ status: 'available' });
        if (carsRes.data) setSpecialOffersCars(carsRes.data);
        
        const sellersRes = await fetchSellers();

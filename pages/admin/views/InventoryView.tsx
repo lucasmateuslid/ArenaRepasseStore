@@ -69,48 +69,28 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       const kmFormatted = selectedCar.mileage.toLocaleString('pt-BR');
 
       const prompt = `
-      Atue como um vendedor de carros experiente e agressivo. Crie um texto de venda curto, direto e formatado para WhatsApp (estilo lista), enfatizando:
-      • desconto real vs FIPE
-      • urgência
-      • oportunidade única se o preço estiver muito abaixo da FIPE
-      • benefícios com impacto (sem suavizar)
+        Atue como um vendedor de carros experiente. Crie um texto de venda curto, direto e formatado para grupos de WhatsApp (estilo lista).
+        
+        DADOS DO VEÍCULO:
+        Modelo: ${selectedCar.make} ${selectedCar.model}
+        Ano: ${displayYearVal}
+        KM: ${kmFormatted}
+        Preço FIPE: ${fipeFormatted}
+        Preço Venda: ${priceFormatted}
 
-      Calcule e cite na COPIA FINAL o valor do desconto:
-      Desconto = Preço FIPE - Preço Venda
+        DIFERENCIAIS INFORMADOS:
+        ${benefits}
 
-      DADOS DO VEÍCULO:
-      Modelo: ${selectedCar.make} ${selectedCar.model}
-      Ano: ${displayYearVal}
-      KM: ${kmFormatted}
-      Preço FIPE: ${fipeFormatted}
-      Preço Venda: ${priceFormatted}
+        FORMATO OBRIGATÓRIO DE SAÍDA (Não coloque introdução, apenas o texto):
+        [MODELO EM MAIÚSCULO]
+        [ANO] [KM]km
 
-      DIFERENCIAIS INFORMADOS:
-      ${benefits}
+        [Lista de diferenciais, um por linha]
 
-      REGRAS DE TONALIDADE:
-      • Se o valor de venda estiver MUITO abaixo da FIPE (diferença relevante), declarar claramente:
-        OPORTUNIDADE ÚNICA / EXTRA DE VERDADE / ABAIXO DO MERCADO
-      • Sem rodeios, sem suavizar preço
-      • Benefícios devem ser diretos e agressivos (sem detalhes irrelevantes)
+        Fipe [Valor Fipe]
+        Por [Valor Venda]
 
-      FORMATO OBRIGATÓRIO DE SAÍDA (NÃO coloque introdução, apenas texto final):
-      [MODELO EM MAIÚSCULO]
-      [ANO] [KM]km
-
-      [Lista de diferenciais, um por linha]
-
-      Fipe: [Valor Fipe]
-      Por: [Valor Venda]
-      Desconto real: [Valor do desconto calculado]
-
-      Se o desconto for muito expressivo, incluir uma das frases obrigatórias (escolher apenas 1):
-      • OPORTUNIDADE ÚNICA – abaixo da FIPE de verdade
-      • OPORTUNIDADE RARA NO MERCADO – preço fora da curva
-      • DESCONTO AGRESSIVO – sem igual no mercado
-
-      Mensagem final curta, sem negrito e sem emojis:
-      Chame agora mesmo no whatsapp. Prioridade para quem fechar primeiro. Oferta limitada.
+        (Não use asteriscos ** para negrito, o WhatsApp usa *, mas prefira texto limpo. Não adicione emojis excessivos).
       `;
 
       const response = await ai.models.generateContent({

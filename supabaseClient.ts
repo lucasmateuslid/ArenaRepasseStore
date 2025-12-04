@@ -162,6 +162,9 @@ export const fetchCars = async (
     if (filters.make) query = query.eq('make', filters.make);
     if (filters.vehicleType) query = query.eq('vehicleType', filters.vehicleType);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
+    
+    // Filtro de Status
+    if (filters.status) query = query.eq('status', filters.status);
 
     const { data, error } = await query;
     if (error) return { data: [], error };
@@ -188,13 +191,15 @@ export const fetchCars = async (
 };
 
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
-  const { data, error } = await fetchCars({ vehicleType });
+  // Busca apenas marcas de carros DISPONÍVEIS para o filtro
+  const { data, error } = await fetchCars({ vehicleType, status: 'available' });
   if (error || !data) return [];
   return [...new Set(data.map(c => c.make))].sort();
 };
 
 export const fetchAvailableYears = async (vehicleType?: string): Promise<number[]> => {
-  const { data, error } = await fetchCars({ vehicleType });
+  // Busca apenas anos de carros DISPONÍVEIS para o filtro
+  const { data, error } = await fetchCars({ vehicleType, status: 'available' });
   if (error || !data) return [];
   return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
