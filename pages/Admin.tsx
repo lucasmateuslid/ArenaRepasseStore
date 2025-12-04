@@ -6,7 +6,7 @@ import {
   fetchCars, createCar, updateCar, deleteCar, sellCar, uploadCarImage,
   fetchSellers, createSeller, updateSeller, deleteSeller,
   fetchUsers, createUser, deleteUser, 
-  adminCreateUser, adminResetPassword // Novas funções
+  adminCreateUser, adminResetPassword 
 } from '../supabaseClient';
 import { Car, Seller, AppUser } from '../types';
 
@@ -16,13 +16,15 @@ import { InventoryView } from './admin/views/InventoryView';
 import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
 import { ProfileView } from './admin/views/ProfileView';
+import { ReportsView } from './admin/views/ReportsView'; // Nova Importação
 
 export const Admin = () => {
   const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Global Data
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile'>('dashboard');
+  // Atualizado para incluir 'reports' no estado do tab
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports'>('dashboard');
   const [cars, setCars] = useState<Car[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -221,15 +223,12 @@ export const Admin = () => {
            await updateSeller(sellerFormData.id, sellerFormData);
            showNotification('Vendedor atualizado.', 'success');
         } else {
-           // Fluxo de criação de vendedor
-           // 1. Cria usuário 'editor' no Auth (com senha padrao 123456)
            if (sellerFormData.email) {
              const { data: authData, error: authError } = await adminCreateUser(
                sellerFormData.email, 
                sellerFormData.name || 'Vendedor', 
                'editor'
              );
-             
              if (authError) {
                console.warn("Não foi possível criar o login do vendedor:", authError);
                showNotification('Vendedor criado, mas erro ao gerar login: ' + authError.message, 'error');
@@ -237,12 +236,9 @@ export const Admin = () => {
                showNotification('Login de vendedor gerado: ' + sellerFormData.email + ' / 123456', 'success');
              }
            }
-
-           // 2. Cria registro do vendedor
            const { id, ...data } = sellerFormData as any;
            await createSeller({ ...data, active: true });
         }
-        
         setIsCreatingSeller(false);
         setSellerFormData({});
         loadAllData();
@@ -270,12 +266,8 @@ export const Admin = () => {
       try {
         setSaving(true);
         const { name, email, role } = userFormData as any;
-
-        // Cria usuário real no Auth via Edge Function
         const { error } = await adminCreateUser(email, name, role || 'editor');
-        
         if(error) throw error;
-        
         showNotification('Usuário criado com senha padrão "123456".', 'success');
         setIsCreatingUser(false);
         setUserFormData({});
@@ -332,7 +324,6 @@ export const Admin = () => {
     setSelectedBrandCode(codigo);
     const brandName = fipeBrands.find(b => b.codigo === codigo)?.nome;
     if (brandName) setCarFormData(prev => ({ ...prev, make: brandName }));
-    
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`);
     setFipeModels(data.modelos || []);
     setLoadingFipe(false);
@@ -343,7 +334,6 @@ export const Admin = () => {
     setSelectedModelCode(codigo);
     const modelName = fipeModels.find(m => String(m.codigo) === String(codigo))?.nome;
     if(modelName) setCarFormData(prev => ({ ...prev, model: modelName }));
-
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${codigo}/anos`);
     setFipeYears(data || []);
     setLoadingFipe(false);
@@ -355,7 +345,6 @@ export const Admin = () => {
     if (data) {
       const fipePrice = parseFloat(data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.'));
       const fuelMap: Record<string, string> = { 'Gasolina': 'Gasolina', 'Diesel': 'Diesel', 'Ethanol': 'Flex', 'Flex': 'Flex' };
-      
       setCarFormData(prev => ({
         ...prev,
         year: data.AnoModelo,
@@ -404,6 +393,19 @@ export const Admin = () => {
           setActiveTab={setActiveTab as any} 
           isAdmin={isAdmin} 
         />
+      )}
+
+      {/* Nova View de Relatórios */}
+      {activeTab === 'reports' && (
+        isAdmin ? (
+          <ReportsView cars={cars} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+             <i className="fa-solid fa-lock text-4xl mb-4"></i>
+             <h2 className="text-xl font-bold">Acesso Restrito</h2>
+             <p>Apenas administradores podem visualizar relatórios financeiros.</p>
+          </div>
+        )
       )}
 
       {activeTab === 'cars' && (
@@ -464,7 +466,7 @@ export const Admin = () => {
           users={users}
           onSave={handleUserSave}
           onDelete={handleDeleteUser}
-          onResetPassword={handleResetPassword} // Passado para a view
+          onResetPassword={handleResetPassword}
           saving={saving}
           isCreating={isCreatingUser}
           setIsCreating={setIsCreatingUser}
