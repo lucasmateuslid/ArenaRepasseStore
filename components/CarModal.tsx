@@ -25,7 +25,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
   const images = (car.gallery && car.gallery.length > 0) ? car.gallery : [car.image];
   
-  const displayYear = car.year === 3200 ? 'Zero KM' : car.year;
+  const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
   const shareUrl = window.location.href; // Em um SPA sem rotas dinâmicas, compartilhamos a home
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;

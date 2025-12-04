@@ -81,7 +81,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 <option value="">Ano Mínimo</option>
                 {availableYears.map((year) => (
                   <option key={year} value={year}>
-                    {year === 3200 ? 'Zero KM' : year}
+                    {year === 32000 ? 'Zero KM' : year}
                   </option>
                 ))}
               </select>

@@ -71,7 +71,7 @@ export const SpecialOffers: React.FC<SpecialOffersProps> = ({
                   <div className="flex justify-between items-center mb-1">
                      <span className="text-yellow-500 text-xs font-bold uppercase tracking-widest">{car.make}</span>
                      <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded">
-                       {car.year === 3200 ? 'Zero KM' : car.year}
+                       {car.year === 32000 ? 'Zero KM' : car.year}
                      </span>
                   </div>
                   <h3 className="text-xl font-black text-white leading-tight mb-2 group-hover:text-yellow-400 transition-colors truncate">

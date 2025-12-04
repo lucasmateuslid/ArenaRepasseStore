@@ -173,7 +173,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  { label: 'Marca', key: 'make', type: 'text' }, 
                  { label: 'Modelo', key: 'model', type: 'text' }, 
                  { label: 'Placa', key: 'licensePlate', type: 'text', placeholder: 'ABC-1234' },
-                 { label: 'Ano', key: 'year', type: 'number', hint: '(3200 = Zero KM)' }, 
+                 { label: 'Ano', key: 'year', type: 'number', hint: '(32000 = Zero KM)' }, 
                  { label: 'Categoria', key: 'category', type: 'select', opts: ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'] }, 
                  { label: 'KM', key: 'mileage', type: 'number' }, 
                  { label: 'Combustível', key: 'fuel', type: 'select', opts: ['Flex','Gasolina','Diesel','Elétrico','Híbrido'] }, 

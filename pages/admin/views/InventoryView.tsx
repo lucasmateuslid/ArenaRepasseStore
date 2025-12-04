@@ -34,7 +34,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     }
   };
 
-  const displayYear = (year: number) => year === 3200 ? 'Zero KM' : year;
+  const displayYear = (year: number) => year === 32000 ? 'Zero KM' : year;
 
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
