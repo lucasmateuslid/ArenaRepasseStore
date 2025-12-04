@@ -67,7 +67,8 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
                 src={images[selectedImageIndex]} 
                 className="max-w-full max-h-full object-contain" 
                 alt={`${car.model} view ${selectedImageIndex + 1}`}
-                fetchPriority="high"
+                // @ts-ignore
+                fetchpriority="high"
                 loading="eager"
                 decoding="async"
                 onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}

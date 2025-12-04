@@ -38,7 +38,8 @@ export const Hero: React.FC = () => {
             className="relative w-[110%] max-w-none md:w-full md:max-w-3xl md:scale-125 lg:scale-135 drop-shadow-[0_15px_30px_rgba(0,0,0,0.8)] z-10 animate-fade-in transform transition duration-1000 hover:scale-[1.15] md:hover:scale-[1.3] hover:-rotate-1 object-contain"
             width="800"
             height="600"
-            fetchPriority="high"
+            // @ts-ignore
+            fetchpriority="high"
             loading="eager"
           />
 

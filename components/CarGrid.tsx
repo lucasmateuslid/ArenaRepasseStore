@@ -54,7 +54,8 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       alt={car.model} 
                       className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" 
                       loading={isPriority ? "eager" : "lazy"}
-                      fetchPriority={isPriority ? "high" : "low"}
+                      // @ts-ignore
+                      fetchpriority={isPriority ? "high" : "low"}
                       decoding="async"
                       width="400"
                       height="300"
