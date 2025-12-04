@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,14 +15,13 @@ import { InventoryView } from './admin/views/InventoryView';
 import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
 import { ProfileView } from './admin/views/ProfileView';
-import { ReportsView } from './admin/views/ReportsView'; // Nova Importação
+import { ReportsView } from './admin/views/ReportsView'; 
 
 export const Admin = () => {
   const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Global Data
-  // Atualizado para incluir 'reports' no estado do tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports'>('dashboard');
   const [cars, setCars] = useState<Car[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -123,94 +121,100 @@ export const Admin = () => {
 
   const handleCarSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await requireAdmin(async () => {
-      try {
-        setSaving(true);
+    // Removido o bloqueio total requireAdmin() para permitir que consultores salvem vendas.
+    
+    try {
+      setSaving(true);
 
-        if (!carFormData.make || !carFormData.model)
-          throw new Error('Preencha Marca e Modelo');
-
-        const effectivePrice = getNumber(carFormData.price);
-        const effectiveFipe = getNumber(carFormData.fipeprice);
-        const effectiveMileage = getNumber(carFormData.mileage);
-        const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
-        
-        const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
-        const effectiveExpenses = carFormData.expenses || []; 
-
-        const isSold = carFormData.status === 'sold';
-        const effectiveSoldDate =
-          isSold && !carFormData.soldDate
-            ? new Date().toISOString().split('T')[0]
-            : carFormData.soldDate;
-
-        const effectiveSoldPrice = isSold ? getNumber(carFormData.soldPrice) : null;
-        const effectiveSoldBy = isSold ? carFormData.soldBy : null;
-
-        if (isSold) {
-          if (!effectiveSoldPrice) throw new Error('Informe o valor final.');
-          if (!effectiveSoldBy) throw new Error('Selecione o vendedor.');
-        }
-
-        let finalImage = carFormData.image;
-        if (mainImageFile) {
-          const url = await uploadCarImage(mainImageFile);
-          if (!url) throw new Error('Erro no upload da imagem principal.');
-          finalImage = url;
-        }
-
-        if (!finalImage) throw new Error('Foto principal obrigatória.');
-
-        const newGalleryUrls: string[] = [];
-        for (const file of galleryFiles) {
-          const url = await uploadCarImage(file);
-          if (url) newGalleryUrls.push(url);
-        }
-
-        const payload: any = {
-          ...carFormData,
-          price: effectivePrice,
-          fipeprice: effectiveFipe,
-          mileage: effectiveMileage,
-          year: effectiveYear,
-          image: finalImage,
-          gallery: [...(carFormData.gallery || []), ...newGalleryUrls],
-          
-          purchasePrice: effectivePurchasePrice,
-          expenses: effectiveExpenses,
-
-          soldPrice: effectiveSoldPrice,
-          soldDate: effectiveSoldDate,
-          soldBy: effectiveSoldBy,
-          vehicleType,
-          is_active: true,
-          status: carFormData.status || 'available'
-        };
-
-        if (carFormData.id) {
-          await updateCar(carFormData.id, payload);
-          if (isSold) {
-             await sellCar(carFormData.id, {
-                soldPrice: effectiveSoldPrice!,
-                soldDate: effectiveSoldDate!,
-                soldBy: effectiveSoldBy!
-             });
-          }
-        } else {
-          const { id, ...createPayload } = payload;
-          await createCar(createPayload);
-        }
-
-        showNotification('Veículo salvo!', 'success');
-        setIsEditingCar(false);
-        loadAllData();
-
-      } catch (err: any) {
-        showNotification(err.message || 'Erro ao salvar.', 'error');
-      } finally {
-        setSaving(false);
+      // Bloqueia criação de NOVOS carros se não for Admin
+      if (!isAdmin && !carFormData.id) {
+         throw new Error("Apenas administradores podem cadastrar novos veículos.");
       }
-    });
+
+      if (!carFormData.make || !carFormData.model)
+        throw new Error('Preencha Marca e Modelo');
+
+      const effectivePrice = getNumber(carFormData.price);
+      const effectiveFipe = getNumber(carFormData.fipeprice);
+      const effectiveMileage = getNumber(carFormData.mileage);
+      const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
+      
+      const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
+      const effectiveExpenses = carFormData.expenses || []; 
+
+      const isSold = carFormData.status === 'sold';
+      const effectiveSoldDate =
+        isSold && !carFormData.soldDate
+          ? new Date().toISOString().split('T')[0]
+          : carFormData.soldDate;
+
+      const effectiveSoldPrice = isSold ? getNumber(carFormData.soldPrice) : null;
+      const effectiveSoldBy = isSold ? carFormData.soldBy : null;
+
+      if (isSold) {
+        if (!effectiveSoldPrice) throw new Error('Informe o valor final.');
+        if (!effectiveSoldBy) throw new Error('Selecione o vendedor.');
+      }
+
+      let finalImage = carFormData.image;
+      if (mainImageFile) {
+        const url = await uploadCarImage(mainImageFile);
+        if (!url) throw new Error('Erro no upload da imagem principal.');
+        finalImage = url;
+      }
+
+      if (!finalImage) throw new Error('Foto principal obrigatória.');
+
+      const newGalleryUrls: string[] = [];
+      for (const file of galleryFiles) {
+        const url = await uploadCarImage(file);
+        if (url) newGalleryUrls.push(url);
+      }
+
+      const payload: any = {
+        ...carFormData,
+        price: effectivePrice,
+        fipeprice: effectiveFipe,
+        mileage: effectiveMileage,
+        year: effectiveYear,
+        image: finalImage,
+        gallery: [...(carFormData.gallery || []), ...newGalleryUrls],
+        
+        purchasePrice: effectivePurchasePrice,
+        expenses: effectiveExpenses,
+
+        soldPrice: effectiveSoldPrice,
+        soldDate: effectiveSoldDate,
+        soldBy: effectiveSoldBy,
+        vehicleType,
+        is_active: true,
+        status: carFormData.status || 'available'
+      };
+
+      if (carFormData.id) {
+        await updateCar(carFormData.id, payload);
+        if (isSold) {
+           await sellCar(carFormData.id, {
+              soldPrice: effectiveSoldPrice!,
+              soldDate: effectiveSoldDate!,
+              soldBy: effectiveSoldBy!
+           });
+        }
+      } else {
+        // Isso nunca deve ser atingido por não-admin devido ao check inicial
+        const { id, ...createPayload } = payload;
+        await createCar(createPayload);
+      }
+
+      showNotification('Veículo salvo!', 'success');
+      setIsEditingCar(false);
+      loadAllData();
+
+    } catch (err: any) {
+      showNotification(err.message || 'Erro ao salvar.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // --- Handlers: Sellers ---
@@ -219,25 +223,43 @@ export const Admin = () => {
     await requireAdmin(async () => {
       try {
         setSaving(true);
+        if (!sellerFormData.name) throw new Error("Nome do vendedor é obrigatório.");
+        if (!sellerFormData.whatsapp) throw new Error("WhatsApp é obrigatório.");
+        const cleanWhatsapp = sellerFormData.whatsapp.replace(/\D/g, '');
+
         if (sellerFormData.id) {
-           await updateSeller(sellerFormData.id, sellerFormData);
+           await updateSeller(sellerFormData.id, {
+             name: sellerFormData.name,
+             whatsapp: cleanWhatsapp,
+           });
            showNotification('Vendedor atualizado.', 'success');
         } else {
+           let loginMessage = '';
            if (sellerFormData.email) {
-             const { data: authData, error: authError } = await adminCreateUser(
-               sellerFormData.email, 
-               sellerFormData.name || 'Vendedor', 
-               'editor'
-             );
-             if (authError) {
-               console.warn("Não foi possível criar o login do vendedor:", authError);
-               showNotification('Vendedor criado, mas erro ao gerar login: ' + authError.message, 'error');
-             } else {
-               showNotification('Login de vendedor gerado: ' + sellerFormData.email + ' / 123456', 'success');
+             try {
+               const { data: authData, error: authError } = await adminCreateUser(
+                 sellerFormData.email, 
+                 sellerFormData.name, 
+                 'editor'
+               );
+               if (authError) {
+                 console.warn("Erro no Auth:", authError);
+                 loginMessage = ` (Nota: Login não criado - ${authError.message})`;
+               } else {
+                 loginMessage = '. Login gerado (Senha: 123456)';
+               }
+             } catch (authEx) {
+               console.error(authEx);
              }
            }
-           const { id, ...data } = sellerFormData as any;
-           await createSeller({ ...data, active: true });
+           const cleanPayload = {
+             name: sellerFormData.name,
+             whatsapp: cleanWhatsapp,
+             active: true
+           };
+           const { error: dbError } = await createSeller(cleanPayload);
+           if (dbError) throw new Error(dbError.message);
+           showNotification(`Vendedor cadastrado${loginMessage}!`, 'success');
         }
         setIsCreatingSeller(false);
         setSellerFormData({});
@@ -443,6 +465,8 @@ export const Admin = () => {
             loadingFipe={loadingFipe}
             onGetLocation={handleGetLocation}
             sellers={sellers}
+            isAdmin={isAdmin}
+            user={appUser}
           />
         )
       )}
