@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -419,6 +420,7 @@ export const Admin = () => {
           cars={cars}
           sellers={sellers}
           setActiveTab={setActiveTab}
+          isAdmin={isAdmin}
         />
       )}
 

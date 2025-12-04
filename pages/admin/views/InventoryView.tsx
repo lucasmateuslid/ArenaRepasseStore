@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FaPlus, FaFilter, FaTrash, FaBan } from 'react-icons/fa';
 import { Car } from '../../../types';
@@ -135,7 +136,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-white">R$ {c.price.toLocaleString('pt-BR')}</p>
-                    {c.status === 'sold' && <p className="text-[10px] text-green-500">Vendido por: R$ {Number(c.soldPrice).toLocaleString('pt-BR')}</p>}
+                    {c.status === 'sold' && (
+                      <p className={`text-[10px] mt-1 ${isAdmin ? 'text-green-500' : 'text-gray-600'}`}>
+                        Vendido por: {isAdmin ? `R$ ${Number(c.soldPrice).toLocaleString('pt-BR')}` : '****'}
+                      </p>
+                    )}
                   </td>
                   {isAdmin && (
                     <td className="px-6 py-4 text-right">

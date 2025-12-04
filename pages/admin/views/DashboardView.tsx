@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { 
-  FaDollarSign, FaChartPie, FaCar, FaTag, FaTrophy, FaMedal, FaChartLine 
+  FaDollarSign, FaChartPie, FaCar, FaTag, FaTrophy, FaMedal, FaChartLine, FaLock 
 } from 'react-icons/fa';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -14,6 +14,7 @@ interface DashboardViewProps {
   cars: Car[];
   sellers: Seller[];
   setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers') => void;
+  isAdmin: boolean;
 }
 
 // Custom Tooltip for Recharts to match Dark Mode theme
@@ -36,8 +37,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const COLORS = ['#DC2626', '#EA580C', '#D97706', '#65A30D', '#059669', '#0284C7', '#7C3AED', '#DB2777'];
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, setActiveTab }) => {
-  const formatMoney = (val: number) => new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
+export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, setActiveTab, isAdmin }) => {
+  const formatMoney = (val: number) => {
+    if (!isAdmin) return "R$ ****";
+    return new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
+  };
 
   // --- CÁLCULOS ESTATÍSTICOS ---
   const stats = useMemo(() => {
@@ -154,7 +158,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
           title="Faturamento (Mês)" 
           value={formatMoney(stats.revenueThisMonth)} 
           subtext={`${stats.currentMonthCount} vendas este mês`} 
-          trend={stats.revenueTrend}
+          trend={isAdmin ? stats.revenueTrend : 0}
           icon={FaDollarSign} 
           colorClass="text-green-500" 
         />
@@ -184,10 +188,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2. Histórico de Faturamento (Area Chart) */}
-        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px]">
+        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px] relative">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2">
              <FaChartLine /> Tendência de Vendas (6 Meses)
            </h3>
+           
+           {!isAdmin && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
+                 <FaLock className="text-4xl text-gray-500 mb-2"/>
+                 <p className="text-gray-400 font-bold">Acesso Restrito a Administradores</p>
+              </div>
+           )}
+
            <div className="w-full h-[300px]">
              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={stats.last6Months}>
@@ -209,12 +221,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
                   <YAxis 
                     stroke="#9CA3AF" 
                     tick={{fontSize: 10}} 
-                    tickFormatter={(value) => new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value)}
+                    tickFormatter={(value) => isAdmin ? new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value) : '****'}
                     tickLine={false}
                     axisLine={false}
                     dx={-10}
                   />
-                  <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#4B5563', strokeWidth: 1 }} />
+                  {isAdmin && <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#4B5563', strokeWidth: 1 }} />}
                   <Area 
                     type="monotone" 
                     dataKey="value" 
@@ -230,10 +242,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
         </div>
 
         {/* 3. Top Vendedores (List) */}
-        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px]">
+        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px] relative">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
              <FaTrophy className="text-yellow-500"/> Ranking de Vendas
            </h3>
+
+           {!isAdmin && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
+                 <FaLock className="text-4xl text-gray-500 mb-2"/>
+                 <p className="text-gray-400 font-bold">Acesso Restrito</p>
+              </div>
+           )}
+
            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
              {stats.ranking.length === 0 ? <p className="text-gray-600 text-sm">Nenhuma venda registrada.</p> :
                stats.ranking.map((seller, index) => (
@@ -247,7 +267,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
                        <p className="text-xs font-bold text-white truncate">{seller.name}</p>
                        <p className="text-[10px] text-gray-500">{seller.count} veículos vendidos</p>
                     </div>
-                    <p className="text-xs font-bold text-green-500">{formatMoney(seller.total)}</p>
+                    <p className="text-xs font-bold text-green-500">{isAdmin ? formatMoney(seller.total) : '****'}</p>
                  </div>
                ))
              }

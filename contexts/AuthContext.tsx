@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { AppUser } from '../types';
@@ -62,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'viewer',
       };
     } catch (err) {
-      console.warn('Erro ao buscar perfil:', err);
+      console.warn('Erro ao buscar perfil (provável RLS):', err);
 
       setIsAdmin(false);
 
