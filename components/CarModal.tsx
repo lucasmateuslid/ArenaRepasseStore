@@ -39,12 +39,54 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const shareUrl = generateShareUrl();
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
-  const handleCopyLink = () => {
-    const textToCopy = `${shareText} Acesse: ${shareUrl}`;
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopyStatus('Copiado!');
-      setTimeout(() => setCopyStatus('Copiar Link'), 2000);
-    });
+  const handleCopyLink = async () => {
+    const textToCopy = shareUrl; // Copia apenas a URL para ser mais útil
+
+    // Função interna para o método antigo (funciona em HTTP/IP local)
+    const copyFallback = (text: string) => {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      // Evita scroll ao inserir elemento
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      document.body.appendChild(textArea);
+      
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          setCopyStatus('Copiado!');
+        } else {
+          setCopyStatus('Erro');
+        }
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        setCopyStatus('Erro');
+      }
+      
+      document.body.removeChild(textArea);
+    };
+
+    // Tenta API moderna primeiro (Requer HTTPS)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        setCopyStatus('Copiado!');
+      } catch (err) {
+        console.warn('Clipboard API falhou, tentando fallback...', err);
+        copyFallback(textToCopy);
+      }
+    } else {
+      // Fallback imediato se não for contexto seguro
+      copyFallback(textToCopy);
+    }
+
+    // Reset do texto do botão após 2.5 segundos
+    setTimeout(() => setCopyStatus('Copiar Link'), 2500);
   };
 
   const shareToSocial = (platform: 'whatsapp' | 'facebook' | 'twitter') => {
@@ -147,8 +189,18 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
               <button onClick={() => shareToSocial('facebook')} className="flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-blue-600/30">
                 <i className="fa-brands fa-facebook text-base"></i> Facebook
               </button>
-              <button onClick={handleCopyLink} className="flex items-center justify-center gap-2 bg-gray-700/30 hover:bg-gray-700 text-gray-400 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-gray-700">
-                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : 'fa-link'}`}></i> {copyStatus}
+              <button 
+                onClick={handleCopyLink} 
+                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition text-xs font-bold border ${
+                  copyStatus === 'Copiado!' 
+                    ? 'bg-green-500 text-white border-green-500' 
+                    : copyStatus === 'Erro'
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'bg-gray-700/30 hover:bg-gray-700 text-gray-400 hover:text-white border-gray-700'
+                }`}
+              >
+                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : copyStatus === 'Erro' ? 'fa-exclamation-circle' : 'fa-link'}`}></i> 
+                {copyStatus}
               </button>
             </div>
           </div>
