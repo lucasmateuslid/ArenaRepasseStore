@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { 
   FaDollarSign, FaChartPie, FaCar, FaTag, FaTrophy, FaMedal, FaChartLine, FaLock 
@@ -17,11 +16,11 @@ interface DashboardViewProps {
   isAdmin: boolean;
 }
 
-// Custom Tooltip for Recharts to match Dark Mode theme
+// Custom Tooltip for Area Chart
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-brand-surface border border-gray-700 p-3 rounded-lg shadow-xl">
+      <div className="bg-brand-surface border border-gray-700 p-3 rounded-lg shadow-xl z-50">
         <p className="text-gray-400 text-xs font-bold mb-1">{label}</p>
         <p className="text-brand-orange font-black text-sm">
           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payload[0].value)}
@@ -29,6 +28,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload[0].payload.count !== undefined && (
           <p className="text-gray-500 text-xs mt-1">{payload[0].payload.count} vendas</p>
         )}
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom Tooltip for Pie Chart
+const CustomPieTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-brand-surface border border-gray-700 p-3 rounded-lg shadow-xl z-50">
+        <p className="text-white font-bold text-sm mb-1">{data.name}</p>
+        <p className="text-brand-orange text-xs font-bold">
+          {data.value} Veículos ({((data.percent || 0) * 100).toFixed(0)}%)
+        </p>
       </div>
     );
   }
@@ -188,21 +203,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2. Histórico de Faturamento (Area Chart) */}
-        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px] relative">
+        <div className="lg:col-span-2 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col relative h-[420px]">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2">
              <FaChartLine /> Tendência de Vendas (6 Meses)
            </h3>
            
            {!isAdmin && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl border border-gray-700">
                  <FaLock className="text-4xl text-gray-500 mb-2"/>
                  <p className="text-gray-400 font-bold">Acesso Restrito a Administradores</p>
               </div>
            )}
 
-           <div className="w-full h-[300px]">
+           <div className="w-full flex-1 min-h-0">
              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.last6Months}>
+                <AreaChart data={stats.last6Months} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#DC2626" stopOpacity={0.4}/>
@@ -213,14 +228,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
                   <XAxis 
                     dataKey="label" 
                     stroke="#9CA3AF" 
-                    tick={{fontSize: 12}} 
+                    tick={{fontSize: 12, fill: '#9CA3AF'}} 
                     tickLine={false}
                     axisLine={false}
                     dy={10}
                   />
                   <YAxis 
                     stroke="#9CA3AF" 
-                    tick={{fontSize: 10}} 
+                    tick={{fontSize: 10, fill: '#9CA3AF'}} 
                     tickFormatter={(value) => isAdmin ? new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(value) : '****'}
                     tickLine={false}
                     axisLine={false}
@@ -235,6 +250,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
                     fillOpacity={1} 
                     fill="url(#colorValue)" 
                     activeDot={{ r: 6, fill: '#fff', stroke: '#DC2626', strokeWidth: 2 }}
+                    animationDuration={1500}
                   />
                 </AreaChart>
              </ResponsiveContainer>
@@ -242,29 +258,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
         </div>
 
         {/* 3. Top Vendedores (List) */}
-        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col h-[400px] relative">
+        <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col relative h-[420px]">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
              <FaTrophy className="text-yellow-500"/> Ranking de Vendas
            </h3>
 
            {!isAdmin && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl border border-gray-700">
                  <FaLock className="text-4xl text-gray-500 mb-2"/>
                  <p className="text-gray-400 font-bold">Acesso Restrito</p>
               </div>
            )}
 
            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
-             {stats.ranking.length === 0 ? <p className="text-gray-600 text-sm">Nenhuma venda registrada.</p> :
+             {stats.ranking.length === 0 ? <p className="text-gray-600 text-sm italic">Nenhuma venda registrada neste período.</p> :
                stats.ranking.map((seller, index) => (
-                 <div key={index} className="flex items-center gap-3 p-3 bg-black/20 rounded-xl border border-gray-800/50 hover:border-brand-orange/30 transition">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg border border-gray-700
+                 <div key={index} className="flex items-center gap-3 p-3 bg-black/20 rounded-xl border border-gray-800/50 hover:border-brand-orange/30 transition group">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg border border-gray-700 transition-transform group-hover:scale-110
                       ${index === 0 ? 'bg-yellow-500 text-black' : index === 1 ? 'bg-gray-400 text-black' : index === 2 ? 'bg-amber-700 text-white' : 'bg-gray-800 text-gray-400'}
                     `}>
                       {index < 3 ? <FaMedal/> : index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                       <p className="text-xs font-bold text-white truncate">{seller.name}</p>
+                       <p className="text-xs font-bold text-white truncate group-hover:text-brand-orange transition-colors">{seller.name}</p>
                        <p className="text-[10px] text-gray-500">{seller.count} veículos vendidos</p>
                     </div>
                     <p className="text-xs font-bold text-green-500">{isAdmin ? formatMoney(seller.total) : '****'}</p>
@@ -279,11 +295,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Distribuição por Categoria (Pie Chart) */}
-        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px] flex flex-col">
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[400px] flex flex-col">
            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
              <FaChartPie /> Estoque por Categoria
            </h3>
-           <div className="w-full h-[250px]">
+           <div className="w-full flex-1 min-h-0">
              {stats.pieData.length > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -301,76 +317,80 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ cars, sellers, set
                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                      </Pie>
-                     <RechartsTooltip 
-                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#374151', borderRadius: '8px' }}
-                        itemStyle={{ color: '#fff', fontSize: '12px' }}
-                     />
+                     <RechartsTooltip content={<CustomPieTooltip />} />
                      <Legend 
                         layout="horizontal" 
                         verticalAlign="bottom" 
                         align="center"
                         iconSize={8}
-                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px', color: '#9CA3AF' }}
                      />
                   </PieChart>
                </ResponsiveContainer>
              ) : (
-               <div className="flex items-center justify-center h-full text-gray-600 text-sm">Sem dados de estoque.</div>
+               <div className="flex flex-col items-center justify-center h-full text-gray-600 text-sm gap-2">
+                  <FaCar className="text-2xl opacity-20"/>
+                  <span>Sem dados de estoque.</span>
+               </div>
              )}
            </div>
         </div>
 
         {/* Campeões de Vendas */}
-        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px]">
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[400px]">
           <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2"><FaMedal /> Campeões de Vendas</h3>
           <div className="space-y-4">
-             <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+             <div className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800/50 hover:border-blue-500/30 transition">
                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-blue-500/20 text-blue-500 rounded-lg"><FaTag/></div>
-                   <div><p className="text-[10px] text-gray-500 uppercase">Marca + Vendida</p><p className="font-bold text-white">{stats.topBrand[0]}</p></div>
+                   <div className="p-3 bg-blue-500/20 text-blue-500 rounded-lg"><FaTag/></div>
+                   <div><p className="text-[10px] text-gray-500 uppercase font-bold">Marca Favorita</p><p className="font-black text-white text-lg">{stats.topBrand[0]}</p></div>
                 </div>
-                <span className="text-xs font-bold text-gray-400">{stats.topBrand[1]} un.</span>
+                <span className="text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">{stats.topBrand[1]} un.</span>
              </div>
-             <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+             <div className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800/50 hover:border-purple-500/30 transition">
                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-purple-500/20 text-purple-500 rounded-lg"><FaCar/></div>
-                   <div><p className="text-[10px] text-gray-500 uppercase">Modelo + Vendido</p><p className="font-bold text-white">{stats.topModel[0]}</p></div>
+                   <div className="p-3 bg-purple-500/20 text-purple-500 rounded-lg"><FaCar/></div>
+                   <div><p className="text-[10px] text-gray-500 uppercase font-bold">Modelo Top 1</p><p className="font-black text-white text-lg">{stats.topModel[0]}</p></div>
                 </div>
-                <span className="text-xs font-bold text-gray-400">{stats.topModel[1]} un.</span>
+                <span className="text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">{stats.topModel[1]} un.</span>
              </div>
-             <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+             <div className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-gray-800/50 hover:border-orange-500/30 transition">
                 <div className="flex items-center gap-3">
-                   <div className="p-2 bg-orange-500/20 text-orange-500 rounded-lg"><FaChartPie/></div>
-                   <div><p className="text-[10px] text-gray-500 uppercase">Categoria Favorita</p><p className="font-bold text-white">{stats.topCategory[0]}</p></div>
+                   <div className="p-3 bg-orange-500/20 text-orange-500 rounded-lg"><FaChartPie/></div>
+                   <div><p className="text-[10px] text-gray-500 uppercase font-bold">Categoria Líder</p><p className="font-black text-white text-lg">{stats.topCategory[0]}</p></div>
                 </div>
-                <span className="text-xs font-bold text-gray-400">{stats.topCategory[1]} un.</span>
+                <span className="text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">{stats.topCategory[1]} un.</span>
              </div>
           </div>
         </div>
 
         {/* Resumo Rápido Estoque */}
-        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[350px] flex flex-col justify-between">
+        <div className="lg:col-span-1 bg-brand-surface border border-gray-800 rounded-2xl p-6 shadow-xl h-[400px] flex flex-col justify-between">
            <div className="flex items-center justify-between mb-4">
-             <h3 className="text-sm font-bold text-gray-400 uppercase flex items-center gap-2"><FaCar /> Status Geral</h3>
-             <button onClick={() => setActiveTab('cars')} className="text-xs text-brand-orange hover:underline">Ver Inventário</button>
+             <h3 className="text-sm font-bold text-gray-400 uppercase flex items-center gap-2"><FaCar /> Status da Frota</h3>
+             <button onClick={() => setActiveTab('cars')} className="text-xs text-brand-orange hover:text-white transition font-bold uppercase hover:underline">Ver Detalhes</button>
            </div>
            
-           <div className="grid grid-cols-2 gap-4">
-              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
-                 <p className="text-3xl font-black text-white">{stats.availableCount}</p>
-                 <p className="text-[10px] uppercase text-gray-500">Disponíveis</p>
+           <div className="grid grid-cols-2 gap-4 h-full">
+              <div className="bg-black/20 p-4 rounded-xl border border-gray-800 text-center flex flex-col justify-center items-center hover:bg-black/30 transition group cursor-pointer" onClick={() => setActiveTab('cars')}>
+                 <p className="text-4xl font-black text-white group-hover:scale-110 transition-transform">{stats.availableCount}</p>
+                 <div className="w-8 h-1 bg-blue-500 rounded-full my-2"></div>
+                 <p className="text-[10px] uppercase font-bold text-gray-500">Disponíveis</p>
               </div>
-              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
-                 <p className="text-3xl font-black text-orange-500">{stats.maintenanceCount}</p>
-                 <p className="text-[10px] uppercase text-gray-500">Manutenção</p>
+              <div className="bg-black/20 p-4 rounded-xl border border-gray-800 text-center flex flex-col justify-center items-center hover:bg-black/30 transition group">
+                 <p className="text-4xl font-black text-orange-500 group-hover:scale-110 transition-transform">{stats.maintenanceCount}</p>
+                 <div className="w-8 h-1 bg-orange-500 rounded-full my-2"></div>
+                 <p className="text-[10px] uppercase font-bold text-gray-500">Manutenção</p>
               </div>
-              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
-                 <p className="text-3xl font-black text-gray-500">{stats.unavailableCount}</p>
-                 <p className="text-[10px] uppercase text-gray-500">Indisponíveis</p>
+              <div className="bg-black/20 p-4 rounded-xl border border-gray-800 text-center flex flex-col justify-center items-center hover:bg-black/30 transition group">
+                 <p className="text-4xl font-black text-gray-500 group-hover:scale-110 transition-transform">{stats.unavailableCount}</p>
+                 <div className="w-8 h-1 bg-gray-500 rounded-full my-2"></div>
+                 <p className="text-[10px] uppercase font-bold text-gray-500">Indisponíveis</p>
               </div>
-              <div className="bg-black/20 p-4 rounded-lg border border-gray-800 text-center flex flex-col justify-center h-24">
-                 <p className="text-3xl font-black text-green-500">{stats.salesCount}</p>
-                 <p className="text-[10px] uppercase text-gray-500">Total Vendido</p>
+              <div className="bg-black/20 p-4 rounded-xl border border-gray-800 text-center flex flex-col justify-center items-center hover:bg-black/30 transition group">
+                 <p className="text-4xl font-black text-green-500 group-hover:scale-110 transition-transform">{stats.salesCount}</p>
+                 <div className="w-8 h-1 bg-green-500 rounded-full my-2"></div>
+                 <p className="text-[10px] uppercase font-bold text-gray-500">Total Vendido</p>
               </div>
            </div>
         </div>
