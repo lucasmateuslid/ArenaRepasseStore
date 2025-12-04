@@ -14,11 +14,15 @@ const envUrl = getEnv("VITE_SUPABASE_URL") || getEnv("SUPABASE_URL");
 const envKey = getEnv("VITE_SUPABASE_ANON_KEY") || getEnv("SUPABASE_ANON_KEY");
 
 // Fallback seguro para evitar crash da aplicação se as chaves não estiverem configuradas
-const SUPABASE_URL = (envUrl && !envUrl.includes('Sua_URL')) ? envUrl : "https://placeholder.supabase.co";
-const SUPABASE_KEY = (envKey && !envKey.includes('Sua_Key')) ? envKey : "placeholder-key";
+// Verifica se a URL é válida e não é o placeholder padrão do arquivo de exemplo
+const isValidUrl = (url: string) => url && url.startsWith('http') && !url.includes('sua-url');
+
+const SUPABASE_URL = isValidUrl(envUrl) ? envUrl : "https://placeholder.supabase.co";
+const SUPABASE_KEY = (envKey && !envKey.includes('sua-chave')) ? envKey : "placeholder-key";
 
 if (SUPABASE_URL === "https://placeholder.supabase.co") {
-  console.warn("⚠ AVISO: Credenciais do Supabase não encontradas. O app está rodando em modo offline/demo.");
+  console.warn("⚠ AVISO: Credenciais do Supabase não encontradas ou inválidas.");
+  console.warn("⚠ O app está rodando em modo OFFLINE/DEMO. Edite o arquivo .env com suas chaves reais.");
 }
 
 // ============================================================================
@@ -52,10 +56,16 @@ export interface ApiListResponse<T> {
 // ============================================================================
 
 export const signIn = async (email: string, password: string): Promise<ApiResponse<any>> => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") {
+    return { data: null, error: { message: "Modo Demo: Configure o .env para fazer login." } };
+  }
   return supabase.auth.signInWithPassword({ email, password });
 };
 
 export const signUp = async (email: string, password: string): Promise<ApiResponse<any>> => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") {
+    return { data: null, error: { message: "Modo Demo: Cadastro indisponível." } };
+  }
   return supabase.auth.signUp({ email, password });
 };
 
@@ -72,6 +82,8 @@ export const fetchCars = async (
   filters: FilterOptions = {}
 ): Promise<ApiListResponse<Car>> => {
   try {
+    if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
+
     let query = supabase
       .from('cars')
       .select('*')
@@ -126,17 +138,20 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
 // ============================================================================
 
 export const createCar = async (car: Omit<Car, 'id'>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { id, ...clean } = car as any;
   const { data, error } = await supabase.from('cars').insert([clean]).select().single();
   return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteCar = async (id: string) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { error } = await supabase.from('cars').delete().eq('id', id);
   return { data: null, error };
 };
@@ -146,6 +161,8 @@ export const sellCar = async (
   salesData: { soldPrice: number; soldDate: string; soldBy: string }
 ) => {
   try {
+    if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
+
     // Tenta usar Edge Function se disponível
     try {
       const { data, error } = await supabase.functions.invoke("sell-car-api", {
@@ -169,21 +186,25 @@ export const sellCar = async (
 // ============================================================================
 
 export const fetchSellers = async () => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
   const { data, error } = await supabase.from('sellers').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('sellers').insert([seller]).select().single();
   return { data, error };
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteSeller = async (id: string) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { error } = await supabase.from('sellers').delete().eq('id', id);
   return { data: null, error };
 };
@@ -193,21 +214,25 @@ export const deleteSeller = async (id: string) => {
 // ============================================================================
 
 export const fetchUsers = async () => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
   const { data, error } = await supabase.from('app_users').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('app_users').insert([user]).select().single();
   return { data, error };
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteUser = async (id: string) => {
+  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { error } = await supabase.from('app_users').delete().eq('id', id);
   return { data: null, error };
 };
@@ -218,6 +243,8 @@ export const deleteUser = async (id: string) => {
 
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
+    if (SUPABASE_URL === "https://placeholder.supabase.co") return "https://via.placeholder.com/800x600?text=Demo+Image";
+
     const ext = file.name.split('.').pop();
     const fileName = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
