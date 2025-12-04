@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -133,7 +134,7 @@ export const Admin = () => {
         const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
         
         const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
-        const effectiveExpenses = carFormData.expenses || [];
+        const effectiveExpenses = carFormData.expenses || []; // Garante array
 
         const isSold = carFormData.status === 'sold';
         const effectiveSoldDate =

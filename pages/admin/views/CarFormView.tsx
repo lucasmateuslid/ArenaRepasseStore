@@ -84,26 +84,38 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
   };
 
   const handleAddExpense = () => {
-    if (!newExpense.description || !newExpense.amount) return;
+    if (!newExpense.description || newExpense.description.trim() === "") {
+        alert("Por favor, informe a descrição da despesa.");
+        return;
+    }
+    if (!newExpense.amount || Number(newExpense.amount) <= 0) {
+        alert("Por favor, informe um valor válido para a despesa.");
+        return;
+    }
 
     const expense: CarExpense = {
       id: crypto.randomUUID(),
       description: newExpense.description!,
       amount: Number(newExpense.amount),
       date: newExpense.date || new Date().toISOString(),
-      type: newExpense.type as any || 'other'
+      type: newExpense.type as any || 'maintenance'
     };
 
     const currentExpenses = carFormData.expenses || [];
-    setCarFormData({ ...carFormData, expenses: [...currentExpenses, expense] });
+    const updatedExpenses = [...currentExpenses, expense];
     
-    // Reset form
+    // Atualiza o estado global do formulário
+    setCarFormData({ ...carFormData, expenses: updatedExpenses });
+    
+    // Reset form local
     setNewExpense({ description: '', amount: 0, type: 'maintenance', date: new Date().toISOString().split('T')[0] });
   };
 
   const handleRemoveExpense = (id: string) => {
-    const currentExpenses = carFormData.expenses || [];
-    setCarFormData({ ...carFormData, expenses: currentExpenses.filter(e => e.id !== id) });
+    if(window.confirm("Remover esta despesa?")) {
+        const currentExpenses = carFormData.expenses || [];
+        setCarFormData({ ...carFormData, expenses: currentExpenses.filter(e => e.id !== id) });
+    }
   };
 
   return (
@@ -483,6 +495,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                </table>
             </div>
           </div>
+          <p className="text-xs text-gray-500 text-center italic">* Lembre-se de clicar em "Salvar Alterações" no rodapé para gravar as despesas.</p>
         </div>
       )}
 
