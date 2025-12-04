@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   fetchCars, createCar, updateCar, deleteCar, sellCar, uploadCarImage,
   fetchSellers, createSeller, updateSeller, deleteSeller,
-  fetchUsers, createUser, deleteUser
+  fetchUsers, createUser, deleteUser, 
+  adminCreateUser, adminResetPassword // Novas funções
 } from '../supabaseClient';
 import { Car, Seller, AppUser } from '../types';
 
@@ -45,7 +46,6 @@ export const Admin = () => {
   const [fipeYears, setFipeYears] = useState<any[]>([]);
   const [loadingFipe, setLoadingFipe] = useState(false);
   
-  // Helpers for FIPE selection tracking
   const [selectedBrandCode, setSelectedBrandCode] = useState('');
   const [selectedModelCode, setSelectedModelCode] = useState('');
 
@@ -134,7 +134,7 @@ export const Admin = () => {
         const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
         
         const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
-        const effectiveExpenses = carFormData.expenses || []; // Garante array
+        const effectiveExpenses = carFormData.expenses || []; 
 
         const isSold = carFormData.status === 'sold';
         const effectiveSoldDate =
@@ -215,18 +215,42 @@ export const Admin = () => {
   const handleSellerSave = async (e: React.FormEvent) => {
     e.preventDefault();
     await requireAdmin(async () => {
-      setSaving(true);
-      if (sellerFormData.id) {
-         await updateSeller(sellerFormData.id, sellerFormData);
-      } else {
-         const { id, ...data } = sellerFormData as any;
-         await createSeller({ ...data, active: true });
+      try {
+        setSaving(true);
+        if (sellerFormData.id) {
+           await updateSeller(sellerFormData.id, sellerFormData);
+           showNotification('Vendedor atualizado.', 'success');
+        } else {
+           // Fluxo de criação de vendedor
+           // 1. Cria usuário 'editor' no Auth (com senha padrao 123456)
+           if (sellerFormData.email) {
+             const { data: authData, error: authError } = await adminCreateUser(
+               sellerFormData.email, 
+               sellerFormData.name || 'Vendedor', 
+               'editor'
+             );
+             
+             if (authError) {
+               console.warn("Não foi possível criar o login do vendedor:", authError);
+               showNotification('Vendedor criado, mas erro ao gerar login: ' + authError.message, 'error');
+             } else {
+               showNotification('Login de vendedor gerado: ' + sellerFormData.email + ' / 123456', 'success');
+             }
+           }
+
+           // 2. Cria registro do vendedor
+           const { id, ...data } = sellerFormData as any;
+           await createSeller({ ...data, active: true });
+        }
+        
+        setIsCreatingSeller(false);
+        setSellerFormData({});
+        loadAllData();
+      } catch (err: any) {
+        showNotification('Erro: ' + err.message, 'error');
+      } finally {
+        setSaving(false);
       }
-      setSaving(false);
-      setIsCreatingSeller(false);
-      setSellerFormData({});
-      loadAllData();
-      showNotification('Vendedor salvo.', 'success');
     });
   };
 
@@ -243,24 +267,43 @@ export const Admin = () => {
   const handleUserSave = async (e: React.FormEvent) => {
     e.preventDefault();
     await requireAdmin(async () => {
-      setSaving(true);
-      const { id, ...data } = userFormData as any;
-      const { error } = await createUser(data);
-      if(error) showNotification('Erro ao convidar: ' + error.message, 'error');
-      else showNotification('Usuário convidado.', 'success');
-      
-      setSaving(false);
-      setIsCreatingUser(false);
-      setUserFormData({});
-      loadAllData();
+      try {
+        setSaving(true);
+        const { name, email, role } = userFormData as any;
+
+        // Cria usuário real no Auth via Edge Function
+        const { error } = await adminCreateUser(email, name, role || 'editor');
+        
+        if(error) throw error;
+        
+        showNotification('Usuário criado com senha padrão "123456".', 'success');
+        setIsCreatingUser(false);
+        setUserFormData({});
+        loadAllData();
+      } catch (err: any) {
+        showNotification('Erro ao criar usuário: ' + err.message, 'error');
+      } finally {
+        setSaving(false);
+      }
     });
   };
 
   const handleDeleteUser = (id: string) => {
-    if (window.confirm('Remover acesso deste usuário?')) {
+    if (window.confirm('Remover acesso e deletar usuário?')) {
       requireAdmin(async () => {
         await deleteUser(id);
+        showNotification('Usuário removido.', 'success');
         loadAllData();
+      });
+    }
+  };
+
+  const handleResetPassword = async (id: string) => {
+    if (window.confirm('Resetar a senha deste usuário para "123456"?')) {
+      requireAdmin(async () => {
+         const { error } = await adminResetPassword(id);
+         if (error) showNotification('Erro ao resetar senha.', 'error');
+         else showNotification('Senha resetada para "123456".', 'success');
       });
     }
   };
@@ -421,6 +464,7 @@ export const Admin = () => {
           users={users}
           onSave={handleUserSave}
           onDelete={handleDeleteUser}
+          onResetPassword={handleResetPassword} // Passado para a view
           saving={saving}
           isCreating={isCreatingUser}
           setIsCreating={setIsCreatingUser}

@@ -27,7 +27,10 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   
   const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
-  const shareUrl = window.location.href; // Em um SPA sem rotas dinâmicas, compartilhamos a home
+  // Geração de URL Específica para Deep Linking
+  const baseUrl = window.location.href.split('?')[0]; // Pega a URL base sem query params antigos
+  const shareUrl = `${baseUrl}?carId=${car.id}`;
+  
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
   const handleCopyLink = () => {

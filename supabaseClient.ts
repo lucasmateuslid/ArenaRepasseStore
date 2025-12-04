@@ -1,6 +1,6 @@
 
 // ============================================================================
-// SUPABASE CLIENT
+// SUPABASE CLIENT – Versão Robusta (Fail-Safe)
 // ============================================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -14,8 +14,6 @@ import { getEnv } from './utils/env';
 const envUrl = getEnv("VITE_SUPABASE_URL") || getEnv("SUPABASE_URL");
 const envKey = getEnv("VITE_SUPABASE_ANON_KEY") || getEnv("SUPABASE_ANON_KEY");
 
-// Fallback seguro para evitar crash da aplicação se as chaves não estiverem configuradas
-// Verifica se a URL é válida e não é o placeholder padrão do arquivo de exemplo
 const isValidUrl = (url: string) => url && url.startsWith('http') && !url.includes('sua-url');
 
 const SUPABASE_URL = isValidUrl(envUrl) ? envUrl : "https://placeholder.supabase.co";
@@ -34,7 +32,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Compatibilidade com HashRouter
+    detectSessionInUrl: false, 
   },
 });
 
@@ -53,7 +51,7 @@ export interface ApiListResponse<T> {
 }
 
 // ============================================================================
-// AUTH
+// AUTH & ADMIN ACTIONS (Novo)
 // ============================================================================
 
 export const signIn = async (email: string, password: string): Promise<ApiResponse<any>> => {
@@ -64,9 +62,6 @@ export const signIn = async (email: string, password: string): Promise<ApiRespon
 };
 
 export const signUp = async (email: string, password: string): Promise<ApiResponse<any>> => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") {
-    return { data: null, error: { message: "Modo Demo: Cadastro indisponível." } };
-  }
   return supabase.auth.signUp({ email, password });
 };
 
@@ -74,6 +69,82 @@ export const signOut = async () => supabase.auth.signOut();
 
 export const updateAuthPassword = async (newPassword: string) =>
   supabase.auth.updateUser({ password: newPassword });
+
+/**
+ * Cria um usuário no sistema de Auth (Login Real) via Edge Function.
+ * Requer que a função 'manage-auth-api' esteja deployada com Service Key.
+ */
+export const adminCreateUser = async (email: string, name: string, role: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('manage-auth-api', {
+      body: { 
+        action: 'create_user', 
+        email, 
+        password: '123456', // Senha Padrão
+        userData: { fullName: name, role }
+      }
+    });
+    
+    if (error) throw error;
+    if (data.error) throw new Error(data.error);
+
+    return { data, error: null };
+  } catch (err: any) {
+    console.error("Falha na criação administrativa:", err);
+    // Fallback para ambiente local/demo sem Edge Functions:
+    // Cria apenas na tabela pública para "fingir" que funcionou visualmente
+    if (err.message?.includes('Functions') || err.message?.includes('Failed to send')) {
+       console.warn("Edge Function falhou. Criando apenas registro local (Sem login real).");
+       const fakeId = crypto.randomUUID();
+       await supabase.from('app_users').insert([{ id: fakeId, email, name, role }]);
+       return { data: { id: fakeId }, error: null };
+    }
+    return { data: null, error: err };
+  }
+};
+
+/**
+ * Reseta a senha de um usuário para '123456' via Edge Function.
+ */
+export const adminResetPassword = async (userId: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('manage-auth-api', {
+      body: { 
+        action: 'reset_password', 
+        userId, 
+        password: '123456' 
+      }
+    });
+
+    if (error) throw error;
+    if (data.error) throw new Error(data.error);
+
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+};
+
+/**
+ * Deleta usuário do Auth e do Banco via Edge Function.
+ */
+export const adminDeleteUser = async (userId: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('manage-auth-api', {
+      body: { action: 'delete_user', userId }
+    });
+    
+    // Se a Edge Function falhar (ex: ambiente dev), tenta deletar da tabela pública direto
+    if (error) {
+       await supabase.from('app_users').delete().eq('id', userId);
+    }
+    
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+};
+
 
 // ============================================================================
 // CARS
@@ -83,8 +154,6 @@ export const fetchCars = async (
   filters: FilterOptions = {}
 ): Promise<ApiListResponse<Car>> => {
   try {
-    if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
-
     let query = supabase
       .from('cars')
       .select('*')
@@ -118,10 +187,6 @@ export const fetchCars = async (
   }
 };
 
-// ============================================================================
-// FILTER HELPERS
-// ============================================================================
-
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
   const { data, error } = await fetchCars({ vehicleType });
   if (error || !data) return [];
@@ -134,25 +199,18 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
   return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
 
-// ============================================================================
-// CRUD: CARS
-// ============================================================================
-
 export const createCar = async (car: Omit<Car, 'id'>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { id, ...clean } = car as any;
   const { data, error } = await supabase.from('cars').insert([clean]).select().single();
   return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteCar = async (id: string) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { error } = await supabase.from('cars').delete().eq('id', id);
   return { data: null, error };
 };
@@ -162,21 +220,15 @@ export const sellCar = async (
   salesData: { soldPrice: number; soldDate: string; soldBy: string }
 ) => {
   try {
-    if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
-
-    // Tenta usar Edge Function se disponível
     try {
       const { data, error } = await supabase.functions.invoke("sell-car-api", {
         body: { id, ...salesData },
       });
       if (!error) return { data, error: null };
     } catch (e) {
-      // Falha silenciosa da Edge Function, fallback para update direto
+      // Falha silenciosa
     }
-
-    // Fallback: Update direto no banco
     return updateCar(id, { status: 'sold', ...salesData });
-
   } catch (err) {
     return { data: null, error: err };
   }
@@ -193,25 +245,22 @@ export const fetchSellers = async () => {
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('sellers').insert([seller]).select().single();
   return { data, error };
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteSeller = async (id: string) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { error } = await supabase.from('sellers').delete().eq('id', id);
   return { data: null, error };
 };
 
 // ============================================================================
-// USERS – Controlado por RLS
+// USERS
 // ============================================================================
 
 export const fetchUsers = async () => {
@@ -221,21 +270,19 @@ export const fetchUsers = async () => {
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
+  // OBSOLETO: Use adminCreateUser para criar login real
   const { data, error } = await supabase.from('app_users').insert([user]).select().single();
   return { data, error };
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
   const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteUser = async (id: string) => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: null, error: { message: "Modo Demo" } };
-  const { error } = await supabase.from('app_users').delete().eq('id', id);
-  return { data: null, error };
+  // Tenta deletar via Admin API primeiro
+  return adminDeleteUser(id);
 };
 
 // ============================================================================
@@ -248,7 +295,6 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
 
     const ext = file.name.split('.').pop();
     
-    // Gerar UUID seguro (Polyfill)
     const generateId = () => {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom'; // Importado para gerenciar URL
 import { Car, FilterOptions, Seller } from '../types';
 import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears } from '../supabaseClient';
 
@@ -25,6 +26,9 @@ export const Home = () => {
   const [tempFilters, setTempFilters] = useState({ make: '', maxPrice: '', year: '', vehicleType: '' });
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  
+  // URL Params Management
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Vendedores State
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -66,6 +70,18 @@ export const Home = () => {
     loadInventory();
   }, []);
 
+  // --- DEEP LINKING LOGIC ---
+  // Verifica se existe um ID na URL assim que os carros terminam de carregar
+  useEffect(() => {
+    const carIdFromUrl = searchParams.get('carId');
+    if (!loading && cars.length > 0 && carIdFromUrl && !selectedCar) {
+      const foundCar = cars.find(c => c.id === carIdFromUrl);
+      if (foundCar) {
+        setSelectedCar(foundCar);
+      }
+    }
+  }, [loading, cars, searchParams]);
+
   // Recarregar marcas e anos quando o tipo de veículo muda no filtro visual
   useEffect(() => {
     loadFiltersData(tempFilters.vehicleType);
@@ -98,9 +114,29 @@ export const Home = () => {
   const resetApp = () => {
     setTempFilters({make:'', maxPrice:'', year:'', vehicleType: ''});
     setSearchTerm('');
+    setSearchParams({}); // Limpa URL
     loadInventory();
     window.scrollTo(0,0);
   }
+
+  // --- MODAL HANDLERS ---
+  const handleOpenModal = (car: Car) => {
+    setSelectedCar(car);
+    // Atualiza a URL sem recarregar a página
+    setSearchParams(prev => {
+      prev.set('carId', car.id);
+      return prev;
+    });
+  };
+
+  const handleCloseModal = () => {
+    setSelectedCar(null);
+    // Remove o ID da URL
+    setSearchParams(prev => {
+      prev.delete('carId');
+      return prev;
+    });
+  };
 
   // Lógica de sorteio de vendedor
   const getRandomSeller = () => {
@@ -144,7 +180,7 @@ export const Home = () => {
       {specialOffersCars.length > 0 && (
         <SpecialOffers 
           cars={specialOffersCars} 
-          openModal={setSelectedCar} 
+          openModal={handleOpenModal} 
           handleWhatsApp={handleWhatsApp} 
           formatCurrency={formatCurrency} 
         />
@@ -162,7 +198,7 @@ export const Home = () => {
         cars={cars}
         visibleCars={visibleCars}
         loading={loading}
-        openModal={setSelectedCar}
+        openModal={handleOpenModal}
         handleWhatsApp={handleWhatsApp}
         observerRef={observerTarget}
         resetFilters={resetApp}
@@ -170,7 +206,7 @@ export const Home = () => {
       />
       <CarModal 
         car={selectedCar}
-        onClose={() => setSelectedCar(null)}
+        onClose={handleCloseModal}
         handleWhatsApp={handleWhatsApp}
         formatCurrency={formatCurrency}
       />
@@ -179,7 +215,7 @@ export const Home = () => {
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
         cars={specialOffersCars.length > 0 ? specialOffersCars : cars} 
-        openModal={setSelectedCar}
+        openModal={handleOpenModal}
         formatCurrency={formatCurrency}
       />
     </div>

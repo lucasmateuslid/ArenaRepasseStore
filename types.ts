@@ -50,6 +50,7 @@ export interface AppUser {
 export interface Seller {
   id: string;
   name: string;
+  email?: string; // Novo campo para login
   whatsapp: string;
   active: boolean;
   created_at?: string;
