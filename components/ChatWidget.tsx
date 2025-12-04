@@ -15,7 +15,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   isChatOpen, setIsChatOpen, cars, openModal, formatCurrency 
 }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Olá! Sou o Caio, consultor especialista da Arena Repasse.\n\nEstou aqui para encontrar a melhor oportunidade para você. O que procura hoje?' }
+    { role: 'model', text: 'Olá! Sou a Alice, consultora especialista da Arena Repasse.\n\nEstou aqui para encontrar a melhor oportunidade para você. O que procura hoje?' }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -94,7 +94,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
       // 3. Define a Persona e Regras
       const systemInstruction = `
-VOCÊ É Caio, consultor especialista da Arena Repasse.
+VOCÊ É Alice, consultora especialista da Arena Repasse.
 
 OBJETIVO: Vender carros do estoque abaixo.
 ESTOQUE ATUAL (Use apenas estes dados):
@@ -116,7 +116,7 @@ REGRAS DE RESPOSTA (JSON):
 4. Se for conversa fiada, mande "car_ids": [].
 
 IDENTIDADE:
-- Vendedor experiente, ágil e educado.
+- Vendedora experiente, ágil e educada.
 - Use gatilhos mentais.
 
 PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
@@ -191,14 +191,14 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
           <div className="bg-gradient-to-r from-brand-darkRed to-black p-4 flex items-center gap-3 border-b border-gray-700 shadow-md">
             <div className="relative">
               <div className="w-10 h-10 bg-brand-surface rounded-full flex items-center justify-center text-brand-orange text-lg border-2 border-brand-orange">
-                <i className="fa-solid fa-user-tie"></i>
+                <i className="fa-solid fa-headset"></i>
               </div>
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-black"></div>
             </div>
 
             <div>
-              <h4 className="font-bold text-white text-sm">Caio - Arena Repasse</h4>
-              <p className="text-[10px] text-gray-400">Consultor Inteligente</p>
+              <h4 className="font-bold text-white text-sm">Alice - Arena Repasse</h4>
+              <p className="text-[10px] text-gray-400">Consultora Inteligente</p>
             </div>
 
             <button onClick={() => setIsChatOpen(false)} className="ml-auto text-gray-400 hover:text-white">
@@ -267,7 +267,7 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></span>
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-75"></span>
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-150"></span>
-                <span className="ml-1">Caio está digitando...</span>
+                <span className="ml-1">Alice está digitando...</span>
               </div>
             )}
 
