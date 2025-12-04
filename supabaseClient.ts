@@ -1,3 +1,4 @@
+
 // ============================================================================
 // SUPABASE CLIENT
 // ============================================================================
@@ -246,7 +247,19 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
     if (SUPABASE_URL === "https://placeholder.supabase.co") return "https://via.placeholder.com/800x600?text=Demo+Image";
 
     const ext = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
+    
+    // Gerar UUID seguro (Polyfill)
+    const generateId = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
+    const fileName = `${Date.now()}_${generateId()}.${ext}`;
 
     const { error } = await supabase.storage.from('car-images').upload(fileName, file);
     if (error) throw error;

@@ -30,6 +30,17 @@ interface CarFormViewProps {
   sellers: Seller[];
 }
 
+// Função utilitária para gerar ID compatível com todos os navegadores/ambientes
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const CarFormView: React.FC<CarFormViewProps> = ({
   carFormData, setCarFormData, mainImagePreview, setMainImagePreview,
   galleryFiles, setGalleryFiles, setMainImageFile, onSave, onCancel, saving,
@@ -94,7 +105,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
     }
 
     const expense: CarExpense = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       description: newExpense.description!,
       amount: Number(newExpense.amount),
       date: newExpense.date || new Date().toISOString(),
@@ -125,24 +136,24 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
       <h2 className="text-2xl font-black text-white">{carFormData.id ? 'Gerenciar Veículo' : 'Novo Cadastro'}</h2>
       
-      <div className="flex bg-black/30 p-1 rounded-xl">
+      <div className="flex bg-black/30 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
         <button 
           type="button"
           onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'details' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === 'details' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
         >
-          <FaCar className="inline mr-2"/> Detalhes & Fotos
+          <FaCar className="inline mr-2"/> Detalhes
         </button>
         <button 
           type="button"
           onClick={() => setActiveTab('financial')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'financial' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+          className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === 'financial' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
         >
-          <FaChartLine className="inline mr-2"/> Financeiro & Histórico
+          <FaChartLine className="inline mr-2"/> Financeiro
         </button>
       </div>
 
-      <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white p-2 bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center"><FaTimes/></button>
+      <button type="button" onClick={onCancel} className="hidden md:flex text-gray-400 hover:text-white p-2 bg-gray-800 rounded-full w-10 h-10 items-center justify-center"><FaTimes/></button>
     </div>
 
     <form onSubmit={onSave} className="space-y-6">
@@ -370,8 +381,8 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
       {activeTab === 'financial' && (
         <div className="space-y-6 animate-fade-in">
           
-          {/* Card Resumo Financeiro */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Card Resumo Financeiro - Responsivo Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-brand-surface border border-gray-800 p-5 rounded-2xl flex flex-col justify-between">
               <span className="text-[10px] font-bold text-gray-500 uppercase">Valor de Compra (Entrada)</span>
               <div className="flex items-center gap-2 mt-2">
@@ -424,12 +435,12 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
           </div>
 
           {/* Lista e Adição de Despesas */}
-          <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6">
+          <div className="bg-brand-surface border border-gray-800 rounded-2xl p-4 md:p-6">
             <h3 className="font-bold text-white text-lg mb-4 flex items-center gap-2"><FaTools/> Histórico de Manutenção e Gastos</h3>
             
-            {/* Form Adicionar Despesa */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-black/20 p-4 rounded-xl border border-gray-800 mb-6">
-               <div className="md:col-span-2 space-y-1">
+            {/* Form Adicionar Despesa - Responsivo Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-black/20 p-4 rounded-xl border border-gray-800 mb-6">
+               <div className="lg:col-span-2 space-y-1">
                  <label className="text-[10px] font-bold text-gray-500 uppercase">Descrição</label>
                  <input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-orange outline-none" placeholder="Ex: Funilaria porta direita" value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
                </div>
@@ -446,7 +457,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  <label className="text-[10px] font-bold text-gray-500 uppercase">Valor (R$)</label>
                  <input type="number" step="0.01" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-orange outline-none" placeholder="0.00" value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
                </div>
-               <div className="flex items-end">
+               <div className="flex items-end sm:col-span-2 lg:col-span-1">
                  <button type="button" onClick={handleAddExpense} className="w-full h-10 bg-brand-orange hover:bg-red-600 text-white font-bold rounded-lg text-xs uppercase flex items-center justify-center gap-2 transition">
                    <FaPlus/> Adicionar
                  </button>
@@ -455,7 +466,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
 
             {/* Tabela de Despesas */}
             <div className="overflow-x-auto">
-               <table className="w-full text-left border-collapse">
+               <table className="w-full text-left border-collapse min-w-[600px] md:min-w-full">
                  <thead>
                    <tr className="text-[10px] uppercase text-gray-500 border-b border-gray-800">
                      <th className="py-2 px-4">Data</th>
@@ -500,7 +511,7 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
       )}
 
       {/* Footer Buttons */}
-      <div className="flex justify-end gap-4 pt-6 border-t border-gray-800 mt-6 sticky bottom-0 bg-brand-dark/95 backdrop-blur p-4 z-20">
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-800 mt-6 sticky bottom-0 bg-brand-dark/95 backdrop-blur p-4 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
           <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400 font-bold text-xs uppercase hover:bg-gray-800 transition">Cancelar</button>
           <button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange text-white font-bold text-xs uppercase shadow-glow hover:bg-red-600 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-2">
               {saving ? <FaChevronRight className="animate-spin"/> : <FaSave/>} Salvar Alterações
