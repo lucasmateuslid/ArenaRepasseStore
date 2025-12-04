@@ -122,7 +122,7 @@ export const Home = () => {
   // --- MODAL HANDLERS ---
   const handleOpenModal = (car: Car) => {
     setSelectedCar(car);
-    // Atualiza a URL sem recarregar a página
+    // Atualiza a URL sem recarregar a página para permitir compartilhamento
     setSearchParams(prev => {
       prev.set('carId', car.id);
       return prev;
@@ -131,7 +131,7 @@ export const Home = () => {
 
   const handleCloseModal = () => {
     setSelectedCar(null);
-    // Remove o ID da URL
+    // Remove o ID da URL ao fechar
     setSearchParams(prev => {
       prev.delete('carId');
       return prev;
@@ -153,7 +153,12 @@ export const Home = () => {
     let text = `Olá ${sellerName}! Gostaria de saber mais sobre as ofertas do Arena Repasse.`;
     
     if (car) {
-      text = `Olá ${sellerName}! Estou interessado no carro: *${car.make} ${car.model} ${car.year}* (ID: ${car.id}). Gostaria de mais informações.`;
+      // Gera o link direto para o carro
+      const origin = window.location.origin;
+      const pathname = window.location.pathname;
+      const carLink = `${origin}${pathname}#/?carId=${car.id}`;
+      
+      text = `Olá ${sellerName}! Estou interessado no carro: *${car.make} ${car.model} ${car.year}* (ID: ${car.id}).\n\nLink do Veículo: ${carLink}\n\nGostaria de mais informações.`;
     }
     
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;

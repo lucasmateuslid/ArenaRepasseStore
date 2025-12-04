@@ -27,10 +27,16 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   
   const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
-  // Geração de URL Específica para Deep Linking
-  const baseUrl = window.location.href.split('?')[0]; // Pega a URL base sem query params antigos
-  const shareUrl = `${baseUrl}?carId=${car.id}`;
-  
+  // Geração de URL Específica para Deep Linking (Compatível com HashRouter)
+  // Formato desejado: https://site.com/#/?carId=uuid
+  const generateShareUrl = () => {
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+    // Garante que não duplique hashes e insere o parametro corretamente
+    return `${origin}${pathname}#/?carId=${car.id}`;
+  };
+
+  const shareUrl = generateShareUrl();
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
   const handleCopyLink = () => {
