@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
