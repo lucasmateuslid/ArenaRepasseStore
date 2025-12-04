@@ -1,162 +1,126 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import { 
-  fetchCars, createCar, updateCar, deleteCar, uploadCarImage, 
-  fetchUsers, createUser, updateUser, deleteUser, 
-  fetchSellers, createSeller, updateSeller, deleteSeller,
-  sellCar
-} from '../supabaseClient';
-
-import { Car, AppUser, Seller } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  fetchCars, createCar, updateCar, deleteCar, sellCar, uploadCarImage,
+  fetchSellers, createSeller, updateSeller, deleteSeller,
+  fetchUsers, createUser, deleteUser
+} from '../supabaseClient';
+import { Car, Seller, AppUser } from '../types';
 
-// UI Layout
 import { AdminLayout } from './admin/Layout';
-
-// Views
 import { DashboardView } from './admin/views/DashboardView';
 import { InventoryView } from './admin/views/InventoryView';
 import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
 import { ProfileView } from './admin/views/ProfileView';
 
-// FIPE Interfaces
-interface FipeBrand { codigo: string; nome: string; }
-interface FipeModel { codigo: number; nome: string; }
-interface FipeYear { codigo: string; nome: string; }
-interface FipeResult { Valor: string; Marca: string; Modelo: string; AnoModelo: number; Combustivel: string; }
-
 export const Admin = () => {
-  const { appUser, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // Global Data
   const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile'>('dashboard');
-
-  // Data
   const [cars, setCars] = useState<Car[]>([]);
-  const [users, setUsers] = useState<AppUser[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
 
-  // UI
-  const [saving, setSaving] = useState(false);
-  const [notification, setNotification] =
-    useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  // Inventory View State
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Car Form
+  // Car Form State
   const [isEditingCar, setIsEditingCar] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [carFormData, setCarFormData] = useState<Partial<Car>>({});
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
-  // Users & Sellers
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [userFormData, setUserFormData] = useState<Partial<AppUser>>({ role: 'editor' });
-
-  const [isCreatingSeller, setIsCreatingSeller] = useState(false);
-  const [sellerFormData, setSellerFormData] = useState<Partial<Seller>>({ active: true });
-
-  // FIPE
-  const [fipeBrands, setFipeBrands] = useState<FipeBrand[]>([]);
-  const [fipeModels, setFipeModels] = useState<FipeModel[]>([]);
-  const [fipeYears, setFipeYears] = useState<FipeYear[]>([]);
-  const [loadingFipe, setLoadingFipe] = useState(false);
+  // FIPE State
   const [vehicleType, setVehicleType] = useState('carros');
-  const [selectedFipeBrand, setSelectedFipeBrand] = useState('');
-  const [selectedFipeModel, setSelectedFipeModel] = useState('');
+  const [fipeBrands, setFipeBrands] = useState<any[]>([]);
+  const [fipeModels, setFipeModels] = useState<any[]>([]);
+  const [fipeYears, setFipeYears] = useState<any[]>([]);
+  const [loadingFipe, setLoadingFipe] = useState(false);
+  
+  // Helpers for FIPE selection tracking
+  const [selectedBrandCode, setSelectedBrandCode] = useState('');
+  const [selectedModelCode, setSelectedModelCode] = useState('');
 
-  // 📌 Centraliza verificação de admin (melhoria importante)
-  const requireAdmin = useCallback(
-    (callback: Function) => {
-      if (!isAdmin) {
-        showNotification('Ação restrita a administradores.', 'error');
-        return;
-      }
-      return callback();
-    },
-    [isAdmin]
-  );
+  // People State
+  const [isCreatingSeller, setIsCreatingSeller] = useState(false);
+  const [sellerFormData, setSellerFormData] = useState<Partial<Seller>>({});
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [userFormData, setUserFormData] = useState<Partial<AppUser>>({});
 
-  // Notifications
+  // --- Helpers ---
   const showNotification = (msg: string, type: 'success' | 'error') => {
     setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 5000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
-  // Safe number parse
-  const getNumber = (val: any): number => {
+  const getNumber = (val: any) => {
     if (!val) return 0;
-    const num = Number(val);
-    return isNaN(num) ? 0 : num;
+    if (typeof val === 'number') return val;
+    return Number(val) || 0;
   };
 
-  // Load Data
-  const loadAllData = useCallback(async () => {
-    setDataLoading(true);
-    try {
-      const carsPromise = fetchCars({});
-      const sellersPromise = fetchSellers();
-      const usersPromise = isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null });
-
-      const [carsRes, usersRes, sellersRes] = await Promise.all([
-        carsPromise, usersPromise, sellersPromise
-      ]);
-
-      if (!carsRes.error) setCars(carsRes.data || []);
-      setSellers(sellersRes.data || []);
-      if (isAdmin) setUsers(usersRes.data || []);
-    } catch (error) {
-      console.error(error);
-      showNotification('Erro ao carregar dados.', 'error');
-    } finally {
-      setDataLoading(false);
+  const requireAdmin = async (callback: () => Promise<void>) => {
+    if (!isAdmin) {
+      showNotification('Acesso negado. Apenas administradores.', 'error');
+      return;
     }
+    await callback();
+  };
+
+  // --- Data Loading ---
+  const loadAllData = useCallback(async () => {
+    const [carsData, sellersData, usersData] = await Promise.all([
+      fetchCars(),
+      fetchSellers(),
+      isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
+    ]);
+
+    if (carsData.data) setCars(carsData.data);
+    if (sellersData.data) setSellers(sellersData.data);
+    if (usersData.data) setUsers(usersData.data);
   }, [isAdmin]);
 
-  // FIPE Loading
-  const loadFipeBrands = useCallback(async () => {
-    try {
-      setFipeBrands([]);
-      const res = await fetch(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`);
-      setFipeBrands(await res.json());
-    } catch {
-      showNotification('Erro ao carregar FIPE.', 'error');
-    }
-  }, [vehicleType]);
-
-  // Effect: Load Data
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
 
-  // Effect: FIPE
-  useEffect(() => {
-    loadFipeBrands();
-  }, [loadFipeBrands]);
-
-  // Protege aba de usuários
-  useEffect(() => {
-    if (activeTab === 'users' && !isAdmin) {
-      setActiveTab('dashboard');
-      showNotification('Acesso restrito a administradores.', 'error');
-    }
-  }, [activeTab, isAdmin]);
-
-  // Logout
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+  // --- Handlers: Car ---
+  const handleNewCar = () => {
+    setCarFormData({ status: 'available', gallery: [] });
+    setMainImageFile(null);
+    setMainImagePreview(null);
+    setGalleryFiles([]);
+    setIsEditingCar(true);
   };
 
-  // 📌 Car Save (refatorado)
+  const handleEditCar = (car: Car) => {
+    setCarFormData({ ...car });
+    setMainImagePreview(car.image);
+    setMainImageFile(null);
+    setGalleryFiles([]);
+    setIsEditingCar(true);
+  };
+
+  const handleDeleteCar = (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
+      requireAdmin(async () => {
+        await deleteCar(id);
+        showNotification('Veículo excluído.', 'success');
+        loadAllData();
+      });
+    }
+  };
+
   const handleCarSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    return requireAdmin(async () => {
+    await requireAdmin(async () => {
       try {
         setSaving(true);
 
@@ -167,6 +131,9 @@ export const Admin = () => {
         const effectiveFipe = getNumber(carFormData.fipeprice);
         const effectiveMileage = getNumber(carFormData.mileage);
         const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
+        
+        const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
+        const effectiveExpenses = carFormData.expenses || [];
 
         const isSold = carFormData.status === 'sold';
         const effectiveSoldDate =
@@ -191,13 +158,13 @@ export const Admin = () => {
 
         if (!finalImage) throw new Error('Foto principal obrigatória.');
 
-        const newGalleryUrls = [];
+        const newGalleryUrls: string[] = [];
         for (const file of galleryFiles) {
           const url = await uploadCarImage(file);
           if (url) newGalleryUrls.push(url);
         }
 
-        const payload = {
+        const payload: any = {
           ...carFormData,
           price: effectivePrice,
           fipeprice: effectiveFipe,
@@ -205,6 +172,10 @@ export const Admin = () => {
           year: effectiveYear,
           image: finalImage,
           gallery: [...(carFormData.gallery || []), ...newGalleryUrls],
+          
+          purchasePrice: effectivePurchasePrice,
+          expenses: effectiveExpenses,
+
           soldPrice: effectiveSoldPrice,
           soldDate: effectiveSoldDate,
           soldBy: effectiveSoldBy,
@@ -215,14 +186,16 @@ export const Admin = () => {
 
         if (carFormData.id) {
           await updateCar(carFormData.id, payload);
-          if (isSold) await sellCar(carFormData.id, {
-            soldPrice: effectiveSoldPrice!,
-            soldDate: effectiveSoldDate!,
-            soldBy: effectiveSoldBy!
-          });
+          if (isSold) {
+             await sellCar(carFormData.id, {
+                soldPrice: effectiveSoldPrice!,
+                soldDate: effectiveSoldDate!,
+                soldBy: effectiveSoldBy!
+             });
+          }
         } else {
           const { id, ...createPayload } = payload;
-          await createCar(createPayload as any);
+          await createCar(createPayload);
         }
 
         showNotification('Veículo salvo!', 'success');
@@ -237,280 +210,216 @@ export const Admin = () => {
     });
   };
 
-  const handleCarDelete = (id: string) => 
-    requireAdmin(async () => {
-      if (confirm('Excluir veículo permanentemente?')) {
-        const { error } = await deleteCar(id);
-        if (error) showNotification(error.message, 'error');
-        else {
-          showNotification('Veículo removido.', 'success');
-          loadAllData();
-        }
-      }
-    });
-
-  const toggleCarStatus = (car: Car) =>
-    requireAdmin(async () => {
-      const newStatus = car.status === 'sold' ? 'available' : 'sold';
-      await updateCar(car.id, { status: newStatus });
-      loadAllData();
-    });
-
-  // Sellers CRUD
-  const handleSellerSave = (e: React.FormEvent) => {
+  // --- Handlers: Sellers ---
+  const handleSellerSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    return requireAdmin(async () => {
+    await requireAdmin(async () => {
       setSaving(true);
-      const { error } = await createSeller(sellerFormData as any);
-      if (error) showNotification(error.message, 'error');
-      else {
-        showNotification('Consultor cadastrado!', 'success');
-        setIsCreatingSeller(false);
-        loadAllData();
+      if (sellerFormData.id) {
+         await updateSeller(sellerFormData.id, sellerFormData);
+      } else {
+         const { id, ...data } = sellerFormData as any;
+         await createSeller({ ...data, active: true });
       }
       setSaving(false);
+      setIsCreatingSeller(false);
+      setSellerFormData({});
+      loadAllData();
+      showNotification('Vendedor salvo.', 'success');
     });
   };
 
-  const handleSellerDelete = (id: string) =>
-    requireAdmin(async () => {
-      if (confirm('Remover?')) {
+  const handleDeleteSeller = (id: string) => {
+    if (window.confirm('Excluir vendedor?')) {
+      requireAdmin(async () => {
         await deleteSeller(id);
         loadAllData();
-      }
-    });
-
-  // Users CRUD
-  const handleUserSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    return requireAdmin(async () => {
-      setSaving(true);
-      const { error } = await createUser(userFormData as any);
-      if (error) showNotification(error.message, 'error');
-      else {
-        showNotification('Usuário autorizado!', 'success');
-        setIsCreatingUser(false);
-        loadAllData();
-      }
-      setSaving(false);
-    });
-  };
-
-  const handleUserDelete = (id: string) =>
-    requireAdmin(async () => {
-      if (confirm('Revogar acesso?')) {
-        await deleteUser(id);
-        loadAllData();
-      }
-    });
-
-  // FIPE
-  const handleFipeBrand = async (codigo: string) => {
-    setSelectedFipeBrand(codigo);
-    setSelectedFipeModel('');
-    setFipeModels([]);
-
-    if (!codigo) return;
-    setLoadingFipe(true);
-    const res = await fetch(
-      `https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`
-    );
-    const data = await res.json();
-    setFipeModels(data.modelos);
-    setLoadingFipe(false);
-  };
-
-  const handleFipeModel = async (codigo: string) => {
-    setSelectedFipeModel(codigo);
-    setFipeYears([]);
-
-    if (!codigo) return;
-    setLoadingFipe(true);
-    const res = await fetch(
-      `https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedFipeBrand}/modelos/${codigo}/anos`
-    );
-    setFipeYears(await res.json());
-    setLoadingFipe(false);
-  };
-
-  const handleFipeYear = async (codigo: string) => {
-    if (!codigo) return;
-    setLoadingFipe(true);
-
-    try {
-      const res = await fetch(
-        `https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedFipeBrand}/modelos/${selectedFipeModel}/anos/${codigo}`
-      );
-
-      const data: FipeResult = await res.json();
-      const val = parseFloat(
-        data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.')
-      );
-
-      const autoDetectCategory = (modelName: string) => {
-        const name = modelName.toLowerCase();
-        if (vehicleType === 'motos') return 'Moto';
-        if (vehicleType === 'caminhoes') return 'Caminhão';
-        if (name.includes('hilux') || name.includes('s10') || name.includes('ranger') || name.includes('toro'))
-          return 'Pickup';
-        if (name.includes('suv') || name.includes('compass') || name.includes('creta'))
-          return 'SUV';
-        if (name.includes('sedan') || name.includes('corolla') || name.includes('civic'))
-          return 'Sedan';
-        return 'Hatch';
-      };
-
-      setCarFormData(prev => ({
-        ...prev,
-        make: data.Marca,
-        model: data.Modelo,
-        year: data.AnoModelo,
-        fipeprice: val,
-        fuel: data.Combustivel,
-        category: autoDetectCategory(data.Modelo)
-      }));
-    } finally {
-      setLoadingFipe(false);
+      });
     }
   };
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) return showNotification("Indisponível", 'error');
-
-    setLoadingLocation(true);
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
-        );
-
-        const data = await res.json();
-        const city = data.address.city || data.address.town || data.address.municipality;
-        const state = data.address.state_code || data.address.state;
-
-        setCarFormData(prev => ({
-          ...prev,
-          location: `${city}, ${state}`
-        }));
-
-        showNotification("Localização obtida!", 'success');
-      } catch {
-        showNotification("Erro ao obter endereço", 'error');
-      } finally {
-        setLoadingLocation(false);
-      }
+  // --- Handlers: Users ---
+  const handleUserSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await requireAdmin(async () => {
+      setSaving(true);
+      const { id, ...data } = userFormData as any;
+      const { error } = await createUser(data);
+      if(error) showNotification('Erro ao convidar: ' + error.message, 'error');
+      else showNotification('Usuário convidado.', 'success');
+      
+      setSaving(false);
+      setIsCreatingUser(false);
+      setUserFormData({});
+      loadAllData();
     });
   };
 
-  // PROTEÇÃO GLOBAL
-  if (authLoading) return <div>Carregando autenticação...</div>;
-  if (!appUser) return <div>Carregando perfil...</div>;
+  const handleDeleteUser = (id: string) => {
+    if (window.confirm('Remover acesso deste usuário?')) {
+      requireAdmin(async () => {
+        await deleteUser(id);
+        loadAllData();
+      });
+    }
+  };
+
+  // --- FIPE Logic ---
+  const fetchFipe = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    if (isEditingCar) {
+      setLoadingFipe(true);
+      fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`)
+        .then(data => { setFipeBrands(data); setLoadingFipe(false); });
+    }
+  }, [vehicleType, isEditingCar]);
+
+  const onFipeBrandWrapper = async (codigo: string) => {
+    setLoadingFipe(true);
+    setSelectedBrandCode(codigo);
+    const brandName = fipeBrands.find(b => b.codigo === codigo)?.nome;
+    if (brandName) setCarFormData(prev => ({ ...prev, make: brandName }));
+    
+    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`);
+    setFipeModels(data.modelos || []);
+    setLoadingFipe(false);
+  };
+
+  const onFipeModelWrapper = async (codigo: string) => {
+    setLoadingFipe(true);
+    setSelectedModelCode(codigo);
+    const modelName = fipeModels.find(m => String(m.codigo) === String(codigo))?.nome;
+    if(modelName) setCarFormData(prev => ({ ...prev, model: modelName }));
+
+    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${codigo}/anos`);
+    setFipeYears(data || []);
+    setLoadingFipe(false);
+  };
+
+  const onFipeYearWrapper = async (codigo: string) => {
+    setLoadingFipe(true);
+    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${selectedModelCode}/anos/${codigo}`);
+    if (data) {
+      const fipePrice = parseFloat(data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.'));
+      const fuelMap: Record<string, string> = { 'Gasolina': 'Gasolina', 'Diesel': 'Diesel', 'Ethanol': 'Flex', 'Flex': 'Flex' };
+      
+      setCarFormData(prev => ({
+        ...prev,
+        year: data.AnoModelo,
+        fuel: fuelMap[data.Combustivel] || data.Combustivel,
+        fipeprice: fipePrice
+      }));
+    }
+    setLoadingFipe(false);
+  };
+
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+          const data = await res.json();
+          const city = data.address.city || data.address.town || data.address.village;
+          const state = data.address.state_district || data.address.state;
+          if(city) setCarFormData(prev => ({ ...prev, location: `${city}, ${state || ''}` }));
+        } catch (e) {
+          showNotification('Erro ao obter localização.', 'error');
+        }
+      });
+    } else {
+      showNotification('Geolocalização não suportada.', 'error');
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
-    <AdminLayout
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      appUser={appUser}
+    <AdminLayout 
+      activeTab={activeTab as any} 
+      setActiveTab={setActiveTab as any} 
+      appUser={appUser} 
       handleLogout={handleLogout}
       notification={notification}
     >
-      
       {activeTab === 'dashboard' && (
-        <DashboardView
-          cars={cars}
-          sellers={sellers}
-          setActiveTab={setActiveTab}
-          isAdmin={isAdmin}
+        <DashboardView 
+          cars={cars} 
+          sellers={sellers} 
+          setActiveTab={setActiveTab as any} 
+          isAdmin={isAdmin} 
         />
       )}
 
-      {activeTab === 'profile' && (
-        <ProfileView
-          appUser={appUser}
-          showNotification={showNotification}
-        />
-      )}
-
-      {activeTab === 'cars' && !isEditingCar && (
-        <InventoryView
-          cars={cars}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          isAdmin={isAdmin}
-          onNew={() => {
-            requireAdmin(() => {
-              setCarFormData({
-                gallery: [],
-                is_active: true,
-                category: 'Hatch',
-                status: 'available',
-                vehicleType: 'carros'
-              });
-              setMainImagePreview(null);
-              setMainImageFile(null);
-              setGalleryFiles([]);
-              setIsEditingCar(true);
-            });
-          }}
-          onEdit={(c: Car) => {
-            requireAdmin(() => {
-              setCarFormData({ ...c });
-              setVehicleType(c.vehicleType || 'carros');
-              setMainImagePreview(c.image);
-              setGalleryFiles([]);
-              setIsEditingCar(true);
-            });
-          }}
-          onDelete={handleCarDelete}
-          onToggleStatus={toggleCarStatus}
-        />
-      )}
-
-      {activeTab === 'cars' && isEditingCar && (
-        <CarFormView
-          carFormData={carFormData}
-          setCarFormData={setCarFormData}
-          mainImagePreview={mainImagePreview}
-          setMainImagePreview={setMainImagePreview}
-          galleryFiles={galleryFiles}
-          setGalleryFiles={setGalleryFiles}
-          setMainImageFile={setMainImageFile}
-          onSave={handleCarSave}
-          onCancel={() => setIsEditingCar(false)}
-          saving={saving}
-          vehicleType={vehicleType}
-          setVehicleType={setVehicleType}
-          fipeBrands={fipeBrands}
-          fipeModels={fipeModels}
-          fipeYears={fipeYears}
-          onFipeBrand={handleFipeBrand}
-          onFipeModel={handleFipeModel}
-          onFipeYear={handleFipeYear}
-          loadingFipe={loadingFipe}
-          onGetLocation={handleGetLocation}
-          sellers={sellers}
-        />
+      {activeTab === 'cars' && (
+        !isEditingCar ? (
+          <InventoryView 
+            cars={cars} 
+            searchTerm={searchTerm} 
+            setSearchTerm={setSearchTerm}
+            onNew={handleNewCar}
+            onEdit={handleEditCar}
+            onDelete={handleDeleteCar}
+            onToggleStatus={() => {}} 
+            isAdmin={isAdmin}
+          />
+        ) : (
+          <CarFormView 
+            carFormData={carFormData}
+            setCarFormData={setCarFormData}
+            mainImagePreview={mainImagePreview}
+            setMainImagePreview={setMainImagePreview}
+            galleryFiles={galleryFiles}
+            setGalleryFiles={setGalleryFiles}
+            setMainImageFile={setMainImageFile}
+            onSave={handleCarSave}
+            onCancel={() => setIsEditingCar(false)}
+            saving={saving}
+            vehicleType={vehicleType}
+            setVehicleType={setVehicleType}
+            fipeBrands={fipeBrands}
+            fipeModels={fipeModels}
+            fipeYears={fipeYears}
+            onFipeBrand={onFipeBrandWrapper}
+            onFipeModel={onFipeModelWrapper}
+            onFipeYear={onFipeYearWrapper}
+            loadingFipe={loadingFipe}
+            onGetLocation={handleGetLocation}
+            sellers={sellers}
+          />
+        )
       )}
 
       {activeTab === 'sellers' && (
-        <SellersView
+        <SellersView 
           sellers={sellers}
-          isAdmin={isAdmin}
           onSave={handleSellerSave}
-          onDelete={handleSellerDelete}
+          onDelete={handleDeleteSeller}
           saving={saving}
           isCreating={isCreatingSeller}
           setIsCreating={setIsCreatingSeller}
           formData={sellerFormData}
           setFormData={setSellerFormData}
+          isAdmin={isAdmin}
         />
       )}
 
-      {activeTab === 'users' && isAdmin && (
-        <UsersView
+      {activeTab === 'users' && (
+        <UsersView 
           users={users}
           onSave={handleUserSave}
-          onDelete={handleUserDelete}
+          onDelete={handleDeleteUser}
           saving={saving}
           isCreating={isCreatingUser}
           setIsCreating={setIsCreatingUser}
@@ -519,6 +428,12 @@ export const Admin = () => {
         />
       )}
 
+      {activeTab === 'profile' && (
+        <ProfileView 
+           appUser={appUser}
+           showNotification={showNotification}
+        />
+      )}
     </AdminLayout>
   );
 };

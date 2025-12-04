@@ -1,4 +1,12 @@
 
+export interface CarExpense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: 'maintenance' | 'document' | 'repair' | 'other';
+}
+
 export interface Car {
   id: string;
   make: string;
@@ -25,6 +33,10 @@ export interface Car {
   soldBy?: string;         // Nome/ID do consultor que vendeu
   maintenanceReason?: string; // Motivo da manutenção
   licensePlate?: string;   // Placa do veículo
+  
+  // Gestão Financeira Detalhada
+  purchasePrice?: number; // Valor de Entrada (Quanto pagou no carro)
+  expenses?: CarExpense[]; // Histórico de gastos
 }
 
 export interface AppUser {
