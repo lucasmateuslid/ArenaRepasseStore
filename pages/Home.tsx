@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom'; // Importado para gerenciar URL
 import { Car, FilterOptions, Seller } from '../types';
-import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears } from '../supabaseClient';
+import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears, fetchSpecialOffers } from '../supabaseClient';
 
 // Importing Components
 import { Header } from '../components/Header';
@@ -14,16 +14,26 @@ import { CarModal } from '../components/CarModal';
 import { ChatWidget } from '../components/ChatWidget';
 import { Footer } from '../components/Footer';
 
+const ITEMS_PER_PAGE = 12;
+
 export const Home = () => {
+  // State principal de carros (acumulativo)
   const [cars, setCars] = useState<Car[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [specialOffersCars, setSpecialOffersCars] = useState<Car[]>([]);
-  const [displayLimit, setDisplayLimit] = useState(12);
+  
   const observerTarget = useRef<HTMLDivElement>(null);
+  
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null); 
   const [searchTerm, setSearchTerm] = useState('');
   const [tempFilters, setTempFilters] = useState({ make: '', maxPrice: '', year: '', vehicleType: '' });
+  
+  // Dados para os filtros (Selects)
   const [availableMakes, setAvailableMakes] = useState<string[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   
@@ -33,32 +43,12 @@ export const Home = () => {
   // Vendedores State
   const [sellers, setSellers] = useState<Seller[]>([]);
 
-  const loadInventory = async (options: FilterOptions = {}) => {
-    setLoading(true);
-    // Safety timeout to prevent infinite loading
-    const timeout = setTimeout(() => setLoading(false), 5000);
-    
-    // Força o filtro de status 'available' para a página pública
-    const { data } = await fetchCars({ ...options, status: 'available' });
-    clearTimeout(timeout);
-    
-    setCars(data || []);
-    setLoading(false);
-    setDisplayLimit(12);
-  };
-
-  const loadFiltersData = async (vehicleType?: string) => {
-    const brands = await fetchAvailableBrands(vehicleType);
-    const years = await fetchAvailableYears(vehicleType);
-    setAvailableMakes(brands);
-    setAvailableYears(years);
-  };
-
+  // Carregar dados auxiliares (Ofertas, Vendedores, Filtros)
   useEffect(() => {
     const initData = async () => {
-       // Busca carros disponíveis para ofertas
-       const carsRes = await fetchCars({ status: 'available' });
-       if (carsRes.data) setSpecialOffersCars(carsRes.data);
+       // Busca independente para ofertas especiais (não depende da paginação da grid)
+       const offersData = await fetchSpecialOffers();
+       setSpecialOffersCars(offersData);
        
        const sellersRes = await fetchSellers();
        if (sellersRes.data) setSellers(sellersRes.data);
@@ -68,63 +58,142 @@ export const Home = () => {
     initData();
   }, []);
 
+  const loadFiltersData = async (vehicleType?: string) => {
+    const brands = await fetchAvailableBrands(vehicleType);
+    const years = await fetchAvailableYears(vehicleType);
+    setAvailableMakes(brands);
+    setAvailableYears(years);
+  };
+
+  // Função principal de busca com Paginação
+  const loadInventory = useCallback(async (isReset = false) => {
+    if (isReset) {
+      setLoading(true);
+      setPage(0);
+      setHasMore(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    const currentPage = isReset ? 0 : page;
+    const filters: FilterOptions = {
+       ...tempFilters,
+       search: searchTerm,
+       status: 'available' // Força apenas disponíveis na home
+    };
+
+    const { data, error } = await fetchCars(filters, currentPage, ITEMS_PER_PAGE);
+    
+    if (error) {
+      console.error("Erro ao buscar carros:", error);
+      setLoading(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    const newCars = data || [];
+    
+    if (isReset) {
+      setCars(newCars);
+    } else {
+      // Filtra duplicatas apenas por segurança, caso a request duplique algo no edge case
+      setCars(prev => {
+        const existingIds = new Set(prev.map(c => c.id));
+        const filteredNew = newCars.filter(c => !existingIds.has(c.id));
+        return [...prev, ...filteredNew];
+      });
+    }
+
+    // Se vieram menos carros que o limite, acabou a lista
+    if (newCars.length < ITEMS_PER_PAGE) {
+      setHasMore(false);
+    } else {
+      // Se vieram 12, pode ser que tenha mais ou não. Assumimos que sim.
+      // Poderiamos usar 'count' se o Supabase retornasse, mas a lógica de length é eficiente.
+      setHasMore(true);
+    }
+
+    setLoading(false);
+    setIsLoadingMore(false);
+    
+    if (!isReset) {
+      setPage(prev => prev + 1);
+    } else {
+      setPage(1); // Prepara para a próxima
+    }
+  }, [tempFilters, searchTerm, page]);
+
+  // Carregamento inicial (apenas uma vez ou quando filtros mudam drasticamente)
   useEffect(() => {
-    loadInventory();
-  }, []);
+    loadInventory(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tempFilters, searchTerm]); // Recarrega do zero se filtro mudar
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          loadInventory(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    
+    return () => {
+      if (observerTarget.current) observer.unobserve(observerTarget.current);
+    };
+  }, [hasMore, isLoadingMore, loading, loadInventory]);
+
 
   // --- DEEP LINKING LOGIC ---
-  // Verifica se existe um ID na URL assim que os carros terminam de carregar
   useEffect(() => {
     const carIdFromUrl = searchParams.get('carId');
-    if (!loading && cars.length > 0 && carIdFromUrl && !selectedCar) {
-      const foundCar = cars.find(c => c.id === carIdFromUrl);
+    if (!loading && carIdFromUrl && !selectedCar) {
+      // Como estamos paginando, o carro da URL pode não estar na lista 'cars'.
+      // Precisamos verificar. Se não estiver, deveríamos buscar individualmente (futura melhoria).
+      // Por enquanto, verifica se está nos carregados ou nas ofertas.
+      const foundCar = cars.find(c => c.id === carIdFromUrl) || specialOffersCars.find(c => c.id === carIdFromUrl);
       if (foundCar) {
         setSelectedCar(foundCar);
       }
     }
-  }, [loading, cars, searchParams]);
+  }, [loading, cars, specialOffersCars, searchParams]);
 
-  // Recarregar marcas e anos quando o tipo de veículo muda no filtro visual
+  // Recarregar marcas e anos quando o tipo de veículo muda
   useEffect(() => {
     loadFiltersData(tempFilters.vehicleType);
-    // Limpar seleções que podem não existir no novo tipo
-    setTempFilters(prev => ({ ...prev, make: '' }));
+    setTempFilters(prev => ({ ...prev, make: '' })); // Reseta marca ao trocar tipo
   }, [tempFilters.vehicleType]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => { if (entries[0].isIntersecting) setDisplayLimit(prev => prev + 12); },
-      { threshold: 0.1 }
-    );
-    if (observerTarget.current) observer.observe(observerTarget.current);
-    return () => { if (observerTarget.current) observer.unobserve(observerTarget.current); };
-  }, [cars, loading]); 
 
   const applyFilters = () => {
-    loadInventory({ ...tempFilters, search: searchTerm });
+    loadInventory(true);
   };
 
   const clearFilters = () => {
     setTempFilters({ make: '', maxPrice: '', year: '', vehicleType: '' });
-    loadInventory({ search: searchTerm });
+    setSearchTerm(''); // Limpa busca também
+    // O useEffect [tempFilters] vai disparar o reload
   };
 
   const handleSearch = () => {
-    loadInventory({ ...tempFilters, search: searchTerm });
+    loadInventory(true);
   };
 
   const resetApp = () => {
     setTempFilters({make:'', maxPrice:'', year:'', vehicleType: ''});
     setSearchTerm('');
     setSearchParams({}); // Limpa URL
-    loadInventory();
     window.scrollTo(0,0);
+    // useEffect disparará loadInventory(true)
   }
 
   // --- MODAL HANDLERS ---
   const handleOpenModal = (car: Car) => {
     setSelectedCar(car);
-    // Atualiza a URL sem recarregar a página para permitir compartilhamento
     setSearchParams(prev => {
       prev.set('carId', car.id);
       return prev;
@@ -133,14 +202,12 @@ export const Home = () => {
 
   const handleCloseModal = () => {
     setSelectedCar(null);
-    // Remove o ID da URL ao fechar
     setSearchParams(prev => {
       prev.delete('carId');
       return prev;
     });
   };
 
-  // Lógica de sorteio de vendedor
   const getRandomSeller = () => {
     if (sellers.length === 0) return null;
     const randomIndex = Math.floor(Math.random() * sellers.length);
@@ -149,18 +216,18 @@ export const Home = () => {
 
   const handleWhatsApp = (car?: Car) => {
     const seller = getRandomSeller();
-    const phone = seller ? seller.whatsapp.replace(/\D/g, '') : "5511999999999"; // Fallback
+    const phone = seller ? seller.whatsapp.replace(/\D/g, '') : "5511999999999"; 
     const sellerName = seller ? seller.name.split(' ')[0] : "Consultor";
 
     let text = `Olá ${sellerName}! Gostaria de saber mais sobre as ofertas do Arena Repasse.`;
     
     if (car) {
-      // Gera o link direto para o carro
       const origin = window.location.origin;
       const pathname = window.location.pathname;
+      // Garante o formato correto do link (HashRouter)
       const carLink = `${origin}${pathname}#/?carId=${car.id}`;
       
-      text = `Olá ${sellerName}! Estou interessado no carro: *${car.make} ${car.model} ${car.year}* (ID: ${car.id}).\n\nLink do Veículo: ${carLink}\n\nGostaria de mais informações.`;
+      text = `Olá ${sellerName}! Estou interessado neste veículo:\n\n*${car.make} ${car.model} ${car.year}*\n\nVeja os detalhes aqui: ${carLink}`;
     }
     
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
@@ -171,8 +238,7 @@ export const Home = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
   };
 
-  const visibleCars = cars.slice(0, displayLimit);
-  const hasActiveFilters = Boolean(tempFilters.make || tempFilters.maxPrice || tempFilters.year || tempFilters.vehicleType);
+  const hasActiveFilters = Boolean(tempFilters.make || tempFilters.maxPrice || tempFilters.year || tempFilters.vehicleType || searchTerm);
 
   return (
     <div className="min-h-screen bg-brand-dark text-gray-200 flex flex-col font-sans selection:bg-brand-orange selection:text-white">
@@ -203,11 +269,11 @@ export const Home = () => {
       />
       <CarGrid 
         cars={cars}
-        visibleCars={visibleCars}
+        visibleCars={cars} // Passamos todos os carregados (a paginação é server-side)
         loading={loading}
         openModal={handleOpenModal}
         handleWhatsApp={handleWhatsApp}
-        observerRef={observerTarget}
+        observerRef={hasMore ? observerTarget : null} // Só observa se tiver mais
         resetFilters={resetApp}
         formatCurrency={formatCurrency}
       />
@@ -221,7 +287,9 @@ export const Home = () => {
       <ChatWidget 
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}
-        cars={specialOffersCars.length > 0 ? specialOffersCars : cars} 
+        // Passamos as ofertas especiais para o Chat ter contexto de carros bons, 
+        // ou concatenamos com os atuais (limitado para não estourar tokens do LLM)
+        cars={specialOffersCars.length > 0 ? specialOffersCars : cars.slice(0, 10)} 
         openModal={handleOpenModal}
         formatCurrency={formatCurrency}
       />

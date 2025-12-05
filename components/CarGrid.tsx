@@ -8,7 +8,7 @@ interface CarGridProps {
   loading: boolean;
   openModal: (car: Car) => void;
   handleWhatsApp: (car: Car) => void;
-  observerRef: React.RefObject<HTMLDivElement | null>;
+  observerRef: React.RefObject<HTMLDivElement | null> | null;
   resetFilters: () => void;
   formatCurrency: (val: number) => string;
 }
@@ -47,8 +47,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
                   className="bg-brand-surface border border-gray-700 rounded-2xl overflow-hidden group hover:border-brand-orange transition-all duration-300 flex flex-col hover:-translate-y-2 shadow-card cursor-pointer"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
-                    {/* ID removido conforme solicitação */}
-                    
                     <img 
                       src={car.image} 
                       alt={car.model} 
@@ -73,7 +71,7 @@ export const CarGrid: React.FC<CarGridProps> = ({
                     <div className="flex justify-between items-center mb-1">
                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{car.make}</span>
                        <span className="bg-gray-800 text-gray-300 text-xs font-bold px-2 py-1 rounded border border-gray-600">
-                         {car.year === 32000 ? 'Zero KM' : car.year}
+                         Ano: {car.year === 32000 ? 'Zero KM' : car.year}
                        </span>
                     </div>
                     <h3 className="text-2xl font-black text-white leading-tight mb-4 group-hover:text-brand-orange transition-colors line-clamp-1">
@@ -94,9 +92,17 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       </div>
                     </div>
                     <div className="mt-auto pt-4 border-t border-gray-800/50">
-                      <div className="flex items-center justify-between mb-1">
-                         <span className="text-xs text-gray-500 line-through">FIPE {formatCurrency(fipe)}</span>
-                         {economy > 0 && <span className="text-green-500 text-xs font-bold">Economize {formatCurrency(economy)}</span>}
+                      <div className="flex flex-col mb-1 gap-1">
+                         <div className="flex items-end justify-between w-full">
+                           <span className="text-sm font-bold text-red-600 line-through decoration-red-600/50" title="Tabela FIPE">
+                             FIPE {formatCurrency(fipe)}
+                           </span>
+                           {economy > 0 && (
+                             <span className="text-green-500 text-sm font-black bg-green-500/10 px-2 rounded">
+                               Economize {formatCurrency(economy)}
+                             </span>
+                           )}
+                         </div>
                       </div>
                       
                       <div className="mb-4">
@@ -131,7 +137,8 @@ export const CarGrid: React.FC<CarGridProps> = ({
               );
             })}
           </div>
-          {visibleCars.length < cars.length && (
+          {/* Se observerRef for passado, significa que há mais itens para carregar */}
+          {observerRef && (
             <div ref={observerRef} className="h-20 flex items-center justify-center mt-8">
               <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce"></div>
               <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce delay-100 mx-1"></div>

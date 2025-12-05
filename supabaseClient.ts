@@ -11,24 +11,28 @@ import { getEnv } from './utils/env';
 // ENVIRONMENT LOAD & VALIDATION
 // ============================================================================
 
-const envUrl = getEnv("VITE_SUPABASE_URL") || getEnv("SUPABASE_URL");
-const envKey = getEnv("VITE_SUPABASE_ANON_KEY") || getEnv("SUPABASE_ANON_KEY");
+// Busca as chaves usando a função utilitária que checa .env, process.env e o FALLBACK manual
+const SUPABASE_URL = getEnv("VITE_SUPABASE_URL");
+const SUPABASE_KEY = getEnv("VITE_SUPABASE_ANON_KEY");
 
-const isValidUrl = (url: string) => url && url.startsWith('http') && !url.includes('sua-url');
+const isPlaceholder = !SUPABASE_URL || SUPABASE_URL.includes("placeholder") || !SUPABASE_KEY;
 
-const SUPABASE_URL = isValidUrl(envUrl) ? envUrl : "https://placeholder.supabase.co";
-const SUPABASE_KEY = (envKey && !envKey.includes('sua-chave')) ? envKey : "placeholder-key";
-
-if (SUPABASE_URL === "https://placeholder.supabase.co") {
-  console.warn("⚠ AVISO: Credenciais do Supabase não encontradas ou inválidas.");
-  console.warn("⚠ O app está rodando em modo OFFLINE/DEMO. Edite o arquivo .env com suas chaves reais.");
+if (isPlaceholder) {
+  console.warn("⚠ AVISO: Credenciais do Supabase não detectadas.");
+  console.warn("⚠ Para corrigir: Edite o arquivo 'utils/env.ts' e preencha o objeto FALLBACK_ENV com suas chaves.");
+} else {
+  console.log("✅ Supabase Client conectado:", SUPABASE_URL);
 }
+
+// Configuração de URL segura para evitar crash na inicialização do client
+const clientUrl = isPlaceholder ? "https://placeholder.supabase.co" : SUPABASE_URL;
+const clientKey = isPlaceholder ? "placeholder-key" : SUPABASE_KEY;
 
 // ============================================================================
 // CLIENT
 // ============================================================================
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+export const supabase = createClient(clientUrl, clientKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -48,6 +52,7 @@ export interface ApiResponse<T> {
 export interface ApiListResponse<T> {
   data: T[];
   error: any | null;
+  count?: number | null;
 }
 
 // ============================================================================
@@ -55,13 +60,16 @@ export interface ApiListResponse<T> {
 // ============================================================================
 
 export const signIn = async (email: string, password: string): Promise<ApiResponse<any>> => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") {
-    return { data: null, error: { message: "Modo Demo: Configure o .env para fazer login." } };
+  if (isPlaceholder) {
+    return { data: null, error: { message: "Modo Demo: Edite utils/env.ts com suas chaves reais." } };
   }
   return supabase.auth.signInWithPassword({ email, password });
 };
 
 export const signUp = async (email: string, password: string): Promise<ApiResponse<any>> => {
+  if (isPlaceholder) {
+    return { data: null, error: { message: "Modo Demo: Edite utils/env.ts com suas chaves reais." } };
+  }
   return supabase.auth.signUp({ email, password });
 };
 
@@ -70,12 +78,10 @@ export const signOut = async () => supabase.auth.signOut();
 export const updateAuthPassword = async (newPassword: string) =>
   supabase.auth.updateUser({ password: newPassword });
 
-/**
- * Cria um usuário no sistema de Auth (Login Real) via Edge Function.
- * Requer que a função 'manage-auth-api' esteja deployada com Service Key.
- */
 export const adminCreateUser = async (email: string, name: string, role: string) => {
   try {
+    if (isPlaceholder) throw new Error("Sem conexão com Supabase");
+
     const { data, error } = await supabase.functions.invoke('manage-auth-api', {
       body: { 
         action: 'create_user', 
@@ -91,23 +97,22 @@ export const adminCreateUser = async (email: string, name: string, role: string)
     return { data, error: null };
   } catch (err: any) {
     console.error("Falha na criação administrativa:", err);
-    // Fallback para ambiente local/demo sem Edge Functions:
-    // Cria apenas na tabela pública para "fingir" que funcionou visualmente
-    if (err.message?.includes('Functions') || err.message?.includes('Failed to send')) {
-       console.warn("Edge Function falhou. Criando apenas registro local (Sem login real).");
+    if (err.message?.includes('Functions') || err.message?.includes('Failed to send') || isPlaceholder) {
+       console.warn("Edge Function falhou ou offline. Criando registro local.");
        const fakeId = crypto.randomUUID();
-       await supabase.from('app_users').insert([{ id: fakeId, email, name, role }]);
+       if (!isPlaceholder) {
+         await supabase.from('app_users').insert([{ id: fakeId, email, name, role }]);
+       }
        return { data: { id: fakeId }, error: null };
     }
     return { data: null, error: err };
   }
 };
 
-/**
- * Reseta a senha de um usuário para '123456' via Edge Function.
- */
 export const adminResetPassword = async (userId: string) => {
   try {
+    if (isPlaceholder) return { data: null, error: { message: "Offline" } };
+    
     const { data, error } = await supabase.functions.invoke('manage-auth-api', {
       body: { 
         action: 'reset_password', 
@@ -125,16 +130,14 @@ export const adminResetPassword = async (userId: string) => {
   }
 };
 
-/**
- * Deleta usuário do Auth e do Banco via Edge Function.
- */
 export const adminDeleteUser = async (userId: string) => {
   try {
+    if (isPlaceholder) return { data: null, error: { message: "Offline" } };
+
     const { data, error } = await supabase.functions.invoke('manage-auth-api', {
       body: { action: 'delete_user', userId }
     });
     
-    // Se a Edge Function falhar (ex: ambiente dev), tenta deletar da tabela pública direto
     if (error) {
        await supabase.from('app_users').delete().eq('id', userId);
     }
@@ -150,72 +153,108 @@ export const adminDeleteUser = async (userId: string) => {
 // CARS
 // ============================================================================
 
+// Busca carros com suporte a paginação (Infinite Scroll)
 export const fetchCars = async (
-  filters: FilterOptions = {}
+  filters: FilterOptions = {},
+  page: number = 0,
+  limit: number = 12
 ): Promise<ApiListResponse<Car>> => {
   try {
+    if (isPlaceholder) return { data: [], error: null };
+
     let query = supabase
       .from('cars')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' });
 
+    // Filtros
     if (filters.make) query = query.eq('make', filters.make);
     if (filters.vehicleType) query = query.eq('vehicleType', filters.vehicleType);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
-    
-    // Filtro de Status
     if (filters.status) query = query.eq('status', filters.status);
-
-    const { data, error } = await query;
-    if (error) return { data: [], error };
-
-    let result = data as Car[];
-
+    
+    // Filtro de Texto (Busca)
     if (filters.search) {
-      const t = filters.search.toLowerCase();
-      result = result.filter(c =>
-        c.make.toLowerCase().includes(t) ||
-        c.model.toLowerCase().includes(t)
-      );
+       // O Supabase tem limitações com OR complexos. 
+       // Para busca simples, o ilike resolve.
+       query = query.or(`make.ilike.%${filters.search}%,model.ilike.%${filters.search}%`);
     }
 
     if (filters.year) {
-      result = result.filter(c => c.year >= Number(filters.year));
+      query = query.gte('year', Number(filters.year));
     }
 
-    return { data: result, error: null };
+    // Ordenação e Paginação
+    query = query
+      .order('created_at', { ascending: false })
+      .range(page * limit, (page + 1) * limit - 1);
+
+    const { data, error, count } = await query;
+    
+    if (error) return { data: [], error, count: 0 };
+    return { data: data as Car[], error: null, count };
 
   } catch (err: any) {
-    return { data: [], error: err };
+    return { data: [], error: err, count: 0 };
   }
 };
 
+// Busca separada para Ofertas Especiais (Top descontos)
+// Garante que o banner de ofertas sempre tenha dados, independente da página atual da grid
+export const fetchSpecialOffers = async (): Promise<Car[]> => {
+  if (isPlaceholder) return [];
+  
+  // Busca carros onde fipeprice > price e status disponível
+  const { data } = await supabase
+    .from('cars')
+    .select('*')
+    .eq('status', 'available')
+    .gt('fipeprice', 0) // Garante que tem FIPE cadastrada
+    .order('created_at', { ascending: false })
+    .limit(20); // Pega os 20 mais recentes para filtrar no front os melhores descontos
+
+  return (data as Car[]) || [];
+};
+
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
-  // Busca apenas marcas de carros DISPONÍVEIS para o filtro
-  const { data, error } = await fetchCars({ vehicleType, status: 'available' });
-  if (error || !data) return [];
+  // Para filtros, buscamos todos (limitando a 1000 para performance) apenas as marcas
+  if (isPlaceholder) return [];
+  let query = supabase.from('cars').select('make').eq('status', 'available');
+  if (vehicleType) query = query.eq('vehicleType', vehicleType);
+  
+  const { data } = await query.limit(1000);
+  if (!data) return [];
+  
+  // @ts-ignore
   return [...new Set(data.map(c => c.make))].sort();
 };
 
 export const fetchAvailableYears = async (vehicleType?: string): Promise<number[]> => {
-  // Busca apenas anos de carros DISPONÍVEIS para o filtro
-  const { data, error } = await fetchCars({ vehicleType, status: 'available' });
-  if (error || !data) return [];
+  if (isPlaceholder) return [];
+  let query = supabase.from('cars').select('year').eq('status', 'available');
+  if (vehicleType) query = query.eq('vehicleType', vehicleType);
+
+  const { data } = await query.limit(1000);
+  if (!data) return [];
+  
+  // @ts-ignore
   return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
 
 export const createCar = async (car: Omit<Car, 'id'>) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { id, ...clean } = car as any;
   const { data, error } = await supabase.from('cars').insert([clean]).select().single();
   return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteCar = async (id: string) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { error } = await supabase.from('cars').delete().eq('id', id);
   return { data: null, error };
 };
@@ -225,14 +264,13 @@ export const sellCar = async (
   salesData: { soldPrice: number; soldDate: string; soldBy: string }
 ) => {
   try {
+    if (isPlaceholder) return { data: null, error: null };
     try {
       const { data, error } = await supabase.functions.invoke("sell-car-api", {
         body: { id, ...salesData },
       });
       if (!error) return { data, error: null };
-    } catch (e) {
-      // Falha silenciosa
-    }
+    } catch (e) {}
     return updateCar(id, { status: 'sold', ...salesData });
   } catch (err) {
     return { data: null, error: err };
@@ -240,70 +278,62 @@ export const sellCar = async (
 };
 
 // ============================================================================
-// SELLERS
+// SELLERS & OTHERS (Mantidos iguais)
 // ============================================================================
 
 export const fetchSellers = async () => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
+  if (isPlaceholder) return { data: [], error: null };
   const { data, error } = await supabase.from('sellers').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createSeller = async (seller: Omit<Seller, 'id'>) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { data, error } = await supabase.from('sellers').insert([seller]).select().single();
   return { data, error };
 };
 
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteSeller = async (id: string) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { error } = await supabase.from('sellers').delete().eq('id', id);
   return { data: null, error };
 };
 
-// ============================================================================
-// USERS
-// ============================================================================
-
 export const fetchUsers = async () => {
-  if (SUPABASE_URL === "https://placeholder.supabase.co") return { data: [], error: null };
+  if (isPlaceholder) return { data: [], error: null };
   const { data, error } = await supabase.from('app_users').select('*').order('name');
   return { data: data || [], error };
 };
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
-  // OBSOLETO: Use adminCreateUser para criar login real
+  if (isPlaceholder) return { data: null, error: null };
   const { data, error } = await supabase.from('app_users').insert([user]).select().single();
   return { data, error };
 };
 
 export const updateUser = async (id: string, updates: Partial<AppUser>) => {
+  if (isPlaceholder) return { data: null, error: null };
   const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select().single();
   return { data, error };
 };
 
 export const deleteUser = async (id: string) => {
-  // Tenta deletar via Admin API primeiro
   return adminDeleteUser(id);
 };
 
-// ============================================================================
-// STORAGE
-// ============================================================================
-
 export const uploadCarImage = async (file: File): Promise<string | null> => {
   try {
-    if (SUPABASE_URL === "https://placeholder.supabase.co") return "https://via.placeholder.com/800x600?text=Demo+Image";
+    if (isPlaceholder) return "https://via.placeholder.com/800x600?text=Demo+Image";
 
     const ext = file.name.split('.').pop();
-    
     const generateId = () => {
-        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-            return crypto.randomUUID();
-        }
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
@@ -311,7 +341,6 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
     };
 
     const fileName = `${Date.now()}_${generateId()}.${ext}`;
-
     const { error } = await supabase.storage.from('car-images').upload(fileName, file);
     if (error) throw error;
 
