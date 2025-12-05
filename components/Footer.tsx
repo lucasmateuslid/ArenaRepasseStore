@@ -1,19 +1,22 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp } from 'react-icons/fa';
+import BankIcon from './BankIcon';
 
 interface FooterProps {
   handleWhatsApp: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
+  // Lista de bancos atualizada com códigos COMPE (numéricos ou string)
   const banks = [
-    { name: 'Santander', color: 'bg-red-600' },
-    { name: 'BV Financeira', color: 'bg-blue-600' },
-    { name: 'Itaú', color: 'bg-orange-500' },
-    { name: 'Bradesco', color: 'bg-red-500' },
-    { name: 'Banco Pan', color: 'bg-cyan-600' },
-    { name: 'Safra', color: 'bg-yellow-900' }
+    { name: 'Santander', compe: 33 }, // 033
+    { name: 'BV Financeira', compe: 655 },
+    { name: 'Itaú', compe: 341 },
+    { name: 'Bradesco', compe: 237 },
+    { name: 'Banco Pan', compe: 623 },
+    { name: 'Safra', compe: 422 }
   ];
 
   const scrollToInventory = () => {
@@ -92,9 +95,11 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
              <p className="text-xs mb-4 text-white/60">Trabalhamos com as principais financeiras do mercado para garantir a melhor taxa.</p>
              <div className="grid grid-cols-2 gap-2">
                 {banks.map((bank, idx) => (
-                  <div key={idx} className="bg-black/40 border border-white/5 rounded px-2 py-2 flex items-center gap-2 hover:border-white/20 transition group cursor-default">
-                    <div className={`w-2 h-2 rounded-full ${bank.color} group-hover:scale-125 transition-transform`}></div>
-                    <span className="text-[10px] font-bold text-white/70 group-hover:text-white uppercase truncate">{bank.name}</span>
+                  <div key={idx} className="bg-white rounded px-2 py-2 flex items-center gap-2 hover:bg-gray-100 transition group cursor-default shadow-sm border border-transparent hover:border-brand-orange/30">
+                    <div className="flex-shrink-0">
+                      <BankIcon bankId={bank.compe} size={28} borderRadius={4} />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-800 uppercase truncate">{bank.name}</span>
                   </div>
                 ))}
              </div>
