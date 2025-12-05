@@ -191,6 +191,18 @@ export const Home = () => {
     // useEffect disparará loadInventory(true)
   }
 
+  // --- FILTRO RÁPIDO DO FOOTER ---
+  const handleQuickFilter = (type: string) => {
+    // Reseta filtros específicos para garantir resultados da categoria
+    setTempFilters({
+      make: '',
+      year: '',
+      maxPrice: '',
+      vehicleType: type
+    });
+    // O useEffect [tempFilters] vai disparar a busca automaticamente
+  };
+
   // --- MODAL HANDLERS ---
   const handleOpenModal = (car: Car) => {
     setSelectedCar(car);
@@ -283,7 +295,10 @@ export const Home = () => {
         handleWhatsApp={handleWhatsApp}
         formatCurrency={formatCurrency}
       />
-      <Footer handleWhatsApp={() => handleWhatsApp()} />
+      <Footer 
+        handleWhatsApp={() => handleWhatsApp()} 
+        onQuickFilter={handleQuickFilter}
+      />
       <ChatWidget 
         isChatOpen={isChatOpen}
         setIsChatOpen={setIsChatOpen}

@@ -6,20 +6,22 @@ import BankIcon from './BankIcon';
 
 interface FooterProps {
   handleWhatsApp: () => void;
+  onQuickFilter: (type: string) => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
-  // Lista de bancos atualizada com códigos COMPE (numéricos ou string)
+export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter }) => {
+  // Códigos COMPE Oficiais para mapeamento com o repo brazilian-banks-icons
   const banks = [
-    { name: 'Santander', compe: 33 }, // 033
-    { name: 'BV Financeira', compe: 655 },
-    { name: 'Itaú', compe: 341 },
-    { name: 'Bradesco', compe: 237 },
-    { name: 'Banco Pan', compe: 623 },
-    { name: 'Safra', compe: 422 }
+    { name: 'Santander', compe: 33 },   // 033.svg
+    { name: 'BV Financeira', compe: 655 }, // 655.svg
+    { name: 'Itaú', compe: 341 },       // 341.svg
+    { name: 'Bradesco', compe: 237 },   // 237.svg
+    { name: 'Banco Pan', compe: 623 },  // 623.svg
+    { name: 'Safra', compe: 422 }       // 422.svg
   ];
 
-  const scrollToInventory = () => {
+  const handleNavigation = (type: string) => {
+    onQuickFilter(type);
     document.getElementById('inventory')?.scrollIntoView({behavior: 'smooth'});
   };
 
@@ -61,21 +63,21 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
                  <FaHome className="text-xl group-hover:text-brand-orange transition-colors"/>
                </button>
                <button 
-                 onClick={scrollToInventory} 
+                 onClick={() => handleNavigation('carros')} 
                  className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
                  title="Carros"
                >
                  <FaCar className="text-xl group-hover:text-brand-orange transition-colors"/>
                </button>
                <button 
-                 onClick={scrollToInventory} 
+                 onClick={() => handleNavigation('motos')} 
                  className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
                  title="Motos"
                >
                  <FaMotorcycle className="text-xl group-hover:text-brand-orange transition-colors"/>
                </button>
                <button 
-                 onClick={scrollToInventory} 
+                 onClick={() => handleNavigation('caminhoes')} 
                  className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
                  title="Caminhões"
                >
@@ -95,11 +97,11 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp }) => {
              <p className="text-xs mb-4 text-white/60">Trabalhamos com as principais financeiras do mercado para garantir a melhor taxa.</p>
              <div className="grid grid-cols-2 gap-2">
                 {banks.map((bank, idx) => (
-                  <div key={idx} className="bg-white rounded px-2 py-2 flex items-center gap-2 hover:bg-gray-100 transition group cursor-default shadow-sm border border-transparent hover:border-brand-orange/30">
+                  <div key={idx} className="bg-white/5 border border-white/10 rounded px-2 py-2 flex items-center gap-2 hover:bg-white/10 hover:border-brand-orange/50 transition group cursor-default">
                     <div className="flex-shrink-0">
                       <BankIcon bankId={bank.compe} size={28} borderRadius={4} />
                     </div>
-                    <span className="text-[10px] font-bold text-gray-800 uppercase truncate">{bank.name}</span>
+                    <span className="text-[10px] font-bold text-gray-300 group-hover:text-white uppercase truncate">{bank.name}</span>
                   </div>
                 ))}
              </div>

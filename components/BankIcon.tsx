@@ -1,76 +1,70 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FaUniversity } from 'react-icons/fa';
 
-// Mapeamento de logos oficiais (mesmos assets de alta qualidade)
-const BANK_LOGOS: Record<string, string> = {
-  // Santander
-  '33': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Banco_Santander_Logotipo.svg/2560px-Banco_Santander_Logotipo.svg.png',
-  '033': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Banco_Santander_Logotipo.svg/2560px-Banco_Santander_Logotipo.svg.png',
-  
-  // BV Financeira
-  '655': 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Banco_Votorantim_logo_2019.png',
-  
-  // Itaú
-  '341': 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Ita%C3%BA.svg',
-  
-  // Bradesco
-  '237': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Banco_Bradesco_logo_%28horizontal%29.svg/2560px-Banco_Bradesco_logo_%28horizontal%29.svg.png',
-  
-  // Banco Pan
-  '623': 'https://logodownload.org/wp-content/uploads/2019/09/banco-pan-logo.png',
-  
-  // Banco Safra
-  '422': 'https://upload.wikimedia.org/wikipedia/commons/b/b3/Banco_Safra_logo.svg'
-};
-
 interface BankIconProps {
-  name?: string;       // Mantido para compatibilidade, mas priorizamos bankId
   bankId?: string | number;
   size?: string | number;
-  color?: string;      // Não aplicável para imagens coloridas, mas mantido na interface
   borderRadius?: number;
   style?: React.CSSProperties;
 }
 
+// Repositório oficial de ícones bancários brasileiros (SVGs)
+// Isso simula o comportamento da lib 'brazilian-bank-icons-svg'
+const BASE_SVG_URL = 'https://raw.githubusercontent.com/kelvins/brazilian-banks-icons/main/icons';
+
 const BankIcon: React.FC<BankIconProps> = ({ 
   bankId, 
   size = 24, 
-  borderRadius = 2,
+  borderRadius = 4,
   style 
 }) => {
-  // Normaliza o ID para string
-  const idStr = bankId ? String(bankId).replace(/^0+/, '') : ''; // Remove zeros a esquerda para facilitar match (33 vs 033)
-  
-  // Tenta encontrar com o ID exato ou com padStart
-  const src = BANK_LOGOS[idStr] || BANK_LOGOS[String(bankId)];
+  const [error, setError] = useState(false);
 
-  const iconStyle = {
-    ...style,
-    width: size,
-    height: size,
-    borderRadius: borderRadius,
+  // Normaliza o ID para 3 dígitos (Padrão COMPE usado no repositório)
+  // Ex: 33 -> 033, 341 -> 341
+  const normalizeId = (id: string | number) => {
+    if (!id) return null;
+    const cleanId = String(id).replace(/\D/g, '');
+    return cleanId.padStart(3, '0');
   };
 
-  if (!src) {
-    // Fallback Icon se não encontrar o banco
+  const code = normalizeId(bankId || '');
+  const iconSize = typeof size === 'number' ? `${size}px` : size;
+
+  // Estilo do container
+  const containerStyle: React.CSSProperties = {
+    ...style,
+    width: iconSize,
+    height: iconSize,
+    minWidth: iconSize, // Impede esmagamento
+    borderRadius: borderRadius,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff', // Fundo branco para garantir visibilidade do logo
+    overflow: 'hidden',
+    padding: '2px', // Margem de respiro
+    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+  };
+
+  // Se não tiver ID ou der erro no carregamento do SVG, mostra ícone genérico
+  if (!code || error) {
     return (
-      <div style={iconStyle} className="flex items-center justify-center bg-gray-200 text-gray-500 overflow-hidden">
-        <FaUniversity style={{ fontSize: Number(size) * 0.6 }} />
+      <div style={containerStyle} className="bg-gray-100">
+        <FaUniversity style={{ fontSize: `calc(${iconSize} * 0.6)`, color: '#9ca3af' }} />
       </div>
     );
   }
 
   return (
-    <div 
-      style={iconStyle} 
-      className="flex items-center justify-center overflow-hidden bg-white p-[2px]" // Pequeno padding branco para garantir contraste
-    >
+    <div style={containerStyle}>
       <img
-        src={src}
-        alt={`Banco ${bankId}`}
-        className="w-full h-full object-contain"
+        src={`${BASE_SVG_URL}/${code}.svg`}
+        alt={`Banco ${code}`}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         loading="lazy"
+        onError={() => setError(true)}
       />
     </div>
   );
