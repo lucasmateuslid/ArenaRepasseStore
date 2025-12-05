@@ -10,7 +10,7 @@
     "start": "vite preview --port 8080 --host"
   },
   "dependencies": {
-    "@google/genai": "^0.1.3",
+    "@google/genai": "^0.1.0",
     "@supabase/supabase-js": "^2.39.7",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
