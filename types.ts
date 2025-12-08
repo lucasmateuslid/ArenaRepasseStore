@@ -45,6 +45,11 @@ export interface AppUser {
   email: string;
   role: 'admin' | 'editor' | 'viewer';
   created_at?: string;
+  
+  // Controle de Acesso
+  is_approved?: boolean;
+  ip_address?: string;
+  user_agent?: string; // Substituto do MAC (Navegadores bloqueiam acesso ao MAC Address)
 }
 
 export interface Seller {
@@ -54,6 +59,19 @@ export interface Seller {
   whatsapp: string;
   active: boolean;
   created_at?: string;
+}
+
+export interface CompanySettings {
+  id?: string;
+  company_name: string;
+  cnpj: string;
+  address: string;
+  phone_whatsapp: string; // WhatsApp Principal da Loja
+  email: string;
+  opening_hours: string;
+  social_instagram?: string;
+  social_facebook?: string;
+  social_youtube?: string;
 }
 
 export interface Message {

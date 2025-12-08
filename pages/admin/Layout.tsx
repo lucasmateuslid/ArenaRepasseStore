@@ -2,14 +2,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, FaChevronRight, FaUserCog, FaChevronDown, FaFileAlt 
+  FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, FaChevronRight, FaUserCog, FaChevronDown, FaFileAlt, FaCogs 
 } from 'react-icons/fa';
 import { AppUser } from '../../types';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports') => void;
+  setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports' | 'settings') => void;
   appUser: AppUser | null;
   handleLogout: () => void;
   notification: { msg: string, type: 'success' | 'error' } | null;
@@ -22,10 +22,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   
   const menuItems = [
     { id: 'dashboard', icon: FaChartPie, label: 'Visão Geral' },
-    { id: 'reports', icon: FaFileAlt, label: 'Relatórios' }, // Novo Item
+    { id: 'reports', icon: FaFileAlt, label: 'Relatórios' },
     { id: 'cars', icon: FaCar, label: 'Inventário' },
     { id: 'sellers', icon: FaHeadset, label: 'Vendedores' },
-    { id: 'users', icon: FaUsers, label: 'Usuários' }
+    { id: 'users', icon: FaUsers, label: 'Usuários' },
+    { id: 'settings', icon: FaCogs, label: 'Configurações' }
   ];
 
   return (
@@ -60,22 +61,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-brand-surface border-t border-gray-800 z-50 flex justify-around p-2 pb-safe overflow-x-auto">
-         {menuItems.map(item => ( 
+         {menuItems.slice(0, 4).map(item => ( 
            <button 
              key={item.id} 
              onClick={() => setActiveTab(item.id as any)} 
              className={`flex flex-col items-center justify-center min-w-[60px] h-14 rounded-xl transition ${activeTab === item.id ? 'text-brand-orange bg-brand-orange/10' : 'text-gray-500'}`}
             >
               <item.icon className="text-lg mb-1"/>
-              <span className="text-[9px] font-bold uppercase">{item.label}</span>
+              <span className="text-[9px] font-bold uppercase">{item.label.split(' ')[0]}</span>
            </button> 
          ))}
          <button 
-             onClick={() => setActiveTab('profile')} 
-             className={`flex flex-col items-center justify-center min-w-[60px] h-14 rounded-xl transition ${activeTab === 'profile' ? 'text-brand-orange bg-brand-orange/10' : 'text-gray-500'}`}
+             onClick={() => setActiveTab('settings')} 
+             className={`flex flex-col items-center justify-center min-w-[60px] h-14 rounded-xl transition ${activeTab === 'settings' ? 'text-brand-orange bg-brand-orange/10' : 'text-gray-500'}`}
             >
-              <FaUserCog className="text-lg mb-1"/>
-              <span className="text-[9px] font-bold uppercase">Perfil</span>
+              <FaCogs className="text-lg mb-1"/>
+              <span className="text-[9px] font-bold uppercase">Config</span>
            </button> 
       </nav>
 
@@ -83,7 +84,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       <div className="flex-1 flex flex-col md:pl-64 min-h-screen">
         <header className="h-16 md:h-20 bg-brand-dark/95 backdrop-blur border-b border-gray-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
            <div className="md:hidden text-lg font-black italic">ARENA<span className="text-brand-orange">ADMIN</span></div>
-           <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest">Painel Administrativo &bull; {activeTab === 'profile' ? 'Meu Perfil' : activeTab === 'reports' ? 'Relatórios' : activeTab}</h2>
+           <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest">
+             Painel Administrativo &bull; {menuItems.find(i => i.id === activeTab)?.label || 'Painel'}
+           </h2>
            
            {/* Dropdown de Usuário */}
            <div className="relative group">

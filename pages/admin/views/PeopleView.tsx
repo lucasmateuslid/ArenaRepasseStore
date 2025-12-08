@@ -1,8 +1,9 @@
 
-import React from 'react';
-import { FaPlus, FaWhatsapp, FaTrash, FaKey, FaUserTag } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaPlus, FaWhatsapp, FaTrash, FaKey, FaUserTag, FaCheck, FaTimes, FaDesktop, FaNetworkWired } from 'react-icons/fa';
 import { Seller, AppUser } from '../../../types';
 import { SectionHeader } from '../components/AdminUI';
+import { updateUser, deleteUser } from '../../../supabaseClient'; // Import direto para ações de aprovação
 
 interface SellersViewProps {
   sellers: Seller[];
@@ -72,56 +73,151 @@ interface UsersViewProps {
   users: AppUser[];
   onSave: (e: React.FormEvent) => void;
   onDelete: (id: string) => void;
-  onResetPassword?: (id: string) => void; // Nova prop
+  onResetPassword?: (id: string) => void;
   saving: boolean;
   isCreating: boolean;
   setIsCreating: (val: boolean) => void;
   formData: Partial<AppUser>;
   setFormData: (data: Partial<AppUser>) => void;
+  onApprove?: (id: string) => void; // Callback para atualizar lista
 }
 
 export const UsersView: React.FC<UsersViewProps> = ({ 
-  users, onSave, onDelete, onResetPassword, saving, isCreating, setIsCreating, formData, setFormData 
+  users, onSave, onDelete, onResetPassword, saving, isCreating, setIsCreating, formData, setFormData, onApprove 
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'approved' | 'pending'>('approved');
+
+  // Separar usuários
+  const pendingUsers = users.filter(u => u.is_approved === false);
+  const approvedUsers = users.filter(u => u.is_approved !== false); // True ou undefined (legado)
+
+  const handleApprove = async (id: string) => {
+    if(!window.confirm("Aprovar acesso deste usuário?")) return;
+    const { error } = await updateUser(id, { is_approved: true });
+    if (!error && onApprove) onApprove(id);
+  };
+
+  const handleReject = async (id: string) => {
+    if(!window.confirm("Rejeitar e excluir solicitação?")) return;
+    await onDelete(id);
+  };
+
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
-      <SectionHeader title="Usuários do Sistema" 
-        action={<button onClick={() => { setIsCreating(!isCreating); setFormData({ role: 'editor' }); }} className="bg-brand-orange text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow"><FaPlus /> {isCreating ? 'Cancelar' : 'Convidar'}</button>}
-      />
-      {isCreating && (
-        <form onSubmit={onSave} className="bg-brand-surface border border-gray-800 rounded-2xl p-6 mb-6">
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Nome</label><input type="text" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Email</label><input type="email" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Role</label><select className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.role || 'editor'} onChange={e => setFormData({...formData, role: e.target.value as any})}><option value="editor">Editor (Vendedor)</option><option value="admin">Admin (Total)</option></select></div>
-           </div>
-           <p className="text-[10px] text-gray-500 mt-2">* Senha padrão inicial: <strong>123456</strong></p>
-           <button type="submit" disabled={saving} className="mt-4 px-6 py-2 bg-brand-orange text-white rounded-lg font-bold text-xs uppercase hover:bg-red-600 transition">{saving ? '...' : 'Salvar'}</button>
-        </form>
-      )}
-      <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden">
-        <table className="w-full text-left text-sm"><thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold"><tr><th className="px-6 py-4">Nome</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Ação</th></tr></thead>
-          <tbody className="divide-y divide-gray-800">
-             {users.map((u: AppUser) => (
-                <tr key={u.id} className="hover:bg-white/5">
-                   <td className="px-6 py-4 text-white font-bold">{u.name}</td>
-                   <td className="px-6 py-4 text-gray-400">{u.email}</td>
-                   <td className="px-6 py-4 uppercase text-xs">
-                     <span className={`px-2 py-1 rounded border ${u.role === 'admin' ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-blue-500 text-blue-500 bg-blue-500/10'}`}>{u.role}</span>
-                   </td>
-                   <td className="px-6 py-4 text-right flex justify-end gap-2">
-                     {onResetPassword && (
-                       <button onClick={() => onResetPassword(u.id)} className="text-yellow-500 hover:text-white transition p-2 bg-yellow-500/10 rounded-lg" title="Resetar Senha para 123456">
-                         <FaKey size={12}/>
-                       </button>
-                     )}
-                     <button onClick={() => onDelete(u.id)} className="text-red-500 hover:text-white transition p-2 bg-red-500/10 rounded-lg"><FaTrash size={12}/></button>
-                   </td>
-                </tr>
-             ))}
-          </tbody>
-        </table>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <SectionHeader title="Usuários do Sistema" />
+        <div className="flex bg-black/30 p-1 rounded-xl">
+           <button 
+             onClick={() => setActiveSubTab('approved')}
+             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition ${activeSubTab === 'approved' ? 'bg-brand-orange text-white' : 'text-gray-500 hover:text-white'}`}
+           >
+             Aprovados ({approvedUsers.length})
+           </button>
+           <button 
+             onClick={() => setActiveSubTab('pending')}
+             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition relative ${activeSubTab === 'pending' ? 'bg-brand-orange text-white' : 'text-gray-500 hover:text-white'}`}
+           >
+             Pendentes 
+             {pendingUsers.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px]">{pendingUsers.length}</span>}
+           </button>
+        </div>
       </div>
+      
+      {activeSubTab === 'approved' && (
+         <>
+           <div className="flex justify-end mb-4">
+             <button onClick={() => { setIsCreating(!isCreating); setFormData({ role: 'editor' }); }} className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase flex items-center gap-2 border border-gray-700">
+               <FaPlus /> {isCreating ? 'Cancelar' : 'Convidar Novo'}
+             </button>
+           </div>
+
+           {isCreating && (
+            <form onSubmit={onSave} className="bg-brand-surface border border-gray-800 rounded-2xl p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Nome</label><input type="text" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Email</label><input type="email" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-gray-500 uppercase">Role</label><select className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.role || 'editor'} onChange={e => setFormData({...formData, role: e.target.value as any})}><option value="editor">Editor (Vendedor)</option><option value="admin">Admin (Total)</option></select></div>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-2">* Senha padrão inicial: <strong>123456</strong>. Usuário criado aqui já nasce aprovado.</p>
+              <button type="submit" disabled={saving} className="mt-4 px-6 py-2 bg-brand-orange text-white rounded-lg font-bold text-xs uppercase hover:bg-red-600 transition">{saving ? '...' : 'Salvar'}</button>
+            </form>
+          )}
+
+           <div className="bg-brand-surface border border-gray-800 rounded-2xl overflow-hidden">
+             <table className="w-full text-left text-sm"><thead className="bg-black/40 text-gray-500 text-[10px] uppercase font-bold"><tr><th className="px-6 py-4">Nome</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Ação</th></tr></thead>
+              <tbody className="divide-y divide-gray-800">
+                 {approvedUsers.map((u: AppUser) => (
+                    <tr key={u.id} className="hover:bg-white/5">
+                       <td className="px-6 py-4 text-white font-bold">{u.name}</td>
+                       <td className="px-6 py-4 text-gray-400">{u.email}</td>
+                       <td className="px-6 py-4 uppercase text-xs">
+                         <span className={`px-2 py-1 rounded border ${u.role === 'admin' ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-blue-500 text-blue-500 bg-blue-500/10'}`}>{u.role}</span>
+                       </td>
+                       <td className="px-6 py-4 text-right flex justify-end gap-2">
+                         {onResetPassword && (
+                           <button onClick={() => onResetPassword(u.id)} className="text-yellow-500 hover:text-white transition p-2 bg-yellow-500/10 rounded-lg" title="Resetar Senha para 123456">
+                             <FaKey size={12}/>
+                           </button>
+                         )}
+                         <button onClick={() => onDelete(u.id)} className="text-red-500 hover:text-white transition p-2 bg-red-500/10 rounded-lg"><FaTrash size={12}/></button>
+                       </td>
+                    </tr>
+                 ))}
+              </tbody>
+            </table>
+           </div>
+         </>
+      )}
+
+      {activeSubTab === 'pending' && (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {pendingUsers.length === 0 ? (
+                <p className="col-span-2 text-center text-gray-500 py-10 italic">Nenhuma solicitação pendente no momento.</p>
+             ) : (
+                pendingUsers.map(u => (
+                   <div key={u.id} className="bg-brand-surface border border-yellow-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500"></div>
+                      <div className="flex justify-between items-start mb-4 pl-3">
+                         <div>
+                            <h4 className="font-bold text-white text-lg">{u.name}</h4>
+                            <p className="text-sm text-gray-400">{u.email}</p>
+                            <span className="text-[10px] text-yellow-500 uppercase font-bold bg-yellow-500/10 px-2 py-0.5 rounded mt-1 inline-block">Aguardando Aprovação</span>
+                         </div>
+                         <div className="text-[10px] text-gray-500 text-right">
+                             {new Date(u.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                         </div>
+                      </div>
+                      
+                      <div className="bg-black/30 rounded-lg p-3 mb-4 space-y-2 border border-gray-800 pl-3">
+                         <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <FaNetworkWired className="text-blue-500"/> IP: <span className="text-white font-mono">{u.ip_address || 'Não registrado'}</span>
+                         </div>
+                         <div className="flex items-start gap-2 text-xs text-gray-400">
+                            <FaDesktop className="text-purple-500 mt-0.5"/> 
+                            <span className="truncate w-full block" title={u.user_agent}>Device: {u.user_agent ? (u.user_agent.includes('Mobile') ? 'Mobile' : 'Desktop') + ' / ' + u.user_agent.substring(0, 30) + '...' : 'Não registrado'}</span>
+                         </div>
+                      </div>
+
+                      <div className="flex gap-3 pl-3">
+                         <button 
+                           onClick={() => handleApprove(u.id)}
+                           className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-xs uppercase flex items-center justify-center gap-2 transition shadow-glow"
+                         >
+                            <FaCheck/> Aprovar
+                         </button>
+                         <button 
+                           onClick={() => handleReject(u.id)}
+                           className="flex-1 bg-red-900/50 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 font-bold py-2 rounded-lg text-xs uppercase flex items-center justify-center gap-2 transition"
+                         >
+                            <FaTimes/> Rejeitar
+                         </button>
+                      </div>
+                   </div>
+                ))
+             )}
+         </div>
+      )}
+
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Phone } from 'lucide-react';
 
 interface HeaderProps {
@@ -17,6 +17,35 @@ export const Header: React.FC<HeaderProps> = ({
   handleWhatsApp,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  // Estado local para controlar o input sem delay visual
+  const [localSearch, setLocalSearch] = useState(searchTerm);
+
+  // Sincroniza o estado local quando o estado global muda (ex: botão de limpar)
+  useEffect(() => {
+    setLocalSearch(searchTerm);
+  }, [searchTerm]);
+
+  // Debounce: Aguarda 300ms após o usuário parar de digitar para atualizar a busca global
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        setSearchTerm(localSearch);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [localSearch, setSearchTerm, searchTerm]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalSearch(e.target.value);
+  };
+
+  const handleClear = () => {
+    setLocalSearch('');
+    setSearchTerm('');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full bg-brand-darkRed border-b border-gray-800 shadow-xl">
@@ -39,23 +68,28 @@ export const Header: React.FC<HeaderProps> = ({
               <input
                 type="text"
                 placeholder="Buscar por marca, modelo, ano..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                value={localSearch}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSearchTerm(localSearch); // Força atualização imediata
+                    handleSearch();
+                  }
+                }}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className="w-full h-12 pl-4 pr-12 rounded-xl bg-brand-surface border border-gray-700 text-white placeholder-gray-500 text-sm font-medium focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all shadow-inner"
               />
-              {searchTerm && (
+              {localSearch && (
                 <button 
-                   onClick={() => setSearchTerm('')}
+                   onClick={handleClear}
                    className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
                 >
                   <i className="fa-solid fa-times text-xs"></i>
                 </button>
               )}
               <button
-                onClick={handleSearch}
+                onClick={() => { setSearchTerm(localSearch); handleSearch(); }}
                 className={`absolute right-1 top-1 h-10 w-10 rounded-lg flex items-center justify-center transition-all ${isFocused ? 'text-brand-orange' : 'text-gray-400 hover:text-white'}`}
               >
                 <Search size={20} />
@@ -90,12 +124,17 @@ export const Header: React.FC<HeaderProps> = ({
               <input
                 type="text"
                 placeholder="Buscar veículo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                value={localSearch}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setSearchTerm(localSearch);
+                    handleSearch();
+                  }
+                }}
                 className="w-full h-10 pl-4 pr-10 rounded-lg bg-brand-surface border border-gray-700 text-white text-sm focus:border-brand-orange outline-none"
               />
-              <button onClick={handleSearch} className="absolute right-0 top-0 h-10 w-10 flex items-center justify-center text-gray-400">
+              <button onClick={() => { setSearchTerm(localSearch); handleSearch(); }} className="absolute right-0 top-0 h-10 w-10 flex items-center justify-center text-gray-400">
                 <i className="fa-solid fa-arrow-right"></i>
               </button>
            </div>

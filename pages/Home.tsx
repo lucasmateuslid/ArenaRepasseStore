@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom'; // Importado para gerenciar URL
 import { Car, FilterOptions, Seller } from '../types';
 import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears, fetchSpecialOffers } from '../supabaseClient';
+import { useCompany } from '../contexts/CompanyContext'; // Novo contexto
+import { encodeCarUrl, decodeCarIdFromUrl } from '../utils/urlHelpers'; // Importando Helper
 
 // Importing Components
 import { Header } from '../components/Header';
@@ -17,6 +19,8 @@ import { Footer } from '../components/Footer';
 const ITEMS_PER_PAGE = 12;
 
 export const Home = () => {
+  const { settings } = useCompany(); // Dados da empresa
+  
   // State principal de carros (acumulativo)
   const [cars, setCars] = useState<Car[]>([]);
   const [page, setPage] = useState(0);
@@ -148,19 +152,36 @@ export const Home = () => {
   }, [hasMore, isLoadingMore, loading, loadInventory]);
 
 
-  // --- DEEP LINKING LOGIC ---
+  // --- DEEP LINKING LOGIC (Single Source of Truth) ---
+  // Este useEffect controla ABERTURA e FECHAMENTO do modal baseado na URL
   useEffect(() => {
-    const carIdFromUrl = searchParams.get('carId');
-    if (!loading && carIdFromUrl && !selectedCar) {
-      // Como estamos paginando, o carro da URL pode não estar na lista 'cars'.
-      // Precisamos verificar. Se não estiver, deveríamos buscar individualmente (futura melhoria).
-      // Por enquanto, verifica se está nos carregados ou nas ofertas.
-      const foundCar = cars.find(c => c.id === carIdFromUrl) || specialOffersCars.find(c => c.id === carIdFromUrl);
-      if (foundCar) {
-        setSelectedCar(foundCar);
+    const carIdLegacy = searchParams.get('carId');
+    const prettyUrl = searchParams.get('v');
+
+    let targetId = carIdLegacy;
+
+    // Se tiver a URL amigável e não tiver o ID legado, tenta decodificar
+    if (prettyUrl && !targetId) {
+      targetId = decodeCarIdFromUrl(prettyUrl);
+    }
+
+    if (!loading) {
+      if (targetId) {
+        // Se tem ID na URL, mas o carro selecionado é diferente ou nulo, abre o modal
+        if (selectedCar?.id !== targetId) {
+          const foundCar = cars.find(c => c.id === targetId) || specialOffersCars.find(c => c.id === targetId);
+          if (foundCar) {
+            setSelectedCar(foundCar);
+          }
+        }
+      } else {
+        // Se NÃO tem ID na URL, mas o modal está aberto, fecha o modal
+        if (selectedCar) {
+          setSelectedCar(null);
+        }
       }
     }
-  }, [loading, cars, specialOffersCars, searchParams]);
+  }, [loading, cars, specialOffersCars, searchParams, selectedCar]);
 
   // Recarregar marcas e anos quando o tipo de veículo muda
   useEffect(() => {
@@ -205,17 +226,23 @@ export const Home = () => {
 
   // --- MODAL HANDLERS ---
   const handleOpenModal = (car: Car) => {
-    setSelectedCar(car);
+    // NÃO setamos setSelectedCar aqui. Apenas atualizamos a URL.
+    // O useEffect de Deep Linking detectará a mudança na URL e abrirá o modal.
     setSearchParams(prev => {
-      prev.set('carId', car.id);
+      // Gera URL amigável
+      const prettyParam = encodeCarUrl(car.id, car.make, car.model, car.year);
+      prev.set('v', prettyParam);
+      prev.delete('carId'); // Garante que o legado não fique
       return prev;
     });
   };
 
   const handleCloseModal = () => {
-    setSelectedCar(null);
+    // NÃO setamos setSelectedCar(null) aqui. Apenas limpamos a URL.
+    // O useEffect detectará que não tem mais ID e fechará o modal.
     setSearchParams(prev => {
       prev.delete('carId');
+      prev.delete('v');
       return prev;
     });
   };
@@ -227,8 +254,14 @@ export const Home = () => {
   };
 
   const handleWhatsApp = (car?: Car) => {
+    // Lógica inteligente: Tenta pegar um vendedor aleatório. 
+    // Se não tiver vendedores cadastrados, usa o telefone geral da empresa (configurações)
     const seller = getRandomSeller();
-    const phone = seller ? seller.whatsapp.replace(/\D/g, '') : "5511999999999"; 
+    
+    // Fallback: Telefone das configurações ou o padrão hardcoded se ainda não carregou
+    const companyPhone = settings?.phone_whatsapp || "5511999999999";
+    
+    const phone = seller ? seller.whatsapp.replace(/\D/g, '') : companyPhone.replace(/\D/g, ''); 
     const sellerName = seller ? seller.name.split(' ')[0] : "Consultor";
 
     let text = `Olá ${sellerName}! Gostaria de saber mais sobre as ofertas do Arena Repasse.`;
@@ -236,8 +269,9 @@ export const Home = () => {
     if (car) {
       const origin = window.location.origin;
       const pathname = window.location.pathname;
-      // Garante o formato correto do link (HashRouter)
-      const carLink = `${origin}${pathname}#/?carId=${car.id}`;
+      // Garante o formato correto do link usando URL Amigável
+      const prettyParam = encodeCarUrl(car.id, car.make, car.model, car.year);
+      const carLink = `${origin}${pathname}#/?v=${prettyParam}`;
       
       text = `Olá ${sellerName}! Estou interessado neste veículo:\n\n*${car.make} ${car.model} ${car.year}*\n\nVeja os detalhes aqui: ${carLink}`;
     }

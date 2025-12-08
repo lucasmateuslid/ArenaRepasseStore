@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Car } from '../types';
+import { encodeCarUrl } from '../utils/urlHelpers';
 
 interface CarModalProps {
   car: Car | null;
@@ -28,11 +29,12 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   
   const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
-  // Geração de URL Específica para Deep Linking (Compatível com HashRouter)
+  // Geração de URL Específica Amigável (Mascarada)
   const generateShareUrl = () => {
     const origin = window.location.origin;
     const pathname = window.location.pathname;
-    return `${origin}${pathname}#/?carId=${car.id}`;
+    const prettyParam = encodeCarUrl(car.id, car.make, car.model, car.year);
+    return `${origin}${pathname}#/?v=${prettyParam}`;
   };
 
   const shareUrl = generateShareUrl();

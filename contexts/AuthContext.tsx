@@ -27,18 +27,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   
-  // Ref para rastrear o usuário atual sem depender do ciclo de renderização
-  // Isso evita race conditions dentro do listener do Supabase
   const currentUserRef = useRef<string | null>(null);
 
-  /**
-   * -------------------------------------------------------------------
-   * fetchProfileAndRole()
-   * - Faz a leitura segura da tabela app_users
-   * - Se o Supabase permitir ler → Admin
-   * - Se bloquear via RLS → Viewer
-   * -------------------------------------------------------------------
-   */
   const fetchProfileAndRole = useCallback(async (sessionUser: any): Promise<AppUser | null> => {
     if (!sessionUser?.id) return null;
 
@@ -49,53 +39,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', sessionUser.id)
         .maybeSingle();
 
-      // 📌 Caso admin:
-      // Se conseguiu ler → RLS liberou → Role válida
-      if (data && data.role === 'admin') {
-        setIsAdmin(true);
-        return data;
+      // REGRA DE APROVAÇÃO:
+      // Se o usuário existir, mas não estiver aprovado, bloqueamos o acesso.
+      // (Exceto se for o primeiro admin do sistema, que geralmente a gente insere via SQL)
+      if (data && data.is_approved === false) {
+         console.warn("Usuário pendente de aprovação.");
+         return { ...data, role: 'pending_approval' }; // Marcador interno
       }
 
-      // 📌 Caso viewer:
-      // Se RLS bloqueou OU registro não existe ⇒ Viewer
+      if (data && data.role === 'admin') {
+        setIsAdmin(true);
+        return { ...data, is_approved: true };
+      }
+
       setIsAdmin(false);
 
+      if (data) return data;
+
+      // Fallback para usuário novo sem registro no banco ainda (Viewer não aprovado)
       return {
         id: sessionUser.id,
         name: sessionUser.user_metadata?.full_name || sessionUser.email.split('@')[0],
         email: sessionUser.email,
         role: 'viewer',
+        is_approved: false // Padrão seguro
       };
     } catch (err) {
-      console.warn('Erro ao buscar perfil (provável RLS):', err);
-
+      console.warn('Erro ao buscar perfil:', err);
       setIsAdmin(false);
-
-      // fallback seguro
       return {
         id: sessionUser.id,
         name: sessionUser.email.split('@')[0],
         email: sessionUser.email,
         role: 'viewer',
+        is_approved: false
       };
     }
   }, []);
 
-  /**
-   * --------------------------------------------------------------
-   *  Inicialização e Listener
-   * --------------------------------------------------------------
-   */
   useEffect(() => {
     let mounted = true;
 
-    // Função única para processar o login e carregar dados
     const handleSession = async (sessionUser: any) => {
       if (!mounted) return;
       
-      // CRÍTICO: Prevenção de Loop de Loading
-      // Se já temos este usuário carregado e o perfil existe, não fazemos nada.
-      // Isso corrige o erro de tela de loading ao navegar 'Voltar' ou trocar de abas.
       if (currentUserRef.current === sessionUser.id && appUser) {
         setLoading(false);
         return;
@@ -108,27 +95,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const profile = await fetchProfileAndRole(sessionUser);
         
+        // VERIFICAÇÃO DE BLOQUEIO
+        if (profile && (profile.role === 'pending_approval' || profile.is_approved === false)) {
+            alert("Seu cadastro foi realizado, mas ainda está aguardando aprovação do administrador.");
+            await supabase.auth.signOut();
+            setUser(null);
+            setAppUser(null);
+            if (mounted) setLoading(false);
+            return;
+        }
+        
         if (mounted) {
           setAppUser(profile);
         }
       } catch (error) {
         console.error("Erro ao processar sessão:", error);
-        // Em caso de erro, definimos um usuário básico para não travar o app
-        if (mounted && !appUser) {
-           setAppUser({
-             id: sessionUser.id,
-             name: 'Usuário',
-             email: sessionUser.email,
-             role: 'viewer'
-           });
-        }
+        if (mounted) setLoading(false);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
     const initAuth = async () => {
-      // 1. Check Inicial
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         await handleSession(session.user);
@@ -136,11 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (mounted) setLoading(false);
       }
 
-      // 2. Listener de Eventos
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           if (!mounted) return;
-          // console.log(`Auth Event: ${event}`);
 
           if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             if (session?.user) {
@@ -153,7 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsAdmin(false);
             setLoading(false);
           }
-          // Ignoramos TOKEN_REFRESHED explicitamente para evitar re-renderizações
         }
       );
 
@@ -167,13 +152,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, [fetchProfileAndRole]); // Removido 'appUser' das dependências para evitar loops
+  }, [fetchProfileAndRole]);
 
-  /**
-   * --------------------------------------------------------------
-   * Logout
-   * --------------------------------------------------------------
-   */
   const signOut = async () => {
     setLoading(true);
     await supabase.auth.signOut();

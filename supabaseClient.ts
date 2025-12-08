@@ -4,14 +4,13 @@
 // ============================================================================
 
 import { createClient } from '@supabase/supabase-js';
-import { Car, AppUser, FilterOptions, Seller } from './types';
+import { Car, AppUser, FilterOptions, Seller, CompanySettings } from './types';
 import { getEnv } from './utils/env';
 
 // ============================================================================
 // ENVIRONMENT LOAD & VALIDATION
 // ============================================================================
 
-// Busca as chaves usando a função utilitária que checa .env, process.env e o FALLBACK manual
 const SUPABASE_URL = getEnv("VITE_SUPABASE_URL");
 const SUPABASE_KEY = getEnv("VITE_SUPABASE_ANON_KEY");
 
@@ -24,7 +23,6 @@ if (isPlaceholder) {
   console.log("✅ Supabase Client conectado:", SUPABASE_URL);
 }
 
-// Configuração de URL segura para evitar crash na inicialização do client
 const clientUrl = isPlaceholder ? "https://placeholder.supabase.co" : SUPABASE_URL;
 const clientKey = isPlaceholder ? "placeholder-key" : SUPABASE_KEY;
 
@@ -91,17 +89,27 @@ export const adminCreateUser = async (email: string, name: string, role: string)
       }
     });
     
+    // Se a Edge Function criar, ela deve garantir o insert no banco.
+    // Mas, se for fallback local, precisamos garantir que is_approved = true
+    
     if (error) throw error;
     if (data.error) throw new Error(data.error);
 
     return { data, error: null };
   } catch (err: any) {
-    console.error("Falha na criação administrativa:", err);
+    console.error("Falha na criação administrativa (Edge Function):", err);
     if (err.message?.includes('Functions') || err.message?.includes('Failed to send') || isPlaceholder) {
-       console.warn("Edge Function falhou ou offline. Criando registro local.");
+       console.warn("Criando registro local via Client (Fallback).");
        const fakeId = crypto.randomUUID();
+       // Se criado pelo Admin, já nasce aprovado
        if (!isPlaceholder) {
-         await supabase.from('app_users').insert([{ id: fakeId, email, name, role }]);
+         await supabase.from('app_users').insert([{ 
+           id: fakeId, 
+           email, 
+           name, 
+           role,
+           is_approved: true // IMPORTANTE: Usuário criado pelo Admin é aprovado auto
+         }]);
        }
        return { data: { id: fakeId }, error: null };
     }
@@ -153,7 +161,6 @@ export const adminDeleteUser = async (userId: string) => {
 // CARS
 // ============================================================================
 
-// Busca carros com suporte a paginação (Infinite Scroll)
 export const fetchCars = async (
   filters: FilterOptions = {},
   page: number = 0,
@@ -166,16 +173,12 @@ export const fetchCars = async (
       .from('cars')
       .select('*', { count: 'exact' });
 
-    // Filtros
     if (filters.make) query = query.eq('make', filters.make);
     if (filters.vehicleType) query = query.eq('vehicleType', filters.vehicleType);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
     if (filters.status) query = query.eq('status', filters.status);
     
-    // Filtro de Texto (Busca)
     if (filters.search) {
-       // O Supabase tem limitações com OR complexos. 
-       // Para busca simples, o ilike resolve.
        query = query.or(`make.ilike.%${filters.search}%,model.ilike.%${filters.search}%`);
     }
 
@@ -183,7 +186,6 @@ export const fetchCars = async (
       query = query.gte('year', Number(filters.year));
     }
 
-    // Ordenação e Paginação
     query = query
       .order('created_at', { ascending: false })
       .range(page * limit, (page + 1) * limit - 1);
@@ -198,25 +200,20 @@ export const fetchCars = async (
   }
 };
 
-// Busca separada para Ofertas Especiais (Top descontos)
-// Garante que o banner de ofertas sempre tenha dados, independente da página atual da grid
 export const fetchSpecialOffers = async (): Promise<Car[]> => {
   if (isPlaceholder) return [];
-  
-  // Busca carros onde fipeprice > price e status disponível
   const { data } = await supabase
     .from('cars')
     .select('*')
     .eq('status', 'available')
-    .gt('fipeprice', 0) // Garante que tem FIPE cadastrada
+    .gt('fipeprice', 0)
     .order('created_at', { ascending: false })
-    .limit(20); // Pega os 20 mais recentes para filtrar no front os melhores descontos
+    .limit(20);
 
   return (data as Car[]) || [];
 };
 
 export const fetchAvailableBrands = async (vehicleType?: string): Promise<string[]> => {
-  // Para filtros, buscamos todos (limitando a 1000 para performance) apenas as marcas
   if (isPlaceholder) return [];
   let query = supabase.from('cars').select('make').eq('status', 'available');
   if (vehicleType) query = query.eq('vehicleType', vehicleType);
@@ -240,7 +237,6 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
   return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
 
-// Função auxiliar para remover campos undefined que causam erro no Supabase
 const sanitizePayload = (payload: any) => {
   return Object.fromEntries(
     Object.entries(payload).map(([key, value]) => [key, value === undefined ? null : value])
@@ -289,7 +285,7 @@ export const sellCar = async (
 };
 
 // ============================================================================
-// SELLERS & OTHERS (Mantidos iguais)
+// SELLERS & OTHERS
 // ============================================================================
 
 export const fetchSellers = async () => {
@@ -324,7 +320,7 @@ export const fetchUsers = async () => {
 
 export const createUser = async (user: Omit<AppUser, 'id'>) => {
   if (isPlaceholder) return { data: null, error: null };
-  const { data, error } = await supabase.from('app_users').insert([user]).select().single();
+  const { data, error } = await supabase.from('app_users').insert([{...user, is_approved: true}]).select().single();
   return { data, error };
 };
 
@@ -343,14 +339,6 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
     if (isPlaceholder) return "https://via.placeholder.com/800x600?text=Demo+Image";
 
     const ext = file.name.split('.').pop();
-    const generateId = () => {
-        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    };
-
     const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     const fileName = `${Date.now()}_${cleanName}.${ext}`;
     
@@ -369,5 +357,92 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
   } catch (err) {
     console.error('Upload Failed:', err);
     return null;
+  }
+};
+
+// ============================================================================
+// COMPANY SETTINGS (SINGLETON)
+// ============================================================================
+
+export const fetchCompanySettings = async (): Promise<CompanySettings> => {
+  const defaultSettings: CompanySettings = {
+    company_name: 'Arena Repasse',
+    cnpj: '00.000.000/0001-91',
+    address: 'Av. Paulista, 1000 - São Paulo, SP',
+    phone_whatsapp: '5511999999999',
+    email: 'contato@arenarepasse.com.br',
+    opening_hours: 'Seg a Sex: 09h às 18h\nSáb: 09h às 13h'
+  };
+
+  if (isPlaceholder) return defaultSettings;
+
+  try {
+    const { data, error } = await supabase.from('company_settings').select('*').limit(1).maybeSingle();
+    
+    if (error) {
+       if (
+         error.code === '42P01' || 
+         error.message?.includes('does not exist') ||
+         error.message?.includes('Could not find the table') || 
+         error.message?.includes('schema cache')
+       ) {
+         return defaultSettings;
+       }
+       throw error;
+    }
+    
+    if (!data) {
+      try {
+        const { data: newData, error: createError } = await supabase
+          .from('company_settings')
+          .insert([defaultSettings])
+          .select()
+          .single();
+          
+        if (!createError && newData) return newData;
+      } catch (insertError) {
+      }
+      return defaultSettings;
+    }
+
+    return data;
+  } catch (err: any) {
+    const msg = err.message || JSON.stringify(err);
+    if (!msg.includes('does not exist') && !msg.includes('Could not find the table') && !msg.includes('42P01')) {
+      console.error("Erro ao buscar configurações:", msg);
+    }
+    return defaultSettings;
+  }
+};
+
+export const updateCompanySettings = async (settings: Partial<CompanySettings>) => {
+  if (isPlaceholder) return { data: null, error: null };
+
+  try {
+    const { data: current, error: fetchError } = await supabase.from('company_settings').select('id').limit(1).maybeSingle();
+    
+    if (fetchError && (
+        fetchError.code === '42P01' || 
+        fetchError.message?.includes('does not exist') ||
+        fetchError.message?.includes('Could not find the table') ||
+        fetchError.message?.includes('schema cache')
+    )) {
+      return { data: null, error: { message: "A tabela 'company_settings' não foi encontrada no banco de dados. Por favor, crie a tabela ou contate o suporte." } };
+    }
+
+    if (current?.id) {
+       const { data, error } = await supabase
+         .from('company_settings')
+         .update(settings)
+         .eq('id', current.id)
+         .select()
+         .single();
+       return { data, error };
+    } else {
+       const { data, error } = await supabase.from('company_settings').insert([settings]).select().single();
+       return { data, error };
+    }
+  } catch (err: any) {
+    return { data: null, error: err };
   }
 };

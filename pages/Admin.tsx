@@ -17,13 +17,14 @@ import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
 import { ProfileView } from './admin/views/ProfileView';
 import { ReportsView } from './admin/views/ReportsView';
+import { SettingsView } from './admin/views/SettingsView';
 
 export const Admin = () => {
   const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Global Data
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports' | 'settings'>('dashboard');
   const [cars, setCars] = useState<Car[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -126,22 +127,19 @@ export const Admin = () => {
 
   const handleCarSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return; // Evita duplo clique
-    setSaving(true); // Inicia o loading
+    if (saving) return; 
+    setSaving(true); 
 
     try {
         if (!isAdmin) throw new Error("Permissão negada.");
 
-        // 1. Validação Básica
         if (!carFormData.make || !carFormData.model)
           throw new Error('Preencha Marca e Modelo.');
         if (!carFormData.price || Number(carFormData.price) <= 0) 
           throw new Error('Preencha o valor de venda corretamente.');
 
-        // 2. Upload de Imagens
         let finalImage = carFormData.image;
         
-        // Se houver uma nova foto principal selecionada, faça upload
         if (mainImageFile) {
           const url = await uploadCarImage(mainImageFile);
           if (url) {
@@ -153,7 +151,6 @@ export const Admin = () => {
 
         if (!finalImage) throw new Error('Foto principal é obrigatória.');
 
-        // Upload Galeria (Paralelo)
         const currentGallery = carFormData.gallery || [];
         const newGalleryUrls: string[] = [];
         
@@ -161,7 +158,6 @@ export const Admin = () => {
            const uploadPromises = galleryFiles.map(file => uploadCarImage(file));
            const results = await Promise.all(uploadPromises);
            
-           // Verifica se algum upload falhou
            const failedCount = results.filter(r => r === null).length;
            if (failedCount > 0) {
               console.warn(`${failedCount} imagens da galeria falharam no upload.`);
@@ -174,8 +170,6 @@ export const Admin = () => {
         
         const finalGallery = [...currentGallery, ...newGalleryUrls];
 
-        // 3. Montagem do Payload (Dados)
-        // Garante que campos numéricos sejam números
         const effectivePrice = getNumber(carFormData.price);
         const effectiveFipe = getNumber(carFormData.fipeprice);
         const effectiveMileage = getNumber(carFormData.mileage);
@@ -199,11 +193,8 @@ export const Admin = () => {
           year: effectiveYear,
           image: finalImage,
           gallery: finalGallery,
-          
           purchasePrice: effectivePurchasePrice,
-          // Garante que expenses não seja undefined
           expenses: carFormData.expenses || [],
-
           soldPrice: effectiveSoldPrice,
           soldDate: effectiveSoldDate,
           soldBy: effectiveSoldBy,
@@ -212,11 +203,9 @@ export const Admin = () => {
           status: carFormData.status || 'available'
         };
 
-        // 4. Envio ao Banco
         let result;
         if (carFormData.id) {
           result = await updateCar(carFormData.id, payload);
-          // Se for venda, tenta atualizar o registro de venda separado (opcional, para legado)
           if (isSold && !result.error) {
              await sellCar(carFormData.id, {
                 soldPrice: effectiveSoldPrice!,
@@ -225,12 +214,10 @@ export const Admin = () => {
              });
           }
         } else {
-          // Remove ID se estiver undefined ou vazio ao criar
           const { id, ...createPayload } = payload;
           result = await createCar(createPayload);
         }
 
-        // 5. Verificação de Erro do Banco
         if (result.error) {
           console.error("Erro do Supabase:", result.error);
           throw new Error(result.error.message || "Erro ao salvar no banco de dados.");
@@ -247,7 +234,6 @@ export const Admin = () => {
       console.error("Erro no processo de salvamento:", err);
       showNotification(err.message || 'Ocorreu um erro inesperado.', 'error');
     } finally {
-      // 6. GARANTIA DE PARADA DO LOADING
       setSaving(false);
     }
   };
@@ -434,7 +420,6 @@ export const Admin = () => {
         />
       )}
 
-      {/* Nova View de Relatórios */}
       {activeTab === 'reports' && (
         isAdmin ? (
           <ReportsView cars={cars} />
@@ -443,6 +428,18 @@ export const Admin = () => {
              <i className="fa-solid fa-lock text-4xl mb-4"></i>
              <h2 className="text-xl font-bold">Acesso Restrito</h2>
              <p>Apenas administradores podem visualizar relatórios financeiros.</p>
+          </div>
+        )
+      )}
+
+      {activeTab === 'settings' && (
+        isAdmin ? (
+          <SettingsView showNotification={showNotification} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+             <i className="fa-solid fa-lock text-4xl mb-4"></i>
+             <h2 className="text-xl font-bold">Acesso Restrito</h2>
+             <p>Apenas administradores podem alterar configurações da empresa.</p>
           </div>
         )
       )}
@@ -511,6 +508,10 @@ export const Admin = () => {
           setIsCreating={setIsCreatingUser}
           formData={userFormData}
           setFormData={setUserFormData}
+          onApprove={() => {
+              showNotification('Acesso aprovado com sucesso!', 'success');
+              loadAllData();
+          }}
         />
       )}
 

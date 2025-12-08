@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp } from 'react-icons/fa';
 import BankIcon from './BankIcon';
+import { useCompany } from '../contexts/CompanyContext';
 
 interface FooterProps {
   handleWhatsApp: () => void;
@@ -10,6 +11,8 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter }) => {
+  const { settings } = useCompany();
+
   // Códigos COMPE Oficiais para mapeamento com o repo brazilian-banks-icons
   const banks = [
     { name: 'Santander', compe: 33 },   // 033.svg
@@ -25,6 +28,11 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
     document.getElementById('inventory')?.scrollIntoView({behavior: 'smooth'});
   };
 
+  const formatWhatsApp = (num: string) => {
+     if (!num) return '';
+     return num.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4').replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  }
+
   return (
     <footer className="bg-brand-darkRed border-t border-red-800 text-gray-300 pt-16 pb-12 font-sans relative overflow-hidden">
       {/* Efeito de Fundo */}
@@ -38,16 +46,16 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
           {/* Coluna 1: Empresa & Legal */}
           <div className="space-y-4">
              <div className="text-2xl font-black italic tracking-tighter text-white">
-              ARENA<span className="text-brand-orange">REPASSE</span>
+              {settings?.company_name ? settings.company_name.split(' ')[0] : 'ARENA'}<span className="text-brand-orange">{settings?.company_name ? settings.company_name.replace(settings.company_name.split(' ')[0], '') : 'REPASSE'}</span>
             </div>
             <p className="text-sm leading-relaxed text-white/70">
               O maior estoque de repasse do Brasil. Conectando oportunidades a investidores e particulares com transparência e segurança.
             </p>
             <div className="pt-4 border-t border-white/10 mt-4">
                <p className="text-xs font-bold text-white/50 uppercase mb-1">Dados da Empresa</p>
-               <p className="text-xs">Arena Repasse Veículos Ltda.</p>
-               <p className="text-xs">CNPJ: 12.345.678/0001-90</p>
-               <p className="text-xs mt-1">Av. das Nações Unidas, 1000 - SP</p>
+               <p className="text-xs">{settings?.company_name || 'Arena Repasse Veículos Ltda.'}</p>
+               <p className="text-xs">CNPJ: {settings?.cnpj || '12.345.678/0001-90'}</p>
+               <p className="text-xs mt-1">{settings?.address || 'Av. das Nações Unidas, 1000 - SP'}</p>
             </div>
           </div>
 
@@ -118,7 +126,7 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
                  <div>
                    <span className="block text-xs font-bold text-white/50 uppercase">WhatsApp Vendas</span>
                    <button onClick={handleWhatsApp} className="text-white hover:text-green-400 font-bold transition text-base">
-                     (11) 99999-9999
+                     {formatWhatsApp(settings?.phone_whatsapp || '11999999999')}
                    </button>
                  </div>
               </li>
@@ -128,7 +136,7 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
                  </div>
                  <div>
                    <span className="block text-xs font-bold text-white/50 uppercase">Email</span>
-                   <span className="text-white/80">contato@arenarepasse.com.br</span>
+                   <span className="text-white/80">{settings?.email || 'contato@arenarepasse.com.br'}</span>
                  </div>
               </li>
               <li className="flex items-start gap-3">
@@ -137,7 +145,7 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
                  </div>
                  <div>
                    <span className="block text-xs font-bold text-white/50 uppercase">Horário</span>
-                   <span className="text-white/80 text-xs">Seg a Sex: 09h às 18h<br/>Sáb: 09h às 13h</span>
+                   <span className="text-white/80 text-xs whitespace-pre-line">{settings?.opening_hours || 'Seg a Sex: 09h às 18h\nSáb: 09h às 13h'}</span>
                  </div>
               </li>
             </ul>
@@ -147,16 +155,28 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
         {/* Rodapé Inferior */}
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/40">
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6">
-             <span>&copy; {new Date().getFullYear()} Arena Repasse. Todos os direitos reservados.</span>
+             <span>&copy; {new Date().getFullYear()} {settings?.company_name || 'Arena Repasse'}. Todos os direitos reservados.</span>
              <Link to="/admin" className="hover:text-white transition flex items-center gap-1">
                <i className="fa-solid fa-lock text-[10px]"></i> Restrito
              </Link>
           </div>
 
           <div className="flex gap-4 text-lg text-white/60">
-             <i className="fa-brands fa-instagram hover:text-white transition cursor-pointer"></i>
-             <i className="fa-brands fa-facebook hover:text-white transition cursor-pointer"></i>
-             <i className="fa-brands fa-youtube hover:text-white transition cursor-pointer"></i>
+             {settings?.social_instagram && (
+               <a href={settings.social_instagram.startsWith('http') ? settings.social_instagram : `https://instagram.com/${settings.social_instagram.replace('@','')}`} target="_blank" rel="noreferrer">
+                 <i className="fa-brands fa-instagram hover:text-white transition cursor-pointer"></i>
+               </a>
+             )}
+             {settings?.social_facebook && (
+               <a href={settings.social_facebook} target="_blank" rel="noreferrer">
+                 <i className="fa-brands fa-facebook hover:text-white transition cursor-pointer"></i>
+               </a>
+             )}
+             {settings?.social_youtube && (
+               <a href={settings.social_youtube} target="_blank" rel="noreferrer">
+                 <i className="fa-brands fa-youtube hover:text-white transition cursor-pointer"></i>
+               </a>
+             )}
           </div>
         </div>
       </div>
