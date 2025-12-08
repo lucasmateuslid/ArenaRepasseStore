@@ -23,16 +23,15 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const fipe = Number(car.fipeprice) || 0;
   const price = Number(car.price) || 0;
   const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
+  const economy = fipe - price;
   const images = (car.gallery && car.gallery.length > 0) ? car.gallery : [car.image];
   
   const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
   // Geração de URL Específica para Deep Linking (Compatível com HashRouter)
-  // Formato desejado: https://site.com/#/?carId=uuid
   const generateShareUrl = () => {
     const origin = window.location.origin;
     const pathname = window.location.pathname;
-    // Garante que não duplique hashes e insere o parametro corretamente
     return `${origin}${pathname}#/?carId=${car.id}`;
   };
 
@@ -40,22 +39,17 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
   const handleCopyLink = async () => {
-    const textToCopy = shareUrl; // Copia apenas a URL para ser mais útil
+    const textToCopy = shareUrl;
 
-    // Função interna para o método antigo (funciona em HTTP/IP local)
     const copyFallback = (text: string) => {
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      
-      // Evita scroll ao inserir elemento
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
       document.body.appendChild(textArea);
-      
       textArea.focus();
       textArea.select();
-      
       try {
         const successful = document.execCommand('copy');
         if (successful) {
@@ -67,25 +61,20 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
         console.error('Fallback: Oops, unable to copy', err);
         setCopyStatus('Erro');
       }
-      
       document.body.removeChild(textArea);
     };
 
-    // Tenta API moderna primeiro (Requer HTTPS)
     if (navigator.clipboard && window.isSecureContext) {
       try {
         await navigator.clipboard.writeText(textToCopy);
         setCopyStatus('Copiado!');
       } catch (err) {
-        console.warn('Clipboard API falhou, tentando fallback...', err);
         copyFallback(textToCopy);
       }
     } else {
-      // Fallback imediato se não for contexto seguro
       copyFallback(textToCopy);
     }
 
-    // Reset do texto do botão após 2.5 segundos
     setTimeout(() => setCopyStatus('Copiar Link'), 2500);
   };
 
@@ -205,19 +194,36 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             </div>
           </div>
 
-          <div className="mt-auto space-y-3 pt-2 border-t border-gray-800/50">
-             <div className="flex justify-between items-center text-xs text-gray-500 px-1">
-                <span>FIPE: {formatCurrency(fipe)}</span>
-                {discount > 0 && <span className="text-green-500 font-bold">-{discount}% OFF</span>}
+          {/* Price & Action Section */}
+          <div className="mt-auto pt-4 border-t border-gray-800/50">
+             
+             {/* Info Financeira Destacada */}
+             <div className="flex flex-col gap-2 mb-3 bg-black/30 p-3 rounded-lg border border-gray-800">
+                <div className="flex justify-between items-center">
+                   <span className="text-xs font-bold text-gray-500">TABELA FIPE</span>
+                   <span className="text-sm font-bold text-red-500/70 line-through decoration-red-500/50">{formatCurrency(fipe)}</span>
+                </div>
+                {economy > 0 && (
+                  <div className="flex justify-between items-center">
+                     <span className="text-xs font-black text-green-500 uppercase">Sua Economia</span>
+                     <span className="text-sm font-black text-white bg-green-600 px-2 py-0.5 rounded shadow-lg">{formatCurrency(economy)}</span>
+                  </div>
+                )}
              </div>
-             <div className="flex items-center justify-between mb-2">
-               <span className="text-3xl md:text-4xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
+
+             <div className="flex items-center justify-between mb-4">
+               <div>
+                 <span className="text-[10px] uppercase font-bold text-gray-400 block mb-0.5">Preço de Repasse</span>
+                 <span className="text-3xl md:text-4xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
+               </div>
+               {discount > 0 && <span className="bg-brand-orange text-white text-sm font-black px-3 py-1 rounded-full animate-pulse">-{discount}% OFF</span>}
              </div>
+
              <button 
                onClick={() => handleWhatsApp(car)}
-               className="w-full bg-[#25D366] text-white font-black uppercase tracking-wider py-3 md:py-4 rounded-xl shadow-glow hover:brightness-110 transition transform active:scale-95 flex items-center justify-center gap-2"
+               className="w-full bg-[#25D366] hover:bg-[#1dbf57] text-white font-black uppercase tracking-wider py-3 md:py-4 rounded-xl shadow-[0_0_20px_rgba(37,211,102,0.3)] hover:shadow-[0_0_30px_rgba(37,211,102,0.5)] transition transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2 text-lg"
              >
-               <i className="fa-brands fa-whatsapp text-lg md:text-xl"></i> 
+               <i className="fa-brands fa-whatsapp text-2xl"></i> 
                <span>Negociar no WhatsApp</span>
              </button>
           </div>

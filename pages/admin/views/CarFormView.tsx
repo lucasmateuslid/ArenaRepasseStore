@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
@@ -511,9 +512,9 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
 
       {/* Footer Buttons */}
       <div className="flex justify-end gap-4 pt-6 border-t border-gray-800 mt-6 sticky bottom-0 bg-brand-dark/95 backdrop-blur p-4 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
-          <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400 font-bold text-xs uppercase hover:bg-gray-800 transition">Cancelar</button>
-          <button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange text-white font-bold text-xs uppercase shadow-glow hover:bg-red-600 transition transform active:scale-95 disabled:opacity-50 flex items-center gap-2">
-              {saving ? <FaChevronRight className="animate-spin"/> : <FaSave/>} Salvar Alterações
+          <button type="button" onClick={onCancel} disabled={saving} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400 font-bold text-xs uppercase hover:bg-gray-800 transition disabled:opacity-50">Cancelar</button>
+          <button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange text-white font-bold text-xs uppercase shadow-glow hover:bg-red-600 transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              {saving ? <><FaChevronRight className="animate-spin"/> Salvando...</> : <><FaSave/> Salvar Alterações</>}
           </button>
       </div>
 

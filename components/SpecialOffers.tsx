@@ -78,10 +78,11 @@ export const SpecialOffers: React.FC<SpecialOffersProps> = ({
                     {car.model}
                   </h3>
                   <div className="mt-auto border-t border-gray-700/50 pt-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                       <span className="line-through">FIPE {formatCurrency(car.fipeprice)}</span>
+                    <div className="flex items-center justify-between text-xs mb-1 bg-black/30 p-1 rounded">
+                       <span className="text-gray-500 font-bold uppercase">Tabela FIPE</span>
+                       <span className="line-through text-red-500/70 font-bold">{formatCurrency(car.fipeprice)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mt-2">
                       <span className="text-2xl font-black text-white tracking-tight">{formatCurrency(car.price)}</span>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }}

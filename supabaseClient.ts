@@ -240,16 +240,27 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
   return [...new Set(data.map(c => Number(c.year)))].sort((a, b) => b - a);
 };
 
+// Função auxiliar para remover campos undefined que causam erro no Supabase
+const sanitizePayload = (payload: any) => {
+  return Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => [key, value === undefined ? null : value])
+  );
+};
+
 export const createCar = async (car: Omit<Car, 'id'>) => {
   if (isPlaceholder) return { data: null, error: null };
-  const { id, ...clean } = car as any;
-  const { data, error } = await supabase.from('cars').insert([clean]).select().single();
+  const cleanPayload = sanitizePayload(car);
+  // @ts-ignore
+  const { id, ...payloadWithoutId } = cleanPayload;
+  
+  const { data, error } = await supabase.from('cars').insert([payloadWithoutId]).select().single();
   return { data, error };
 };
 
 export const updateCar = async (id: string, updates: Partial<Car>) => {
   if (isPlaceholder) return { data: null, error: null };
-  const { data, error } = await supabase.from('cars').update(updates).eq('id', id).select().single();
+  const cleanUpdates = sanitizePayload(updates);
+  const { data, error } = await supabase.from('cars').update(cleanUpdates).eq('id', id).select().single();
   return { data, error };
 };
 
@@ -340,15 +351,23 @@ export const uploadCarImage = async (file: File): Promise<string | null> => {
         });
     };
 
-    const fileName = `${Date.now()}_${generateId()}.${ext}`;
-    const { error } = await supabase.storage.from('car-images').upload(fileName, file);
-    if (error) throw error;
+    const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const fileName = `${Date.now()}_${cleanName}.${ext}`;
+    
+    const { error } = await supabase.storage.from('car-images').upload(fileName, file, {
+      upsert: false
+    });
+    
+    if (error) {
+      console.error("Supabase Storage Error:", error);
+      throw error;
+    }
 
     const { data } = supabase.storage.from('car-images').getPublicUrl(fileName);
     return data.publicUrl;
 
   } catch (err) {
-    console.error('Upload Error:', err);
+    console.error('Upload Failed:', err);
     return null;
   }
 };

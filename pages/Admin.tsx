@@ -16,14 +16,13 @@ import { InventoryView } from './admin/views/InventoryView';
 import { CarFormView } from './admin/views/CarFormView';
 import { SellersView, UsersView } from './admin/views/PeopleView';
 import { ProfileView } from './admin/views/ProfileView';
-import { ReportsView } from './admin/views/ReportsView'; // Nova Importação
+import { ReportsView } from './admin/views/ReportsView';
 
 export const Admin = () => {
   const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Global Data
-  // Atualizado para incluir 'reports' no estado do tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports'>('dashboard');
   const [cars, setCars] = useState<Car[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -79,15 +78,19 @@ export const Admin = () => {
 
   // --- Data Loading ---
   const loadAllData = useCallback(async () => {
-    const [carsData, sellersData, usersData] = await Promise.all([
-      fetchCars(),
-      fetchSellers(),
-      isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
-    ]);
+    try {
+      const [carsData, sellersData, usersData] = await Promise.all([
+        fetchCars(),
+        fetchSellers(),
+        isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
+      ]);
 
-    if (carsData.data) setCars(carsData.data);
-    if (sellersData.data) setSellers(sellersData.data);
-    if (usersData.data) setUsers(usersData.data);
+      if (carsData.data) setCars(carsData.data);
+      if (sellersData.data) setSellers(sellersData.data);
+      if (usersData.data) setUsers(usersData.data);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    }
   }, [isAdmin]);
 
   useEffect(() => {
@@ -123,48 +126,69 @@ export const Admin = () => {
 
   const handleCarSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await requireAdmin(async () => {
-      try {
-        setSaving(true);
+    if (saving) return; // Evita duplo clique
+    setSaving(true); // Inicia o loading
 
+    try {
+        if (!isAdmin) throw new Error("Permissão negada.");
+
+        // 1. Validação Básica
         if (!carFormData.make || !carFormData.model)
-          throw new Error('Preencha Marca e Modelo');
+          throw new Error('Preencha Marca e Modelo.');
+        if (!carFormData.price || Number(carFormData.price) <= 0) 
+          throw new Error('Preencha o valor de venda corretamente.');
 
+        // 2. Upload de Imagens
+        let finalImage = carFormData.image;
+        
+        // Se houver uma nova foto principal selecionada, faça upload
+        if (mainImageFile) {
+          const url = await uploadCarImage(mainImageFile);
+          if (url) {
+            finalImage = url;
+          } else {
+            throw new Error('Falha no upload da imagem principal. Tente novamente.');
+          }
+        }
+
+        if (!finalImage) throw new Error('Foto principal é obrigatória.');
+
+        // Upload Galeria (Paralelo)
+        const currentGallery = carFormData.gallery || [];
+        const newGalleryUrls: string[] = [];
+        
+        if (galleryFiles.length > 0) {
+           const uploadPromises = galleryFiles.map(file => uploadCarImage(file));
+           const results = await Promise.all(uploadPromises);
+           
+           // Verifica se algum upload falhou
+           const failedCount = results.filter(r => r === null).length;
+           if (failedCount > 0) {
+              console.warn(`${failedCount} imagens da galeria falharam no upload.`);
+           }
+
+           results.forEach(url => {
+             if (url) newGalleryUrls.push(url);
+           });
+        }
+        
+        const finalGallery = [...currentGallery, ...newGalleryUrls];
+
+        // 3. Montagem do Payload (Dados)
+        // Garante que campos numéricos sejam números
         const effectivePrice = getNumber(carFormData.price);
         const effectiveFipe = getNumber(carFormData.fipeprice);
         const effectiveMileage = getNumber(carFormData.mileage);
         const effectiveYear = getNumber(carFormData.year) || new Date().getFullYear();
-        
         const effectivePurchasePrice = getNumber(carFormData.purchasePrice);
-        const effectiveExpenses = carFormData.expenses || []; 
-
+        
         const isSold = carFormData.status === 'sold';
-        const effectiveSoldDate =
-          isSold && !carFormData.soldDate
-            ? new Date().toISOString().split('T')[0]
-            : carFormData.soldDate;
-
         const effectiveSoldPrice = isSold ? getNumber(carFormData.soldPrice) : null;
+        const effectiveSoldDate = isSold ? (carFormData.soldDate || new Date().toISOString().split('T')[0]) : null;
         const effectiveSoldBy = isSold ? carFormData.soldBy : null;
 
-        if (isSold) {
-          if (!effectiveSoldPrice) throw new Error('Informe o valor final.');
-          if (!effectiveSoldBy) throw new Error('Selecione o vendedor.');
-        }
-
-        let finalImage = carFormData.image;
-        if (mainImageFile) {
-          const url = await uploadCarImage(mainImageFile);
-          if (!url) throw new Error('Erro no upload da imagem principal.');
-          finalImage = url;
-        }
-
-        if (!finalImage) throw new Error('Foto principal obrigatória.');
-
-        const newGalleryUrls: string[] = [];
-        for (const file of galleryFiles) {
-          const url = await uploadCarImage(file);
-          if (url) newGalleryUrls.push(url);
+        if (isSold && (!effectiveSoldPrice || !effectiveSoldBy)) {
+           throw new Error('Para marcar como vendido, informe o Valor Final e o Vendedor.');
         }
 
         const payload: any = {
@@ -174,22 +198,26 @@ export const Admin = () => {
           mileage: effectiveMileage,
           year: effectiveYear,
           image: finalImage,
-          gallery: [...(carFormData.gallery || []), ...newGalleryUrls],
+          gallery: finalGallery,
           
           purchasePrice: effectivePurchasePrice,
-          expenses: effectiveExpenses,
+          // Garante que expenses não seja undefined
+          expenses: carFormData.expenses || [],
 
           soldPrice: effectiveSoldPrice,
           soldDate: effectiveSoldDate,
           soldBy: effectiveSoldBy,
-          vehicleType,
+          vehicleType: vehicleType,
           is_active: true,
           status: carFormData.status || 'available'
         };
 
+        // 4. Envio ao Banco
+        let result;
         if (carFormData.id) {
-          await updateCar(carFormData.id, payload);
-          if (isSold) {
+          result = await updateCar(carFormData.id, payload);
+          // Se for venda, tenta atualizar o registro de venda separado (opcional, para legado)
+          if (isSold && !result.error) {
              await sellCar(carFormData.id, {
                 soldPrice: effectiveSoldPrice!,
                 soldDate: effectiveSoldDate!,
@@ -197,28 +225,39 @@ export const Admin = () => {
              });
           }
         } else {
+          // Remove ID se estiver undefined ou vazio ao criar
           const { id, ...createPayload } = payload;
-          await createCar(createPayload);
+          result = await createCar(createPayload);
         }
 
-        showNotification('Veículo salvo!', 'success');
+        // 5. Verificação de Erro do Banco
+        if (result.error) {
+          console.error("Erro do Supabase:", result.error);
+          throw new Error(result.error.message || "Erro ao salvar no banco de dados.");
+        }
+
+        showNotification('Veículo salvo com sucesso!', 'success');
         setIsEditingCar(false);
+        setCarFormData({});
+        setGalleryFiles([]);
+        setMainImageFile(null);
         loadAllData();
 
-      } catch (err: any) {
-        showNotification(err.message || 'Erro ao salvar.', 'error');
-      } finally {
-        setSaving(false);
-      }
-    });
+    } catch (err: any) {
+      console.error("Erro no processo de salvamento:", err);
+      showNotification(err.message || 'Ocorreu um erro inesperado.', 'error');
+    } finally {
+      // 6. GARANTIA DE PARADA DO LOADING
+      setSaving(false);
+    }
   };
 
   // --- Handlers: Sellers ---
   const handleSellerSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await requireAdmin(async () => {
-      try {
-        setSaving(true);
+    setSaving(true);
+    try {
+      await requireAdmin(async () => {
         if (sellerFormData.id) {
            await updateSeller(sellerFormData.id, sellerFormData);
            showNotification('Vendedor atualizado.', 'success');
@@ -242,12 +281,12 @@ export const Admin = () => {
         setIsCreatingSeller(false);
         setSellerFormData({});
         loadAllData();
-      } catch (err: any) {
-        showNotification('Erro: ' + err.message, 'error');
-      } finally {
-        setSaving(false);
-      }
-    });
+      });
+    } catch (err: any) {
+      showNotification('Erro: ' + err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteSeller = (id: string) => {
@@ -262,9 +301,9 @@ export const Admin = () => {
   // --- Handlers: Users ---
   const handleUserSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await requireAdmin(async () => {
-      try {
-        setSaving(true);
+    setSaving(true);
+    try {
+      await requireAdmin(async () => {
         const { name, email, role } = userFormData as any;
         const { error } = await adminCreateUser(email, name, role || 'editor');
         if(error) throw error;
@@ -272,12 +311,12 @@ export const Admin = () => {
         setIsCreatingUser(false);
         setUserFormData({});
         loadAllData();
-      } catch (err: any) {
-        showNotification('Erro ao criar usuário: ' + err.message, 'error');
-      } finally {
-        setSaving(false);
-      }
-    });
+      });
+    } catch (err: any) {
+      showNotification('Erro ao criar usuário: ' + err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteUser = (id: string) => {

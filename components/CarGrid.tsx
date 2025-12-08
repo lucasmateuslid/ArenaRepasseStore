@@ -92,17 +92,26 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       </div>
                     </div>
                     <div className="mt-auto pt-4 border-t border-gray-800/50">
-                      <div className="flex flex-col mb-1 gap-1">
-                         <div className="flex items-end justify-between w-full">
-                           <span className="text-sm font-bold text-red-600 line-through decoration-red-600/50" title="Tabela FIPE">
-                             FIPE {formatCurrency(fipe)}
-                           </span>
-                           {economy > 0 && (
-                             <span className="text-green-500 text-sm font-black bg-green-500/10 px-2 rounded">
-                               Economize {formatCurrency(economy)}
+                      
+                      {/* Área de Preços Destacada */}
+                      <div className="flex flex-col gap-1 mb-3">
+                         {fipe > 0 && (
+                           <div className="flex items-center justify-between">
+                             <span className="text-[10px] font-bold text-gray-500 uppercase">TABELA FIPE</span>
+                             <span className="text-sm font-bold text-red-500/80 line-through decoration-red-500/50 decoration-2">
+                               {formatCurrency(fipe)}
                              </span>
-                           )}
-                         </div>
+                           </div>
+                         )}
+                         
+                         {economy > 0 && (
+                           <div className="flex items-center justify-between bg-green-500/10 rounded px-2 py-1 border border-green-500/20">
+                             <span className="text-[10px] font-bold text-green-500 uppercase">Economia</span>
+                             <span className="text-sm font-black text-green-400">
+                               {formatCurrency(economy)}
+                             </span>
+                           </div>
+                         )}
                       </div>
                       
                       <div className="mb-4">
