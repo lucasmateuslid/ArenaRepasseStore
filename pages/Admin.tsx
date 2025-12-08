@@ -36,6 +36,9 @@ export const Admin = () => {
   // Car Form State
   const [isEditingCar, setIsEditingCar] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Estado para feedback visual detalhado do progresso
+  const [uploadStatus, setUploadStatus] = useState<string>(''); 
+  
   const [carFormData, setCarFormData] = useState<Partial<Car>>({});
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
@@ -104,6 +107,7 @@ export const Admin = () => {
     setMainImageFile(null);
     setMainImagePreview(null);
     setGalleryFiles([]);
+    setUploadStatus('');
     
     // Reset FIPE selection
     setSelectedBrandCode('');
@@ -119,6 +123,7 @@ export const Admin = () => {
     setMainImagePreview(car.image);
     setMainImageFile(null);
     setGalleryFiles([]);
+    setUploadStatus('');
     
     // Reset FIPE selection (edit mode doesn't autoload fipe steps yet)
     setSelectedBrandCode('');
@@ -143,6 +148,7 @@ export const Admin = () => {
     e.preventDefault();
     if (saving) return; 
     setSaving(true); 
+    setUploadStatus('Iniciando validação...');
 
     try {
         if (!isAdmin) throw new Error("Permissão negada.");
@@ -152,9 +158,11 @@ export const Admin = () => {
         if (!carFormData.price || Number(carFormData.price) <= 0) 
           throw new Error('Preencha o valor de venda corretamente.');
 
+        // 1. UPLOAD IMAGEM PRINCIPAL
         let finalImage = carFormData.image;
         
         if (mainImageFile) {
+          setUploadStatus('Enviando foto de capa (pode demorar)...');
           const url = await uploadCarImage(mainImageFile);
           if (url) {
             finalImage = url;
@@ -165,11 +173,22 @@ export const Admin = () => {
 
         if (!finalImage) throw new Error('Foto principal é obrigatória.');
 
+        // 2. UPLOAD GALERIA
         const currentGallery = carFormData.gallery || [];
         const newGalleryUrls: string[] = [];
         
         if (galleryFiles.length > 0) {
-           const uploadPromises = galleryFiles.map(file => uploadCarImage(file));
+           let completedCount = 0;
+           setUploadStatus(`Enviando galeria: 0 de ${galleryFiles.length}...`);
+           
+           // Usamos map para disparar uploads simultâneos, mas rastreamos o progresso
+           const uploadPromises = galleryFiles.map(async (file) => {
+              const url = await uploadCarImage(file);
+              completedCount++;
+              setUploadStatus(`Enviando galeria: ${completedCount} de ${galleryFiles.length}...`);
+              return url;
+           });
+
            const results = await Promise.all(uploadPromises);
            
            const failedCount = results.filter(r => r === null).length;
@@ -183,6 +202,9 @@ export const Admin = () => {
         }
         
         const finalGallery = [...currentGallery, ...newGalleryUrls];
+
+        // 3. PREPARAÇÃO DOS DADOS
+        setUploadStatus('Finalizando registro no banco de dados...');
 
         const effectivePrice = getNumber(carFormData.price);
         const effectiveFipe = getNumber(carFormData.fipeprice);
@@ -217,6 +239,7 @@ export const Admin = () => {
           status: carFormData.status || 'available'
         };
 
+        // 4. SALVAMENTO NO BANCO
         let result;
         if (carFormData.id) {
           result = await updateCar(carFormData.id, payload);
@@ -242,6 +265,7 @@ export const Admin = () => {
         setCarFormData({});
         setGalleryFiles([]);
         setMainImageFile(null);
+        setUploadStatus('');
         loadAllData();
 
     } catch (err: any) {
@@ -249,6 +273,8 @@ export const Admin = () => {
       showNotification(err.message || 'Ocorreu um erro inesperado.', 'error');
     } finally {
       setSaving(false);
+      // Mantém o status por um breve momento se não resetado antes
+      if (uploadStatus !== '') setTimeout(() => setUploadStatus(''), 500);
     }
   };
 
@@ -492,6 +518,7 @@ export const Admin = () => {
             onSave={handleCarSave}
             onCancel={() => setIsEditingCar(false)}
             saving={saving}
+            uploadStatus={uploadStatus} // Passando status
             vehicleType={vehicleType}
             setVehicleType={setVehicleType}
             fipeBrands={fipeBrands}
@@ -503,7 +530,6 @@ export const Admin = () => {
             loadingFipe={loadingFipe}
             onGetLocation={handleGetLocation}
             sellers={sellers}
-            // Passando o estado para controlar os resets
             selectedBrandCode={selectedBrandCode}
             selectedModelCode={selectedModelCode}
           />

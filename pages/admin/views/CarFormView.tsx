@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
-  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch
+  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt
 } from 'react-icons/fa';
 import { Car, Seller, CarExpense } from '../../../types';
 
@@ -16,6 +17,7 @@ interface CarFormViewProps {
   onSave: (e: React.FormEvent) => void;
   onCancel: () => void;
   saving: boolean;
+  uploadStatus?: string; // Prop para feedback visual
   vehicleType: string;
   setVehicleType: (type: string) => void;
   fipeBrands: any[];
@@ -27,7 +29,6 @@ interface CarFormViewProps {
   loadingFipe: boolean;
   onGetLocation: () => void;
   sellers: Seller[];
-  // Novos props para controle de reset dos inputs
   selectedBrandCode?: string;
   selectedModelCode?: string;
 }
@@ -137,7 +138,7 @@ const generateId = () => {
 
 export const CarFormView: React.FC<CarFormViewProps> = ({
   carFormData, setCarFormData, mainImagePreview, setMainImagePreview,
-  galleryFiles, setGalleryFiles, setMainImageFile, onSave, onCancel, saving,
+  galleryFiles, setGalleryFiles, setMainImageFile, onSave, onCancel, saving, uploadStatus,
   vehicleType, setVehicleType, fipeBrands, fipeModels, fipeYears, 
   onFipeBrand, onFipeModel, onFipeYear, loadingFipe, onGetLocation, sellers,
   selectedBrandCode, selectedModelCode
@@ -205,7 +206,26 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
   };
 
   return (
-  <div className="max-w-6xl mx-auto pb-24 md:pb-0 animate-slide-up">
+  <div className="max-w-6xl mx-auto pb-24 md:pb-0 animate-slide-up relative">
+    
+    {/* LOADING OVERLAY - FEEDBACK VISUAL */}
+    {saving && (
+      <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center flex-col animate-fade-in">
+        <div className="bg-brand-surface border border-gray-700 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full">
+           <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-gray-700 border-t-brand-orange rounded-full animate-spin"></div>
+              <FaCloudUploadAlt className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-xl animate-pulse" />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">Processando...</h3>
+           <p className="text-sm text-gray-400 text-center animate-pulse">{uploadStatus || 'Salvando informações...'}</p>
+           <div className="w-full bg-gray-800 h-1.5 rounded-full mt-6 overflow-hidden">
+             <div className="h-full bg-brand-orange animate-pulse w-full origin-left scale-x-50"></div>
+           </div>
+           <p className="text-[10px] text-gray-500 mt-2 italic">Não feche a página.</p>
+        </div>
+      </div>
+    )}
+
     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
       <h2 className="text-2xl font-black text-white">{carFormData.id ? 'Gerenciar Veículo' : 'Novo Cadastro'}</h2>
       <div className="flex bg-black/30 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
