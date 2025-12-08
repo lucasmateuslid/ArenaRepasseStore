@@ -104,6 +104,13 @@ export const Admin = () => {
     setMainImageFile(null);
     setMainImagePreview(null);
     setGalleryFiles([]);
+    
+    // Reset FIPE selection
+    setSelectedBrandCode('');
+    setSelectedModelCode('');
+    setFipeModels([]);
+    setFipeYears([]);
+    
     setIsEditingCar(true);
   };
 
@@ -112,6 +119,13 @@ export const Admin = () => {
     setMainImagePreview(car.image);
     setMainImageFile(null);
     setGalleryFiles([]);
+    
+    // Reset FIPE selection (edit mode doesn't autoload fipe steps yet)
+    setSelectedBrandCode('');
+    setSelectedModelCode('');
+    setFipeModels([]);
+    setFipeYears([]);
+
     setIsEditingCar(true);
   };
 
@@ -347,8 +361,14 @@ export const Admin = () => {
   const onFipeBrandWrapper = async (codigo: string) => {
     setLoadingFipe(true);
     setSelectedBrandCode(codigo);
+    // Limpa seleções anteriores
+    setSelectedModelCode('');
+    setFipeModels([]);
+    setFipeYears([]);
+    
     const brandName = fipeBrands.find(b => b.codigo === codigo)?.nome;
     if (brandName) setCarFormData(prev => ({ ...prev, make: brandName }));
+    
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`);
     setFipeModels(data.modelos || []);
     setLoadingFipe(false);
@@ -357,8 +377,12 @@ export const Admin = () => {
   const onFipeModelWrapper = async (codigo: string) => {
     setLoadingFipe(true);
     setSelectedModelCode(codigo);
+    // Limpa ano anterior
+    setFipeYears([]);
+    
     const modelName = fipeModels.find(m => String(m.codigo) === String(codigo))?.nome;
     if(modelName) setCarFormData(prev => ({ ...prev, model: modelName }));
+    
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${codigo}/anos`);
     setFipeYears(data || []);
     setLoadingFipe(false);
@@ -479,6 +503,9 @@ export const Admin = () => {
             loadingFipe={loadingFipe}
             onGetLocation={handleGetLocation}
             sellers={sellers}
+            // Passando o estado para controlar os resets
+            selectedBrandCode={selectedBrandCode}
+            selectedModelCode={selectedModelCode}
           />
         )
       )}
