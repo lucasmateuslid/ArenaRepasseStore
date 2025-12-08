@@ -417,14 +417,67 @@ export const Admin = () => {
   const onFipeYearWrapper = async (codigo: string) => {
     setLoadingFipe(true);
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${selectedModelCode}/anos/${codigo}`);
+    
     if (data) {
       const fipePrice = parseFloat(data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.'));
-      const fuelMap: Record<string, string> = { 'Gasolina': 'Gasolina', 'Diesel': 'Diesel', 'Ethanol': 'Flex', 'Flex': 'Flex' };
+      const fipeFuel = data.Combustivel; // Ex: "Gasolina", "Álcool", "Gasolina e álcool"
+      const modelName = data.Modelo.toUpperCase();
+      
+      // INFERÊNCIA INTELIGENTE DE ATRIBUTOS
+      
+      // 1. Câmbio
+      let inferredTransmission = 'Manual';
+      if (modelName.match(/\b(AUT|AUTOMATICO|TIPTRONIC|STRONIC|DCT|DSG)\b/)) {
+        inferredTransmission = 'Automático';
+      } else if (modelName.match(/\b(CVT)\b/)) {
+        inferredTransmission = 'CVT';
+      }
+
+      // 2. Combustível
+      let inferredFuel = fipeFuel;
+      if (fipeFuel === 'Gasolina' && (modelName.includes('FLEX') || modelName.includes('ALCOOL'))) {
+         inferredFuel = 'Flex';
+      } else if (fipeFuel === 'Gasolina e álcool') {
+         inferredFuel = 'Flex';
+      } else if (fipeFuel === 'Álcool') {
+         inferredFuel = 'Flex'; // Geralmente carros modernos a alcool são Flex
+      }
+      // Ajusta para as opções do select ('Flex','Gasolina','Diesel','Elétrico','Híbrido')
+      const validFuels = ['Flex','Gasolina','Diesel','Elétrico','Híbrido'];
+      if (!validFuels.includes(inferredFuel)) {
+          // Fallback seguro
+          if (inferredFuel.includes('Flex') || inferredFuel.includes('alcool')) inferredFuel = 'Flex';
+      }
+
+      // 3. Categoria
+      let inferredCategory = carFormData.category || 'Hatch'; // Default comum
+      
+      if (vehicleType === 'motos') {
+         inferredCategory = 'Moto';
+      } else if (vehicleType === 'caminhoes') {
+         inferredCategory = 'Caminhão';
+      } else {
+         // Heurística de Palavras-Chave no Modelo
+         if (modelName.match(/\b(SEDAN|SED|SD|VOYAGE|SIENA|PRISMA|CRONOS|VIRTUS|CITY|COROLLA|CIVIC|SENTRA|CERATO|ELANTRA|AZERA|FUSION|JETTA|OMEGA|PASSAT)\b/)) {
+             inferredCategory = 'Sedan';
+         } else if (modelName.match(/\b(SUV|UTIL|SW|WEEKEND|CROSS|TRACKER|DUSTER|CRETA|HR-V|RENEGADE|COMPASS|KICKS|T-CROSS|NIVUS|ECOSPORT|TUCSON|SPORTAGE|CAPTIVA|CR-V|RAV4)\b/)) {
+             inferredCategory = 'SUV';
+         } else if (modelName.match(/\b(PICK-UP|PICKUP|CD|CS|CE|CABINE|SAVEIRO|STRADA|TORO|OROCH|MONTANA|HILUX|S10|RANGER|AMAROK|L200|FRONTIER|F250|RAM|MAVERICK)\b/)) {
+             inferredCategory = 'Pickup';
+         } else if (modelName.match(/\b(VAN|FURGAO|EXPRESS|DUCATO|MASTER|SPRINTER|TRANSIT|DAILY|HR|K2500|KOMBI|DOBLO)\b/)) {
+             inferredCategory = 'Van';
+         } else if (modelName.match(/\b(HATCH|HB|HB20|ONIX|GOL|PALIO|UNO|MOBI|KWID|KA|FIESTA|SANDERO|FIT|MARCH|208|C3|ARGO|POLO|UP|CELTA|CLIO|FOX|IDEA|PUNTO)\b/)) {
+             inferredCategory = 'Hatch';
+         }
+      }
+
       setCarFormData(prev => ({
         ...prev,
         year: data.AnoModelo,
-        fuel: fuelMap[data.Combustivel] || data.Combustivel,
-        fipeprice: fipePrice
+        fuel: inferredFuel,
+        fipeprice: fipePrice,
+        transmission: inferredTransmission,
+        category: inferredCategory
       }));
     }
     setLoadingFipe(false);
