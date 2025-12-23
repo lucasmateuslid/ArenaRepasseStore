@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Car } from '../types';
 
@@ -20,7 +19,7 @@ export const CarGrid: React.FC<CarGridProps> = ({
     <main id="inventory" className="container mx-auto px-4 py-12 flex-grow">
       {loading ? (
          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-           {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-brand-surface rounded-lg h-96 animate-pulse border border-gray-800"></div>)}
+           {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-brand-surface rounded-2xl h-80 animate-pulse border border-gray-800"></div>)}
          </div>
       ) : cars.length === 0 ? (
         <div className="text-center py-20 text-gray-500 flex flex-col items-center">
@@ -36,8 +35,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
               const price = Number(car.price) || 0;
               const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
               const economy = fipe - price;
-
-              // LCP Otimização: Os primeiros 4 cards são carregados com prioridade alta
               const isPriority = index < 4;
 
               return (
@@ -52,13 +49,9 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       alt={car.model} 
                       className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" 
                       loading={isPriority ? "eager" : "lazy"}
-                      // @ts-ignore
-                      fetchpriority={isPriority ? "high" : "low"}
-                      decoding="async"
-                      width="400"
-                      height="300"
                       onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }} 
                     />
+                    
                     {discount > 0 && (
                       <div className="absolute top-0 right-0 bg-green-600 text-white px-3 py-2 rounded-bl-xl font-black text-lg shadow-lg z-10 flex flex-col items-center leading-none">
                         <span className="text-[10px] uppercase font-medium mb-0.5">Abaixo FIPE</span>
@@ -67,6 +60,7 @@ export const CarGrid: React.FC<CarGridProps> = ({
                     )}
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-brand-surface to-transparent h-20"></div>
                   </div>
+                  
                   <div className="p-5 flex-grow flex flex-col relative">
                     <div className="flex justify-between items-center mb-1">
                        <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{car.make}</span>
@@ -92,8 +86,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
                       </div>
                     </div>
                     <div className="mt-auto pt-4 border-t border-gray-800/50">
-                      
-                      {/* Área de Preços Destacada */}
                       <div className="flex flex-col gap-1 mb-3">
                          {fipe > 0 && (
                            <div className="flex items-center justify-between">
@@ -126,13 +118,6 @@ export const CarGrid: React.FC<CarGridProps> = ({
                           Ver Detalhes
                         </button>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); openModal(car); }}
-                          className="h-10 w-10 bg-blue-600/20 border border-blue-500 text-blue-400 rounded-lg flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-lg active:scale-95 group/share"
-                          title="Compartilhar"
-                        >
-                           <i className="fa-solid fa-share-nodes group-hover/share:scale-110 transition-transform"></i>
-                        </button>
-                        <button 
                           onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }}
                           className="h-10 w-10 bg-green-600 border border-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-500 transition-all shadow-lg active:scale-95"
                           title="Negociar no WhatsApp"
@@ -146,12 +131,13 @@ export const CarGrid: React.FC<CarGridProps> = ({
               );
             })}
           </div>
-          {/* Se observerRef for passado, significa que há mais itens para carregar */}
           {observerRef && (
-            <div ref={observerRef} className="h-20 flex items-center justify-center mt-8">
-              <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce delay-100 mx-1"></div>
-              <div className="w-2 h-2 bg-brand-orange rounded-full animate-bounce delay-200"></div>
+            <div ref={observerRef} className="h-24 flex items-center justify-center mt-8">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-bounce"></div>
+                <div className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-bounce delay-100"></div>
+                <div className="w-2.5 h-2.5 bg-brand-orange rounded-full animate-bounce delay-200"></div>
+              </div>
             </div>
           )}
         </>

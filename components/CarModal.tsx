@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Car } from '../types';
 import { encodeCarUrl } from '../utils/urlHelpers';
@@ -29,7 +28,6 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   
   const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
 
-  // Geração de URL Específica Amigável (Mascarada)
   const generateShareUrl = () => {
     const origin = window.location.origin;
     const pathname = window.location.pathname;
@@ -107,13 +105,9 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
           <div className="relative w-full h-[40vh] md:h-[60vh] md:flex-1 bg-black flex items-center justify-center overflow-hidden">
              <img 
                 src={images[selectedImageIndex]} 
-                className="max-w-full max-h-full object-contain" 
                 alt={`${car.model} view ${selectedImageIndex + 1}`}
-                // @ts-ignore
-                fetchpriority="high"
+                className="max-w-full max-h-full object-contain"
                 loading="eager"
-                decoding="async"
-                onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
              />
              {images.length > 1 && (
                <>
@@ -130,14 +124,18 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
           </div>
           <div className="h-16 md:h-20 bg-zinc-900/90 flex items-center gap-2 p-2 overflow-x-auto no-scrollbar justify-center md:justify-start border-t border-gray-800">
             {images.map((img, idx) => (
-              <img 
+              <div 
                 key={idx}
-                src={img}
-                loading="lazy"
-                className={`h-12 md:h-16 w-16 md:w-24 object-cover rounded cursor-pointer border-2 transition-all ${selectedImageIndex === idx ? 'border-brand-orange opacity-100 scale-105' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                className={`flex-shrink-0 cursor-pointer border-2 transition-all ${selectedImageIndex === idx ? 'border-brand-orange opacity-100 scale-105' : 'border-transparent opacity-50 hover:opacity-100'}`}
                 onClick={() => setSelectedImageIndex(idx)}
-                onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
-              />
+              >
+                <img 
+                  src={img}
+                  alt={`thumbnail-${idx}`}
+                  className="h-12 md:h-16 w-16 md:w-24 object-cover rounded"
+                  loading="lazy"
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -168,7 +166,6 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 md:line-clamp-none">{car.description}</p>
           </div>
 
-          {/* Share Section */}
           <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
             <h4 className="font-bold text-gray-400 text-xs uppercase mb-3 flex items-center gap-2">
               <i className="fa-solid fa-share-nodes"></i> Compartilhar Oferta
@@ -196,10 +193,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             </div>
           </div>
 
-          {/* Price & Action Section */}
           <div className="mt-auto pt-4 border-t border-gray-800/50">
-             
-             {/* Info Financeira Destacada */}
              <div className="flex flex-col gap-2 mb-3 bg-black/30 p-3 rounded-lg border border-gray-800">
                 <div className="flex justify-between items-center">
                    <span className="text-xs font-bold text-gray-500">TABELA FIPE</span>

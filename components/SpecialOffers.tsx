@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Car } from '../types';
 
@@ -37,8 +36,8 @@ export const SpecialOffers: React.FC<SpecialOffersProps> = ({
                <div className="inline-flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-2">
                  <i className="fa-solid fa-star animate-spin-slow"></i> Oportunidades Únicas
                </div>
-               <h2 className="text-3xl md:text-5xl font-black italic text-white tracking-tighter">
-                 SONHOS <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">IMPERDÍVEIS</span>
+               <h2 className="text-3xl md:text-5xl font-black italic text-white tracking-tight px-1 pb-1 overflow-visible">
+                 SONHOS <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 inline-block pr-4">IMPERDÍVEIS</span>
                </h2>
             </div>
             <p className="text-gray-400 text-sm md:text-base max-w-md text-center md:text-right">
@@ -55,18 +54,19 @@ export const SpecialOffers: React.FC<SpecialOffersProps> = ({
                 <div className="absolute top-3 left-3 z-20 bg-yellow-400 text-black font-black text-xs px-3 py-1 rounded shadow-lg flex items-center gap-1 animate-pulse">
                   <i className="fa-solid fa-bolt"></i> SUPER OFERTA
                 </div>
+                
                 <div className="relative aspect-[4/3] overflow-hidden bg-gray-900">
                   <img 
                     src={car.image} 
                     alt={car.model} 
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" 
-                    loading="lazy"
+                    className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700"
                     onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
                   />
                   <div className="absolute bottom-0 right-0 bg-yellow-500 text-black px-4 py-2 rounded-tl-2xl font-black text-xl shadow-lg z-10 leading-none">
                     -{car.discountPercent}% OFF
                   </div>
                 </div>
+
                 <div className="p-5 flex-grow flex flex-col">
                   <div className="flex justify-between items-center mb-1">
                      <span className="text-yellow-500 text-xs font-bold uppercase tracking-widest">{car.make}</span>
