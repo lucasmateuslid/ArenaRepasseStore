@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp } from 'react-icons/fa';
+import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp, FaEnvelope, FaClock, FaInstagram } from 'react-icons/fa';
 import BankIcon from './BankIcon';
 import { useCompany } from '../contexts/CompanyContext';
 
@@ -13,168 +13,163 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter }) => {
   const { settings } = useCompany();
 
-  // Códigos COMPE Oficiais para mapeamento com o repo brazilian-banks-icons
   const banks = [
-    { name: 'Santander', compe: 33 },   // 033.svg
-    { name: 'BV Financeira', compe: 655 }, // 655.svg
-    { name: 'Itaú', compe: 341 },       // 341.svg
-    { name: 'Bradesco', compe: 237 },   // 237.svg
-    { name: 'Banco Pan', compe: 623 },  // 623.svg
-    { name: 'Safra', compe: 422 }       // 422.svg
+    { name: 'SANTANDER', compe: 33 },
+    { name: 'BV FINANCEIRA', compe: 655 },
+    { name: 'ITAÚ', compe: 341 },
+    { name: 'BRADESCO', compe: 237 },
+    { name: 'BANCO PAN', compe: 623 },
+    { name: 'SAFRA', compe: 422 }
   ];
 
   const handleNavigation = (type: string) => {
     onQuickFilter(type);
-    document.getElementById('inventory')?.scrollIntoView({behavior: 'smooth'});
+    document.getElementById('inventory')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const formatWhatsApp = (num: string) => {
-     if (!num) return '';
-     return num.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4').replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  }
+    if (!num) return '';
+    const clean = num.replace(/\D/g, '');
+    if (clean.length === 13) return `+${clean.slice(0, 2)} (${clean.slice(2, 4)}) ${clean.slice(4, 9)}-${clean.slice(9)}`;
+    if (clean.length === 11) return `+55 (${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7)}`;
+    return num;
+  };
+
+  const renderLogo = () => {
+    const name = settings?.company_name || 'Arena Auto Natal';
+    const words = name.split(' ');
+    const firstWord = words[0];
+    const rest = words.slice(1).join(' ');
+
+    return (
+      <div className="text-2xl font-black italic tracking-tighter text-white mb-6">
+        {firstWord}<span className="text-brand-orange">{rest ? ` ${rest}` : ''}</span>
+      </div>
+    );
+  };
 
   return (
-    <footer className="bg-brand-darkRed border-t border-red-800 text-gray-300 pt-16 pb-12 font-sans relative overflow-hidden">
-      {/* Efeito de Fundo */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 pointer-events-none"></div>
-      
+    <footer className="bg-[#050000] border-t border-gray-900 text-gray-300 pt-16 pb-8 font-sans relative overflow-hidden">
       <div className="container mx-auto px-4 relative z-10">
-        
-        {/* Grid Principal */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           
-          {/* Coluna 1: Empresa & Legal */}
-          <div className="space-y-4">
-             <div className="text-2xl font-black italic tracking-tighter text-white">
-              {settings?.company_name ? settings.company_name.split(' ')[0] : 'ARENA'}<span className="text-brand-orange">{settings?.company_name ? settings.company_name.replace(settings.company_name.split(' ')[0], '') : 'REPASSE'}</span>
-            </div>
-            <p className="text-sm leading-relaxed text-white/70">
+          {/* Coluna 1: Branding e Dados */}
+          <div className="space-y-6">
+            {renderLogo()}
+            <p className="text-sm leading-relaxed text-gray-400 font-medium">
               O maior estoque de repasse do Brasil. Conectando oportunidades a investidores e particulares com transparência e segurança.
             </p>
-            <div className="pt-4 border-t border-white/10 mt-4">
-               <p className="text-xs font-bold text-white/50 uppercase mb-1">Dados da Empresa</p>
-               <p className="text-xs">{settings?.company_name || 'Arena Repasse Veículos Ltda.'}</p>
-               <p className="text-xs">CNPJ: {settings?.cnpj || '12.345.678/0001-90'}</p>
-               <p className="text-xs mt-1">{settings?.address || 'Av. das Nações Unidas, 1000 - SP'}</p>
+            <div className="pt-6 border-t border-gray-800/50 space-y-2">
+               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Dados da Empresa</p>
+               <p className="text-xs text-gray-400 font-bold">{settings?.company_name || 'Arena Auto Natal'}</p>
+               <p className="text-xs text-gray-400">CNPJ: {settings?.cnpj || '55.915.981/0001-99'}</p>
+               <p className="text-xs text-gray-400 leading-tight">{settings?.address || 'Av. Prudente de Morais, 4892 - Lagoa Nova, Natal - RN, 59063-200'}</p>
             </div>
           </div>
 
-          {/* Coluna 2: Navegação Visual (Ícones) */}
+          {/* Coluna 2: Navegação */}
           <div>
-            <h4 className="font-bold text-white mb-6 uppercase tracking-wider text-sm border-l-4 border-white pl-3">Estoque & Navegação</h4>
-            <div className="flex gap-3">
-               <button 
-                 onClick={() => window.scrollTo(0,0)} 
-                 className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
-                 title="Início"
-               >
-                 <FaHome className="text-xl group-hover:text-brand-orange transition-colors"/>
+            <h4 className="font-black text-white mb-8 uppercase tracking-tight text-sm flex items-center gap-3">
+              <span className="w-1 h-5 bg-white rounded-full"></span> ESTOQUE & NAVEGAÇÃO
+            </h4>
+            <div className="flex gap-2 mb-6">
+               <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="w-12 h-12 rounded-xl bg-[#141414] border border-gray-800 flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all active:scale-95 group">
+                 <FaHome className="text-lg transition-colors" />
                </button>
-               <button 
-                 onClick={() => handleNavigation('carros')} 
-                 className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
-                 title="Carros"
-               >
-                 <FaCar className="text-xl group-hover:text-brand-orange transition-colors"/>
+               <button onClick={() => handleNavigation('carros')} className="w-12 h-12 rounded-xl bg-[#141414] border border-gray-800 flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all active:scale-95 group">
+                 <FaCar className="text-lg transition-colors" />
                </button>
-               <button 
-                 onClick={() => handleNavigation('motos')} 
-                 className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
-                 title="Motos"
-               >
-                 <FaMotorcycle className="text-xl group-hover:text-brand-orange transition-colors"/>
+               <button onClick={() => handleNavigation('motos')} className="w-12 h-12 rounded-xl bg-[#141414] border border-gray-800 flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all active:scale-95 group">
+                 <FaMotorcycle className="text-lg transition-colors" />
                </button>
-               <button 
-                 onClick={() => handleNavigation('caminhoes')} 
-                 className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 group"
-                 title="Caminhões"
-               >
-                 <FaTruck className="text-xl group-hover:text-brand-orange transition-colors"/>
+               <button onClick={() => handleNavigation('caminhoes')} className="w-12 h-12 rounded-xl bg-[#141414] border border-gray-800 flex items-center justify-center hover:bg-brand-orange hover:text-white transition-all active:scale-95 group">
+                 <FaTruck className="text-lg transition-colors" />
                </button>
             </div>
-            <div className="mt-4">
-               <button onClick={handleWhatsApp} className="flex items-center gap-2 text-sm font-bold text-white/80 hover:text-white transition">
-                  <FaWhatsapp className="text-green-400"/> Falar com Consultor
-               </button>
-            </div>
+            <button onClick={handleWhatsApp} className="flex items-center gap-2 text-sm font-bold text-white hover:text-brand-orange transition">
+               <FaWhatsapp className="text-green-500 text-lg" /> Falar com Consultor
+            </button>
           </div>
 
-          {/* Coluna 3: Financiamento (Bancos) */}
+          {/* Coluna 3: Financiamento */}
           <div>
-             <h4 className="font-bold text-white mb-6 uppercase tracking-wider text-sm border-l-4 border-white pl-3">Financiamento</h4>
-             <p className="text-xs mb-4 text-white/60">Trabalhamos com as principais financeiras do mercado para garantir a melhor taxa.</p>
-             <div className="grid grid-cols-2 gap-2">
-                {banks.map((bank, idx) => (
-                  <div key={idx} className="bg-white/5 border border-white/10 rounded px-2 py-2 flex items-center gap-2 hover:bg-white/10 hover:border-brand-orange/50 transition group cursor-default">
-                    <div className="flex-shrink-0">
-                      <BankIcon bankId={bank.compe} size={28} borderRadius={4} />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-300 group-hover:text-white uppercase truncate">{bank.name}</span>
+            <h4 className="font-black text-white mb-8 uppercase tracking-tight text-sm flex items-center gap-3">
+              <span className="w-1 h-5 bg-white rounded-full"></span> FINANCIAMENTO
+            </h4>
+            <p className="text-[11px] text-gray-500 mb-6 leading-relaxed">
+              Trabalhamos com as principais financeiras do mercado para garantir a melhor taxa.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {banks.map((bank, idx) => (
+                <div key={idx} className="bg-[#110c0c] border border-gray-800/50 rounded-lg p-2.5 flex items-center gap-3 hover:border-gray-600 transition group">
+                  <div className="flex-shrink-0">
+                    <BankIcon bankId={bank.compe} size={28} borderRadius={4} />
                   </div>
-                ))}
-             </div>
+                  <span className="text-[9px] font-black text-gray-400 uppercase truncate">{bank.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Coluna 4: Contato */}
+          {/* Coluna 4: Atendimento */}
           <div>
-             <h4 className="font-bold text-white mb-6 uppercase tracking-wider text-sm border-l-4 border-white pl-3">Atendimento</h4>
-             <ul className="space-y-4 text-sm">
-              <li className="flex items-start gap-3">
-                 <div className="w-8 h-8 rounded bg-green-900/40 text-green-400 flex items-center justify-center flex-shrink-0 mt-1 border border-green-500/20">
-                   <i className="fa-brands fa-whatsapp text-lg"></i>
-                 </div>
-                 <div>
-                   <span className="block text-xs font-bold text-white/50 uppercase">WhatsApp Vendas</span>
-                   <button onClick={handleWhatsApp} className="text-white hover:text-green-400 font-bold transition text-base">
-                     {formatWhatsApp(settings?.phone_whatsapp || '11999999999')}
-                   </button>
-                 </div>
-              </li>
-              <li className="flex items-start gap-3">
-                 <div className="w-8 h-8 rounded bg-white/10 text-white flex items-center justify-center flex-shrink-0 mt-1 border border-white/10">
-                   <i className="fa-solid fa-envelope"></i>
-                 </div>
-                 <div>
-                   <span className="block text-xs font-bold text-white/50 uppercase">Email</span>
-                   <span className="text-white/80">{settings?.email || 'contato@arenarepasse.com.br'}</span>
-                 </div>
-              </li>
-              <li className="flex items-start gap-3">
-                 <div className="w-8 h-8 rounded bg-white/10 text-white flex items-center justify-center flex-shrink-0 mt-1 border border-white/10">
-                   <i className="fa-solid fa-clock"></i>
-                 </div>
-                 <div>
-                   <span className="block text-xs font-bold text-white/50 uppercase">Horário</span>
-                   <span className="text-white/80 text-xs whitespace-pre-line">{settings?.opening_hours || 'Seg a Sex: 09h às 18h\nSáb: 09h às 13h'}</span>
-                 </div>
-              </li>
-            </ul>
+            <h4 className="font-black text-white mb-8 uppercase tracking-tight text-sm flex items-center gap-3">
+              <span className="w-1 h-5 bg-white rounded-full"></span> ATENDIMENTO
+            </h4>
+            <div className="space-y-6">
+               <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-lg bg-[#141414] border border-gray-800 flex items-center justify-center text-green-500 flex-shrink-0">
+                    <FaWhatsapp className="text-lg" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">WHATSAPP VENDAS</p>
+                    <button onClick={handleWhatsApp} className="text-white font-black text-sm hover:text-brand-orange transition truncate block">
+                      {formatWhatsApp(settings?.phone_whatsapp || '84996697575')}
+                    </button>
+                  </div>
+               </div>
+
+               <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-lg bg-[#141414] border border-gray-800 flex items-center justify-center text-gray-500 flex-shrink-0">
+                    <FaEnvelope className="text-base" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">EMAIL</p>
+                    <p className="text-gray-300 font-bold text-xs truncate">{settings?.email || 'contato@arenarepasse.com.br'}</p>
+                  </div>
+               </div>
+
+               <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-lg bg-[#141414] border border-gray-800 flex items-center justify-center text-gray-500 flex-shrink-0">
+                    <FaClock className="text-base" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-gray-600 uppercase mb-0.5">HORÁRIO</p>
+                    <p className="text-gray-400 font-bold text-[10px] leading-snug whitespace-pre-line">
+                      {settings?.opening_hours || 'Seg a Sex: 09h às 18h\nSáb: 09h às 13h'}
+                    </p>
+                  </div>
+               </div>
+            </div>
           </div>
+
         </div>
 
         {/* Rodapé Inferior */}
-        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/40">
-          <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6">
-             <span>&copy; {new Date().getFullYear()} {settings?.company_name || 'Arena Repasse'}. Todos os direitos reservados.</span>
-             <Link to="/admin" className="hover:text-white transition flex items-center gap-1">
-               <i className="fa-solid fa-lock text-[10px]"></i> Restrito
+        <div className="border-t border-gray-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+             <p className="text-[10px] font-bold text-gray-600 uppercase">
+               &copy; {new Date().getFullYear()} {settings?.company_name || 'Arena Auto Natal'} . Todos os direitos reservados.
+             </p>
+             <Link to="/admin" className="text-[10px] font-black text-gray-700 hover:text-white transition flex items-center gap-1 uppercase">
+               <i className="fa-solid fa-lock text-[8px]"></i> Restrito
              </Link>
           </div>
 
-          <div className="flex gap-4 text-lg text-white/60">
+          <div className="flex items-center gap-6">
              {settings?.social_instagram && (
-               <a href={settings.social_instagram.startsWith('http') ? settings.social_instagram : `https://instagram.com/${settings.social_instagram.replace('@','')}`} target="_blank" rel="noreferrer">
-                 <i className="fa-brands fa-instagram hover:text-white transition cursor-pointer"></i>
-               </a>
-             )}
-             {settings?.social_facebook && (
-               <a href={settings.social_facebook} target="_blank" rel="noreferrer">
-                 <i className="fa-brands fa-facebook hover:text-white transition cursor-pointer"></i>
-               </a>
-             )}
-             {settings?.social_youtube && (
-               <a href={settings.social_youtube} target="_blank" rel="noreferrer">
-                 <i className="fa-brands fa-youtube hover:text-white transition cursor-pointer"></i>
+               <a href={settings.social_instagram.startsWith('http') ? settings.social_instagram : `https://instagram.com/${settings.social_instagram.replace('@','')}`} target="_blank" rel="noreferrer" className="text-gray-600 hover:text-white transition-colors">
+                 <FaInstagram size={20} />
                </a>
              )}
           </div>
