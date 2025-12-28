@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { Car } from '../types';
 import { encodeCarUrl } from '../utils/urlHelpers';
+import { FaShareAlt } from 'react-icons/fa';
 
 interface CarModalProps {
   car: Car | null;
@@ -11,11 +13,11 @@ interface CarModalProps {
 
 export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp, formatCurrency }) => {
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
-  const [copyStatus, setCopyStatus] = useState<string>('Copiar Link');
+  const [copyStatus, setCopyStatus] = useState<string>('Copiar');
 
   React.useEffect(() => {
     setSelectedImageIndex(0);
-    setCopyStatus('Copiar Link');
+    setCopyStatus('Copiar');
   }, [car]);
 
   if (!car) return null;
@@ -38,6 +40,22 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
   const shareUrl = generateShareUrl();
   const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
   
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${car.make} ${car.model}`,
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.debug('Compartilhamento cancelado ou falhou', err);
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
   const handleCopyLink = async () => {
     const textToCopy = shareUrl;
 
@@ -58,7 +76,6 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
           setCopyStatus('Erro');
         }
       } catch (err) {
-        console.error('Fallback: Oops, unable to copy', err);
         setCopyStatus('Erro');
       }
       document.body.removeChild(textArea);
@@ -75,7 +92,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
       copyFallback(textToCopy);
     }
 
-    setTimeout(() => setCopyStatus('Copiar Link'), 2500);
+    setTimeout(() => setCopyStatus('Copiar'), 2500);
   };
 
   const shareToSocial = (platform: 'whatsapp' | 'facebook' | 'twitter') => {
@@ -98,9 +115,12 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative bg-brand-surface w-full md:max-w-5xl h-full md:h-auto md:max-h-[95vh] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
+        
         <button onClick={onClose} className="absolute top-4 right-4 z-20 md:hidden bg-black/60 text-white p-2 rounded-full backdrop-blur-sm">
           <i className="fa-solid fa-times text-xl"></i>
         </button>
+
+        {/* Lado Esquerdo: Imagem */}
         <div className="w-full md:w-3/5 bg-zinc-950 flex flex-col relative justify-center">
           <div className="relative w-full h-[40vh] md:h-[60vh] md:flex-1 bg-black flex items-center justify-center overflow-hidden">
              <img 
@@ -139,6 +159,8 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             ))}
           </div>
         </div>
+
+        {/* Lado Direito: Info */}
         <div className="w-full md:w-2/5 p-5 md:p-8 overflow-y-auto bg-brand-surface flex flex-col flex-1">
           <div className="flex justify-between items-start mb-2">
              <div>
@@ -149,10 +171,12 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
                <i className="fa-solid fa-times text-2xl"></i>
              </button>
           </div>
+          
           <div className="flex items-center gap-3 mb-4">
             <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{displayYear}</span>
             <span className="text-gray-400 text-xs md:text-sm">{car.mileage.toLocaleString()} km</span>
           </div>
+
           <div className="bg-brand-dark/40 rounded-xl p-3 md:p-4 mb-4 border border-gray-700">
             <div className="grid grid-cols-2 gap-3 text-xs md:text-sm">
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Combustível</span><span className="text-white font-medium">{car.fuel}</span></div>
@@ -161,34 +185,67 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Status</span><span className="text-green-400 font-medium">Disponível</span></div>
             </div>
           </div>
+
           <div className="mb-4 flex-1">
             <h4 className="font-bold text-white mb-2 text-sm">Sobre o veículo</h4>
             <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 md:line-clamp-none">{car.description}</p>
           </div>
 
+          {/* SEÇÃO DE COMPARTILHAMENTO ATUALIZADA */}
           <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
-            <h4 className="font-bold text-gray-400 text-xs uppercase mb-3 flex items-center gap-2">
-              <i className="fa-solid fa-share-nodes"></i> Compartilhar Oferta
-            </h4>
-            <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => shareToSocial('whatsapp')} className="flex items-center justify-center gap-2 bg-green-600/20 hover:bg-green-600 text-green-500 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-green-600/30">
-                <i className="fa-brands fa-whatsapp text-base"></i> WhatsApp
+            <div className="flex items-center justify-between mb-4">
+               <h4 className="font-bold text-gray-400 text-xs uppercase flex items-center gap-2">
+                <i className="fa-solid fa-share-nodes text-brand-orange"></i> Compartilhar Oferta
+              </h4>
+              {navigator.share && (
+                <button 
+                  onClick={handleNativeShare}
+                  className="text-[10px] font-black text-brand-orange hover:text-white transition-colors uppercase flex items-center gap-1"
+                >
+                  <FaShareAlt size={10} /> Enviar p/ Amigo
+                </button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2">
+              <button 
+                onClick={() => shareToSocial('whatsapp')} 
+                className="flex flex-col items-center justify-center gap-1 bg-green-600/10 hover:bg-green-600 text-green-500 hover:text-white py-2.5 rounded-lg transition border border-green-600/20"
+                title="WhatsApp"
+              >
+                <i className="fa-brands fa-whatsapp text-lg"></i>
+                <span className="text-[8px] font-bold uppercase">Whats</span>
               </button>
-              <button onClick={() => shareToSocial('facebook')} className="flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white py-2 rounded-lg transition text-xs font-bold border border-blue-600/30">
-                <i className="fa-brands fa-facebook text-base"></i> Facebook
+              
+              <button 
+                onClick={() => shareToSocial('facebook')} 
+                className="flex flex-col items-center justify-center gap-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white py-2.5 rounded-lg transition border border-blue-600/20"
+                title="Facebook"
+              >
+                <i className="fa-brands fa-facebook text-lg"></i>
+                <span className="text-[8px] font-bold uppercase">Face</span>
               </button>
+
+              <button 
+                onClick={() => shareToSocial('twitter')} 
+                className="flex flex-col items-center justify-center gap-1 bg-white/5 hover:bg-white text-gray-400 hover:text-black py-2.5 rounded-lg transition border border-white/10"
+                title="Twitter (X)"
+              >
+                <i className="fa-brands fa-x-twitter text-lg"></i>
+                <span className="text-[8px] font-bold uppercase">Twitter</span>
+              </button>
+              
               <button 
                 onClick={handleCopyLink} 
-                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition text-xs font-bold border ${
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg transition border ${
                   copyStatus === 'Copiado!' 
                     ? 'bg-green-500 text-white border-green-500' 
-                    : copyStatus === 'Erro'
-                    ? 'bg-red-500 text-white border-red-500'
                     : 'bg-gray-700/30 hover:bg-gray-700 text-gray-400 hover:text-white border-gray-700'
                 }`}
+                title="Copiar Link"
               >
-                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : copyStatus === 'Erro' ? 'fa-exclamation-circle' : 'fa-link'}`}></i> 
-                {copyStatus}
+                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : 'fa-link'} text-lg`}></i> 
+                <span className="text-[8px] font-bold uppercase">{copyStatus === 'Copiado!' ? 'Pronto' : 'Link'}</span>
               </button>
             </div>
           </div>

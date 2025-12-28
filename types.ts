@@ -83,6 +83,7 @@ export interface Message {
 export interface FilterOptions {
   make?: string;
   year?: string;
+  minPrice?: string;
   maxPrice?: string;
   search?: string;
   vehicleType?: string;

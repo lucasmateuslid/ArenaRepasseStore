@@ -54,7 +54,7 @@ export interface ApiListResponse<T> {
 }
 
 // ============================================================================
-// AUTH & ADMIN ACTIONS (Novo)
+// AUTH & ADMIN ACTIONS
 // ============================================================================
 
 export const signIn = async (email: string, password: string): Promise<ApiResponse<any>> => {
@@ -89,9 +89,6 @@ export const adminCreateUser = async (email: string, name: string, role: string)
       }
     });
     
-    // Se a Edge Function criar, ela deve garantir o insert no banco.
-    // Mas, se for fallback local, precisamos garantir que is_approved = true
-    
     if (error) throw error;
     if (data.error) throw new Error(data.error);
 
@@ -101,14 +98,13 @@ export const adminCreateUser = async (email: string, name: string, role: string)
     if (err.message?.includes('Functions') || err.message?.includes('Failed to send') || isPlaceholder) {
        console.warn("Criando registro local via Client (Fallback).");
        const fakeId = crypto.randomUUID();
-       // Se criado pelo Admin, já nasce aprovado
        if (!isPlaceholder) {
          await supabase.from('app_users').insert([{ 
            id: fakeId, 
            email, 
            name, 
            role,
-           is_approved: true // IMPORTANTE: Usuário criado pelo Admin é aprovado auto
+           is_approved: true 
          }]);
        }
        return { data: { id: fakeId }, error: null };
@@ -175,6 +171,7 @@ export const fetchCars = async (
 
     if (filters.make) query = query.eq('make', filters.make);
     if (filters.vehicleType) query = query.eq('vehicleType', filters.vehicleType);
+    if (filters.minPrice) query = query.gte('price', filters.minPrice);
     if (filters.maxPrice) query = query.lte('price', filters.maxPrice);
     if (filters.status) query = query.eq('status', filters.status);
     
