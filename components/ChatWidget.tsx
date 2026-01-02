@@ -22,22 +22,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const aiClient = React.useMemo(() => {
-    // Safe access to environment variables
-    const getEnv = (key: string) => {
-      try {
-        // @ts-ignore
-        return (import.meta as any).env?.[key] || '';
-      } catch {
-        return '';
-      }
-    };
-
-    const apiKey = getEnv('VITE_GOOGLE_API_KEY');
+    // Correctly use process.env.API_KEY directly as per Google GenAI guidelines.
+    const apiKey = process.env.API_KEY;
     
     if (!apiKey) {
       console.warn("API Key não encontrada.");
       return null;
     }
+    // Initialize GoogleGenAI with a named parameter.
     return new GoogleGenAI({ apiKey });
   }, []);
 
@@ -124,7 +116,8 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
 
       // 4. Cria a Sessão
       const chatSession = aiClient.chats.create({
-        model: "gemini-2.5-flash",
+        // Use the recommended 'gemini-3-flash-preview' model for basic text tasks.
+        model: "gemini-3-flash-preview",
         config: {
           temperature: 0.3,
           systemInstruction: systemInstruction,
@@ -137,7 +130,9 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
         message: `Responda estritamente em JSON.`
       });
 
-      const parsed = cleanAndParseJSON(result.text || "");
+      // Correctly access the .text property (do not call as a function).
+      const generatedText = result.text;
+      const parsed = cleanAndParseJSON(generatedText || "");
 
       if (parsed && parsed.reply) {
         const validIds = Array.isArray(parsed.car_ids)

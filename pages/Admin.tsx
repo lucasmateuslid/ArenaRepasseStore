@@ -5,8 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   fetchCars, createCar, updateCar, deleteCar, sellCar, uploadCarImage,
   fetchSellers, createSeller, updateSeller, deleteSeller,
-  fetchUsers, createUser, deleteUser, 
-  adminCreateUser, adminResetPassword 
+  fetchUsers, deleteUser, 
+  adminCreateUser, adminResetPassword, parseError
 } from '../supabaseClient';
 import { Car, Seller, AppUser } from '../types';
 
@@ -89,11 +89,16 @@ export const Admin = () => {
         fetchSellers(),
         isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
       ]);
+      
+      if (carsData.error) console.error("Erro carros:", carsData.error);
+      if (sellersData.error) console.error("Erro vendedores:", sellersData.error);
+      if (usersData.error) console.error("Erro usuários:", usersData.error);
+
       if (carsData.data) setCars(carsData.data);
       if (sellersData.data) setSellers(sellersData.data);
       if (usersData.data) setUsers(usersData.data);
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error("Erro ao carregar dados:", parseError(error));
     }
   }, [isAdmin]);
 
@@ -130,9 +135,13 @@ export const Admin = () => {
   const handleDeleteCar = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
       requireAdmin(async () => {
-        await deleteCar(id);
-        showNotification('Veículo excluído.', 'success');
-        loadAllData();
+        const { error } = await deleteCar(id);
+        if (error) {
+          showNotification(error, 'error');
+        } else {
+          showNotification('Veículo excluído.', 'success');
+          loadAllData();
+        }
       });
     }
   };
@@ -184,18 +193,18 @@ export const Admin = () => {
 
         if (carFormData.id) {
           const { error } = await updateCar(carFormData.id, payload);
-          if (error) throw error;
+          if (error) throw new Error(error);
         } else {
           const { id, ...createPayload } = payload;
           const { error } = await createCar(createPayload);
-          if (error) throw error;
+          if (error) throw new Error(error);
         }
 
         showNotification('Veículo salvo com sucesso!', 'success');
         setIsEditingCar(false);
         loadAllData();
     } catch (err: any) {
-      showNotification(err.message, 'error');
+      showNotification(parseError(err), 'error');
     } finally {
       setSaving(false);
       setUploadStatus('');
@@ -207,21 +216,48 @@ export const Admin = () => {
     setSaving(true);
     try {
       await requireAdmin(async () => {
-        if (sellerFormData.id) await updateSeller(sellerFormData.id, sellerFormData);
-        else await createSeller({ ...(sellerFormData as any), active: true });
+        if (sellerFormData.id) {
+          const { error } = await updateSeller(sellerFormData.id, sellerFormData);
+          if (error) throw new Error(error);
+        } else {
+          const { error } = await createSeller({ ...(sellerFormData as any), active: true });
+          if (error) throw new Error(error);
+        }
         setIsCreatingSeller(false);
         loadAllData();
       });
-    } catch (err: any) { showNotification(err.message, 'error'); } finally { setSaving(false); }
+    } catch (err: any) { 
+      showNotification(parseError(err), 'error'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const handleDeleteSeller = (id: string) => {
-    if (window.confirm('Excluir vendedor?')) requireAdmin(async () => { await deleteSeller(id); loadAllData(); });
+    if (window.confirm('Excluir vendedor?')) requireAdmin(async () => { 
+      const { error } = await deleteSeller(id);
+      if (error) showNotification(error, 'error');
+      loadAllData(); 
+    });
   };
 
-  // Fix: Added missing handleDeleteUser function to handle user deletions in Admin view
   const handleDeleteUser = (id: string) => {
-    if (window.confirm('Excluir usuário?')) requireAdmin(async () => { await deleteUser(id); loadAllData(); });
+    if (window.confirm('Excluir usuário?')) requireAdmin(async () => { 
+      const { error } = await deleteUser(id);
+      if (error) showNotification(error, 'error');
+      loadAllData(); 
+    });
+  };
+
+  // Implement handleResetPassword using adminResetPassword from supabaseClient
+  const handleResetPassword = async (userId: string) => {
+    if (window.confirm('Resetar senha para 123456?')) {
+      requireAdmin(async () => {
+        const { error } = await adminResetPassword(userId);
+        if (error) showNotification(error, 'error');
+        else showNotification('Senha resetada para 123456', 'success');
+      });
+    }
   };
 
   const handleUserSave = async (e: React.FormEvent) => {
@@ -230,11 +266,16 @@ export const Admin = () => {
     try {
       await requireAdmin(async () => {
         const { name, email, role } = userFormData as any;
-        await adminCreateUser(email, name, role || 'editor');
+        const { error } = await adminCreateUser(email, name, role || 'editor');
+        if (error) throw new Error(error);
         setIsCreatingUser(false);
         loadAllData();
       });
-    } catch (err: any) { showNotification(err.message, 'error'); } finally { setSaving(false); }
+    } catch (err: any) { 
+      showNotification(parseError(err), 'error'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const fetchFipe = async (url: string) => { try { const res = await fetch(url); return await res.json(); } catch { return []; } };
@@ -280,9 +321,9 @@ export const Admin = () => {
       {activeTab === 'dashboard' && <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab as any} isAdmin={isAdmin} />}
       {activeTab === 'reports' && (isAdmin ? <ReportsView cars={cars} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
       {activeTab === 'settings' && (isAdmin ? <SettingsView showNotification={showNotification} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
-      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeBrandWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
+      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeModelWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
       {activeTab === 'sellers' && <SellersView sellers={sellers} onSave={handleSellerSave} onDelete={handleDeleteSeller} saving={saving} isCreating={isCreatingSeller} setIsCreating={setIsCreatingSeller} formData={sellerFormData} setFormData={setSellerFormData} isAdmin={isAdmin} />}
-      {activeTab === 'users' && <UsersView users={users} onSave={handleUserSave} onDelete={handleDeleteUser} onResetPassword={() => {}} saving={saving} isCreating={isCreatingUser} setIsCreating={setIsCreatingUser} formData={userFormData} setFormData={setUserFormData} onApprove={loadAllData} />}
+      {activeTab === 'users' && <UsersView users={users} onSave={handleUserSave} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} saving={saving} isCreating={isCreatingUser} setIsCreating={setIsCreatingUser} formData={userFormData} setFormData={setUserFormData} onApprove={loadAllData} />}
       {activeTab === 'profile' && <ProfileView appUser={appUser} showNotification={showNotification} />}
     </AdminLayout>
   );

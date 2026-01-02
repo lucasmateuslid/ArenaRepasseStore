@@ -82,7 +82,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ appUser, showNotificat
     const { error } = await updateAuthPassword(newPassword);
     
     if (error) {
-      showNotification('Erro ao atualizar senha: ' + error.message, 'error');
+      // Fix: error from updateAuthPassword is a string | null, not an object with .message
+      showNotification('Erro ao atualizar senha: ' + error, 'error');
     } else {
       showNotification('Senha alterada com sucesso!', 'success');
       setNewPassword('');
