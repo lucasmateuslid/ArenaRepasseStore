@@ -1,4 +1,3 @@
-
 // ============================================================================
 // getEnv: Recuperação segura de variáveis de ambiente otimizada para Vite
 // ============================================================================
@@ -11,22 +10,22 @@ const FALLBACK_ENV: Record<string, string> = {
 export function getEnv(key: string, defaultValue: string = ""): string {
   // 1. Tenta do import.meta.env (Padrão Vite)
   try {
-    // Fix: Explicitly cast import.meta to any to allow property access in TS environments
-    const meta = import.meta as any;
-    if (meta.env && meta.env[key]) {
+    const meta = (import.meta as any);
+    if (meta?.env && meta.env[key]) {
       return meta.env[key];
     }
   } catch (e) {}
 
-  // 2. Tenta do Fallback Manual
-  if (FALLBACK_ENV[key]) return FALLBACK_ENV[key];
-
-  // 3. Tenta do process.env (Node/Legacy)
+  // 2. Tenta do process.env (Node/Shim) de forma segura
   try {
-    if (typeof process !== "undefined" && process.env && process.env[key]) {
-      return process.env[key];
+    const processEnv = (typeof process !== 'undefined' && process.env) ? process.env : (window as any).process?.env;
+    if (processEnv && processEnv[key]) {
+      return processEnv[key];
     }
   } catch (e) {}
+
+  // 3. Tenta do Fallback Manual
+  if (FALLBACK_ENV[key]) return FALLBACK_ENV[key];
 
   return defaultValue;
 }

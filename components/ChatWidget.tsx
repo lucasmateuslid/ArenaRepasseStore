@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
 import { Car, Message } from '../types';
@@ -22,14 +21,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const aiClient = React.useMemo(() => {
-    // Correctly use process.env.API_KEY directly as per Google GenAI guidelines.
-    const apiKey = process.env.API_KEY;
+    // Acesso seguro ao process.env para evitar ReferenceError em navegadores sem shim
+    const env = (typeof process !== 'undefined' && process.env) ? process.env : (window as any).process?.env;
+    const apiKey = env?.API_KEY;
     
     if (!apiKey) {
-      console.warn("API Key não encontrada.");
+      console.warn("Gemini API Key não encontrada no ambiente.");
       return null;
     }
-    // Initialize GoogleGenAI with a named parameter.
     return new GoogleGenAI({ apiKey });
   }, []);
 
@@ -39,17 +38,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     }
   }, [messages, isChatOpen]);
 
-  // Melhor limpeza e extração de JSON
   const cleanAndParseJSON = (text: string) => {
     try {
       let clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-
       const first = clean.indexOf("{");
       const last = clean.lastIndexOf("}");
       if (first !== -1 && last !== -1) {
         clean = clean.substring(first, last + 1);
       }
-
       return JSON.parse(clean);
     } catch {
       return null;
@@ -60,77 +56,46 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     if (!inputMessage.trim()) return;
 
     if (!aiClient) {
-      setMessages(prev => [...prev, { role: "model", text: "Desculpe, meu sistema de IA não está configurado corretamente (Chave de API ausente)." }]);
+      setMessages(prev => [...prev, 
+        { role: "user", text: inputMessage },
+        { role: "model", text: "Desculpe, meu sistema de IA está temporariamente indisponível (Erro de Configuração de Chave)." }
+      ]);
+      setInputMessage('');
       return;
     }
 
     const userMsg = inputMessage;
-    
-    // Atualiza UI imediatamente
     const newMessages = [...messages, { role: "user" as const, text: userMsg }];
     setMessages(newMessages);
     setInputMessage('');
     setIsTyping(true);
 
     try {
-      // 1. Prepara o Histórico para o Gemini
       const history: Content[] = messages.map(m => ({
         role: m.role,
         parts: [{ text: m.text }]
       }));
 
-      // 2. Prepara o Estoque (Contexto Dinâmico)
       const inventory = cars.map(c => 
-        `ID:${c.id} | ${c.make} ${c.model} ${c.year === 32000 ? 'Zero KM' : c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category} | ${(c.description || '').substring(0, 50)}...`
+        `ID:${c.id} | ${c.make} ${c.model} ${c.year === 32000 ? 'Zero KM' : c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category}`
       ).join("\n");
 
-      // 3. Define a Persona e Regras
       const systemInstruction = `
 VOCÊ É Alice, consultora especialista da Arena Repasse.
-
-OBJETIVO: Vender carros do estoque abaixo.
-ESTOQUE ATUAL (Use apenas estes dados):
+ESTOQUE:
 ${inventory}
-
-REGRAS DE CONTEXTO E MEMÓRIA:
-1. Você DEVE lembrar do que foi dito nas mensagens anteriores (history).
-2. Se o usuário disser "gostei desse", "tem automático?", "e o preço?", refira-se ao último carro mencionado no histórico.
-3. Se o usuário mudar de assunto, foque no novo.
-
-REGRAS DE RESPOSTA (JSON):
-1. Responda APENAS com JSON válido.
-2. Formato:
-{
-  "reply": "texto curto, persuasivo e humano (máx 200 caracteres)",
-  "car_ids": ["id_encontrado_1"]
-}
-3. Se não encontrar carros exatos, sugira similares.
-4. Se for conversa fiada, mande "car_ids": [].
-
-IDENTIDADE:
-- Vendedora experiente, ágil e educada.
-- Use gatilhos mentais.
-
-PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
+REGRAS: Responda apenas JSON { "reply": "...", "car_ids": [] }. Max 200 char no reply.
       `.trim();
 
-      // 4. Cria a Sessão
-      const chatSession = aiClient.chats.create({
-        // Use the recommended 'gemini-3-flash-preview' model for basic text tasks.
+      const result: GenerateContentResponse = await aiClient.models.generateContent({
         model: "gemini-3-flash-preview",
+        contents: userMsg,
         config: {
           temperature: 0.3,
           systemInstruction: systemInstruction,
-        },
-        history: history
+        }
       });
 
-      // 5. Envia
-      const result: GenerateContentResponse = await chatSession.sendMessage({
-        message: `Responda estritamente em JSON.`
-      });
-
-      // Correctly access the .text property (do not call as a function).
       const generatedText = result.text;
       const parsed = cleanAndParseJSON(generatedText || "");
 
@@ -146,16 +111,12 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
       } else {
         setMessages(prev => [
           ...prev,
-          { role: "model", text: "Entendi. Pode me dar mais detalhes do que você precisa?", recommendedCarIds: [] }
+          { role: "model", text: "Interessante! Posso te mostrar as opções que temos nesse perfil?", recommendedCarIds: [] }
         ]);
       }
-
     } catch (err) {
       console.error(err);
-      setMessages(prev => [
-        ...prev,
-        { role: "model", text: "Tive um problema de conexão. Poderia repetir?" }
-      ]);
+      setMessages(prev => [...prev, { role: "model", text: "Tive um pequeno problema técnico. Pode tentar novamente?" }]);
     } finally {
       setIsTyping(false);
     }
@@ -230,7 +191,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
                               src={car.image}
                               className="w-full h-full object-cover transform group-hover:scale-110 transition duration-500"
                               alt={car.model}
-                              onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800'; }}
                             />
                             {fipe > 0 && (
                               <div className="absolute top-2 right-2 bg-green-600/90 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm">
@@ -242,12 +202,6 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
                           <div className="p-3">
                             <h5 className="font-bold text-white text-xs truncate mb-1">{car.make} {car.model}</h5>
                             <p className="text-brand-orange font-black text-sm mb-2">{formatCurrency(car.price)}</p>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openModal(car); }}
-                              className="w-full bg-white/5 hover:bg-brand-orange hover:text-white border border-gray-600 hover:border-brand-orange text-gray-300 text-[10px] font-bold py-1.5 rounded transition uppercase"
-                            >
-                              Ver Detalhes
-                            </button>
                           </div>
                         </div>
                       );
@@ -262,10 +216,8 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></span>
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-75"></span>
                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-150"></span>
-                <span className="ml-1">Alice está digitando...</span>
               </div>
             )}
-
             <div ref={chatEndRef}></div>
           </div>
 
@@ -275,20 +227,18 @@ PERGUNTA ATUAL DO USUÁRIO: "${userMsg}"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Digite sua dúvida..."
-              className="flex-1 bg-brand-dark border border-gray-700 rounded-full px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange/50 placeholder-gray-500 transition-all"
+              placeholder="Fale com a Alice..."
+              className="flex-1 bg-brand-dark border border-gray-700 rounded-full px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-orange placeholder-gray-500"
               disabled={isTyping}
             />
-
             <button
               onClick={handleSendMessage}
               disabled={isTyping || !inputMessage.trim()}
-              className="bg-brand-orange text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-90 shadow-lg"
+              className="bg-brand-orange text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-600 disabled:opacity-50 transition transform active:scale-90"
             >
               <i className="fa-solid fa-paper-plane text-xs"></i>
             </button>
           </div>
-
         </div>
       )}
     </>
