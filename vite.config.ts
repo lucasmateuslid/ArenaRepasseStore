@@ -5,14 +5,29 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Base relativa './' garante que o index.html encontre o JS/CSS
-  // mesmo se o site estiver rodando em https://dominio.com/subpasta/id-louco/
-  base: './', 
+  base: './', // Essencial para builds que rodam em subpastas ou servidores de arquivos
   server: {
-    host: true // Necessário para expor a porta em ambientes docker/cloud
+    host: true,
+    port: 3000,
   },
   build: {
     outDir: 'dist',
-    sourcemap: false
+    assetsDir: 'assets',
+    sourcemap: false,
+    minify: 'terser', // Minificação mais agressiva para produção
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs no build de produção
+        drop_debugger: true
+      }
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          utils: ['@supabase/supabase-js', '@google/genai']
+        }
+      }
+    }
   }
 })

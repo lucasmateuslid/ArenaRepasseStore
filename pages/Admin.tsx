@@ -19,13 +19,22 @@ import { ProfileView } from './admin/views/ProfileView';
 import { ReportsView } from './admin/views/ReportsView';
 import { SettingsView } from './admin/views/SettingsView';
 
-// Helper central para mapear categoria -> vehicleType
-const mapCategoryToType = (category: string | undefined): string => {
+// Helper central robusto para mapear categoria -> vehicleType
+export const mapCategoryToType = (category: string | undefined): string => {
   if (!category) return 'carros';
   const cat = category.toLowerCase();
-  if (['hatch', 'sedan', 'suv', 'pickup'].includes(cat)) return 'carros';
-  if (['moto'].includes(cat)) return 'motos';
-  if (['caminhão', 'van'].includes(cat)) return 'caminhoes';
+  
+  // Mapeamento de MOTOS
+  if (['moto', 'motos', 'motocicleta', 'scooter'].some(v => cat.includes(v))) {
+    return 'motos';
+  }
+  
+  // Mapeamento de PESADOS
+  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus'].some(v => cat.includes(v))) {
+    return 'caminhoes';
+  }
+  
+  // Padrão para CARROS
   return 'carros';
 };
 
@@ -174,7 +183,7 @@ export const Admin = () => {
         }
         const finalGallery = [...currentGallery, ...newGalleryUrls];
 
-        // Sincronização Final: Força o vehicleType correto baseado na categoria
+        // Sincronização Final Crítica: Força o vehicleType correto baseado na categoria
         const finalType = mapCategoryToType(carFormData.category);
 
         const payload: any = {

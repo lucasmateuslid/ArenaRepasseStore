@@ -33,12 +33,19 @@ interface CarFormViewProps {
   selectedModelCode?: string;
 }
 
-// Mapeamento automático de Categoria -> Tipo de Veículo
-const getVehicleTypeFromCategory = (category: string): string => {
+// Mapeamento automático idêntico ao Admin.tsx para consistência
+const getVehicleTypeFromCategory = (category: string | undefined): string => {
+  if (!category) return 'carros';
   const cat = category.toLowerCase();
-  if (['hatch', 'sedan', 'suv', 'pickup'].includes(cat)) return 'carros';
-  if (['moto'].includes(cat)) return 'motos';
-  if (['caminhão', 'van'].includes(cat)) return 'caminhoes';
+  
+  if (['moto', 'motos', 'motocicleta', 'scooter'].some(v => cat.includes(v))) {
+    return 'motos';
+  }
+  
+  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus'].some(v => cat.includes(v))) {
+    return 'caminhoes';
+  }
+  
   return 'carros';
 };
 
@@ -201,12 +208,22 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
     }
   };
 
-  // Handler para mudança de categoria com mapeamento automático de vehicleType
+  // Handler para mudança de categoria com sincronização de vehicleType
   const handleCategoryChange = (val: string) => {
     const inferredType = getVehicleTypeFromCategory(val);
     setVehicleType(inferredType);
     setCarFormData({ ...carFormData, category: val, vehicleType: inferredType });
   };
+
+  // Garante que o vehicleType da FIPE acompanhe a categoria se mudada manualmente
+  useEffect(() => {
+    if (carFormData.category) {
+      const type = getVehicleTypeFromCategory(carFormData.category);
+      if (type !== vehicleType) {
+        setVehicleType(type);
+      }
+    }
+  }, [carFormData.category]);
 
   return (
   <div className="max-w-6xl mx-auto pb-24 md:pb-0 animate-slide-up relative">
@@ -299,9 +316,9 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Marca</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} /></div>
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Modelo</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} /></div>
                   
-                  {/* CATEGORIA COM LÓGICA AUTOMÁTICA */}
+                  {/* CATEGORIA COM LÓGICA AUTOMÁTICA REFORÇADA */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-brand-orange uppercase">Categoria (Define o Filtro)</label>
+                    <label className="text-[10px] font-bold text-brand-orange uppercase">Categoria (Obrigatório para Filtros)</label>
                     <select className="w-full bg-black/30 border border-brand-orange/30 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.category || ''} onChange={e => handleCategoryChange(e.target.value)}>
                       <option value="">Selecione...</option>
                       {['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'].map(o => <option key={o} value={o}>{o}</option>)}
