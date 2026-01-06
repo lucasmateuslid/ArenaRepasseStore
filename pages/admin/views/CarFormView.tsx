@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
-  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt
+  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt, FaUserTag, FaCalendarCheck
 } from 'react-icons/fa';
 import { Car, Seller, CarExpense } from '../../../types';
 
@@ -33,16 +33,16 @@ interface CarFormViewProps {
   selectedModelCode?: string;
 }
 
-// Mapeamento automático idêntico ao Admin.tsx para consistência
+// Lógica avançada de detecção de classe
 const getVehicleTypeFromCategory = (category: string | undefined): string => {
   if (!category) return 'carros';
   const cat = category.toLowerCase();
   
-  if (['moto', 'motos', 'motocicleta', 'scooter'].some(v => cat.includes(v))) {
+  if (['moto', 'motos', 'motocicleta', 'scooter', 'bis', 'fan', 'titan'].some(v => cat.includes(v))) {
     return 'motos';
   }
   
-  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus'].some(v => cat.includes(v))) {
+  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus', 'master', 'ducato', 'sprinter', 'furgão'].some(v => cat.includes(v))) {
     return 'caminhoes';
   }
   
@@ -136,9 +136,6 @@ const SearchableFipeSelect: React.FC<SearchableFipeSelectProps> = ({
 };
 
 const generateId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -215,16 +212,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
     setCarFormData({ ...carFormData, category: val, vehicleType: inferredType });
   };
 
-  // Garante que o vehicleType da FIPE acompanhe a categoria se mudada manualmente
-  useEffect(() => {
-    if (carFormData.category) {
-      const type = getVehicleTypeFromCategory(carFormData.category);
-      if (type !== vehicleType) {
-        setVehicleType(type);
-      }
-    }
-  }, [carFormData.category]);
-
   return (
   <div className="max-w-6xl mx-auto pb-24 md:pb-0 animate-slide-up relative">
     {saving && (
@@ -258,12 +245,58 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-brand-surface border border-gray-800 rounded-2xl p-5">
               <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Status do Veículo</label>
-              <select className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none ${currentStatus === 'available' ? 'bg-blue-500/10 border-blue-500 text-blue-500' : currentStatus === 'sold' ? 'bg-green-500/10 border-green-500 text-green-500' : currentStatus === 'maintenance' ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-gray-800 border-gray-600 text-gray-400'}`} value={currentStatus} onChange={e => setCarFormData({...carFormData, status: e.target.value as any})}>
-                <option value="available">Disponível</option>
-                <option value="sold">Vendido</option>
-                <option value="maintenance">Em Manutenção</option>
-                <option value="unavailable">Indisponível</option>
+              <select 
+                className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-colors ${currentStatus === 'available' ? 'bg-blue-500/10 border-blue-500 text-blue-500' : currentStatus === 'sold' ? 'bg-green-500/10 border-green-500 text-green-500' : currentStatus === 'maintenance' ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-gray-800 border-gray-600 text-gray-400'}`} 
+                value={currentStatus} 
+                onChange={e => setCarFormData({...carFormData, status: e.target.value as any, soldDate: e.target.value === 'sold' ? new Date().toISOString().split('T')[0] : carFormData.soldDate})}
+              >
+                <option value="available" className="bg-brand-surface text-white">Disponível</option>
+                <option value="sold" className="bg-brand-surface text-white">Vendido</option>
+                <option value="maintenance" className="bg-brand-surface text-white">Em Manutenção</option>
+                <option value="unavailable" className="bg-brand-surface text-white">Indisponível</option>
               </select>
+              
+              {currentStatus === 'sold' && (
+                <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-xl space-y-4 animate-fade-in">
+                   <h4 className="text-[10px] font-black text-green-500 uppercase flex items-center gap-2 mb-2">
+                     <FaCalendarCheck/> Dados da Venda
+                   </h4>
+                   <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-gray-500 uppercase">Consultor que Vendeu</label>
+                     <select 
+                       required
+                       className="w-full bg-black/40 border border-gray-700 rounded-lg p-2.5 text-xs text-white outline-none focus:border-green-500" 
+                       value={carFormData.soldBy || ''} 
+                       onChange={e => setCarFormData({...carFormData, soldBy: e.target.value})}
+                     >
+                       <option value="" className="bg-brand-surface">Selecione o Vendedor...</option>
+                       {sellers.map(s => <option key={s.id} value={s.name} className="bg-brand-surface">{s.name}</option>)}
+                     </select>
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-gray-500 uppercase">Data da Venda</label>
+                     <input 
+                       type="date" 
+                       required
+                       className="w-full bg-black/40 border border-gray-700 rounded-lg p-2.5 text-xs text-white outline-none focus:border-green-500" 
+                       value={carFormData.soldDate || ''} 
+                       onChange={e => setCarFormData({...carFormData, soldDate: e.target.value})} 
+                     />
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-gray-500 uppercase">Valor de Venda Final (R$)</label>
+                     <input 
+                       type="number" 
+                       step="0.01"
+                       required
+                       className="w-full bg-black/40 border border-green-500/30 rounded-lg p-2.5 text-sm font-black text-green-400 outline-none" 
+                       value={carFormData.soldPrice || carFormData.price || ''} 
+                       onChange={e => setCarFormData({...carFormData, soldPrice: Number(e.target.value)})} 
+                     />
+                   </div>
+                </div>
+              )}
+
               {currentStatus === 'maintenance' && (
                 <div className="mt-4 animate-fade-in">
                   <label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Motivo</label>
@@ -313,28 +346,58 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Marca</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Modelo</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Marca</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Modelo</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} /></div>
                   
-                  {/* CATEGORIA COM LÓGICA AUTOMÁTICA REFORÇADA */}
+                  {/* CATEGORIA COM CONTRASTE REFORÇADO */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-brand-orange uppercase">Categoria (Obrigatório para Filtros)</label>
-                    <select className="w-full bg-black/30 border border-brand-orange/30 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.category || ''} onChange={e => handleCategoryChange(e.target.value)}>
-                      <option value="">Selecione...</option>
-                      {['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'].map(o => <option key={o} value={o}>{o}</option>)}
+                    <select 
+                      className="w-full bg-black/40 border border-brand-orange/30 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
+                      value={carFormData.category || ''} 
+                      onChange={e => handleCategoryChange(e.target.value)}
+                    >
+                      <option value="" className="bg-brand-surface text-white">Selecione...</option>
+                      {['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'].map(o => <option key={o} value={o} className="bg-brand-surface text-white">{o}</option>)}
                     </select>
                   </div>
 
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Placa</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.licensePlate || ''} onChange={e => setCarFormData({...carFormData, licensePlate: e.target.value.toUpperCase()})} maxLength={8} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Ano</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.year || ''} onChange={e => setCarFormData({...carFormData, year: Number(e.target.value)})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">KM</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.mileage || ''} onChange={e => setCarFormData({...carFormData, mileage: Number(e.target.value)})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Câmbio</label><select className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.transmission || ''} onChange={e => setCarFormData({...carFormData, transmission: e.target.value})}><option value="Manual">Manual</option><option value="Automático">Automático</option><option value="CVT">CVT</option></select></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Combustível</label><select className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white" value={carFormData.fuel || ''} onChange={e => setCarFormData({...carFormData, fuel: e.target.value})}><option value="Flex">Flex</option><option value="Gasolina">Gasolina</option><option value="Diesel">Diesel</option></select></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Placa</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.licensePlate || ''} onChange={e => setCarFormData({...carFormData, licensePlate: e.target.value.toUpperCase()})} maxLength={8} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Ano</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.year || ''} onChange={e => setCarFormData({...carFormData, year: Number(e.target.value)})} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">KM</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.mileage || ''} onChange={e => setCarFormData({...carFormData, mileage: Number(e.target.value)})} /></div>
+                  
+                  {/* CÂMBIO COM CONTRASTE REFORÇADO */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Câmbio</label>
+                    <select 
+                      className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
+                      value={carFormData.transmission || ''} 
+                      onChange={e => setCarFormData({...carFormData, transmission: e.target.value})}
+                    >
+                      <option value="Manual" className="bg-brand-surface">Manual</option>
+                      <option value="Automático" className="bg-brand-surface">Automático</option>
+                      <option value="CVT" className="bg-brand-surface">CVT</option>
+                    </select>
+                  </div>
+
+                  {/* COMBUSTÍVEL COM CONTRASTE REFORÇADO */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Combustível</label>
+                    <select 
+                      className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
+                      value={carFormData.fuel || ''} 
+                      onChange={e => setCarFormData({...carFormData, fuel: e.target.value})}
+                    >
+                      <option value="Flex" className="bg-brand-surface">Flex</option>
+                      <option value="Gasolina" className="bg-brand-surface">Gasolina</option>
+                      <option value="Diesel" className="bg-brand-surface">Diesel</option>
+                    </select>
+                  </div>
               </div>
 
               <div className="grid grid-cols-2 gap-5 pt-4 border-t border-gray-800">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-brand-orange uppercase">Preço Venda (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-brand-orange/50 rounded-lg px-3 py-3 text-lg font-bold text-white" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Tabela FIPE (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-3 text-lg font-bold text-gray-400" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-brand-orange uppercase">Preço Venda (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-brand-orange/50 rounded-lg px-3 py-3 text-lg font-bold text-white focus:border-brand-orange outline-none" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Tabela FIPE (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-3 text-lg font-bold text-gray-400 focus:border-brand-orange outline-none" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} /></div>
               </div>
             </div>
           </div>

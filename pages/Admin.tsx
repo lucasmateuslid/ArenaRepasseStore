@@ -25,12 +25,12 @@ export const mapCategoryToType = (category: string | undefined): string => {
   const cat = category.toLowerCase();
   
   // Mapeamento de MOTOS
-  if (['moto', 'motos', 'motocicleta', 'scooter'].some(v => cat.includes(v))) {
+  if (['moto', 'motos', 'motocicleta', 'scooter', 'bis', 'fan', 'titan'].some(v => cat.includes(v))) {
     return 'motos';
   }
   
   // Mapeamento de PESADOS
-  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus'].some(v => cat.includes(v))) {
+  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus', 'ducato', 'master', 'sprinter', 'furgão'].some(v => cat.includes(v))) {
     return 'caminhoes';
   }
   
@@ -258,7 +258,6 @@ export const Admin = () => {
     });
   };
 
-  // Implement handleResetPassword using adminResetPassword from supabaseClient
   const handleResetPassword = async (userId: string) => {
     if (window.confirm('Resetar senha para 123456?')) {
       requireAdmin(async () => {
@@ -318,7 +317,19 @@ export const Admin = () => {
     const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${selectedModelCode}/anos/${codigo}`);
     if (data) {
       const fipePrice = parseFloat(data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.'));
-      setCarFormData(prev => ({ ...prev, year: data.AnoModelo, fipeprice: fipePrice }));
+      
+      // Auto-detect categoria se for Moto ou Caminhão vindo da FIPE
+      let autoCategory = carFormData.category || 'Hatch';
+      if (vehicleType === 'motos') autoCategory = 'Moto';
+      if (vehicleType === 'caminhoes') autoCategory = 'Caminhão';
+
+      setCarFormData(prev => ({ 
+        ...prev, 
+        year: data.AnoModelo, 
+        fipeprice: fipePrice,
+        category: autoCategory,
+        vehicleType: vehicleType
+      }));
     }
     setLoadingFipe(false);
   };
