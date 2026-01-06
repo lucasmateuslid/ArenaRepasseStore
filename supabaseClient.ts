@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Car, AppUser, FilterOptions, Seller, CompanySettings } from './types';
 import { getEnv } from './utils/env';
@@ -38,7 +37,6 @@ export const signUp = async (email: string, password: string) => {
 
 export const signOut = async () => supabase.auth.signOut();
 
-// Added updateAuthPassword export for ProfileView
 export const updateAuthPassword = async (password: string) => {
   const { data, error } = await supabase.auth.updateUser({ password });
   return { data, error: error ? parseError(error) : null };
@@ -85,9 +83,8 @@ export const fetchAvailableBrands = async (vehicleType?: string): Promise<string
     
     const { data } = await query;
     if (!data) return [];
-    // Fix: Explicitly type mapping result and cast Array.from to string[] to avoid unknown[] error
     const brands: string[] = data.map((c: any) => String(c.make));
-    return Array.from(new Set(brands)).sort() as string[];
+    return Array.from(new Set(brands)).sort();
   } catch { return []; }
 };
 
@@ -99,9 +96,8 @@ export const fetchAvailableYears = async (vehicleType?: string): Promise<number[
 
     const { data } = await query;
     if (!data) return [];
-    // Fix: Explicitly type mapping result and provide typed sort function to avoid unknown[] error
     const years: number[] = data.map((c: any) => Number(c.year));
-    return Array.from(new Set(years)).sort((a: number, b: number) => b - a) as number[];
+    return Array.from(new Set(years)).sort((a: number, b: number) => b - a);
   } catch { return []; }
 };
 
@@ -115,7 +111,6 @@ export const updateCar = async (id: string, updates: Partial<Car>) => {
   return { data, error: error ? parseError(error) : null };
 };
 
-// Added sellCar export for Admin view to interact with sell-car-api Edge Function
 export const sellCar = async (id: string, soldPrice: number, soldDate: string, soldBy: string) => {
   const { data, error } = await supabase.functions.invoke('sell-car-api', {
     body: { id, soldPrice, soldDate, soldBy }
@@ -174,7 +169,6 @@ export const createSeller = async (seller: Omit<Seller, 'id'>) => {
   return supabase.from('sellers').insert([seller]).select().single();
 };
 
-// Added updateSeller export for People management in Admin view
 export const updateSeller = async (id: string, updates: Partial<Seller>) => {
   const { data, error } = await supabase.from('sellers').update(updates).eq('id', id).select().single();
   return { data, error: error ? parseError(error) : null };

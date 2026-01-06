@@ -1,11 +1,10 @@
-
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Essencial para builds que rodam em subpastas ou servidores de arquivos
+  base: './', 
   server: {
     host: true,
     port: 3000,
@@ -14,10 +13,10 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'terser', // Minificação mais agressiva para produção
+    minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.logs no build de produção
+        drop_console: true,
         drop_debugger: true
       }
     },

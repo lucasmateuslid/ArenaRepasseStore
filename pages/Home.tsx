@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom'; 
 import { Car, FilterOptions, Seller } from '../types';
@@ -110,12 +109,13 @@ export const Home = () => {
     
     if (!loading) {
       if (targetId) {
+        // Busca o carro no estado ou faz fallback se necessário
         const found = cars.find(c => c.id === targetId);
         if (found) {
           setSelectedCar(found);
         }
       } else {
-        // Se não houver ID na URL, fecha o modal limpando o estado
+        // Limpeza explícita para fechar o modal
         setSelectedCar(null);
       }
     }
@@ -130,6 +130,7 @@ export const Home = () => {
 
   const handleQuickFilter = (type: string) => {
     setTempFilters({ make: '', minPrice: '0', maxPrice: '1000000', year: '', vehicleType: type });
+    document.getElementById('inventory')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleOpenModal = (car: Car) => {
@@ -172,7 +173,7 @@ export const Home = () => {
                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{totalCount} veículos</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <select value={orderBy} onChange={e => setOrderBy(e.target.value)} className="bg-black/40 border border-gray-700 text-white text-[11px] font-black uppercase rounded-xl px-4 py-2.5 outline-none appearance-none cursor-pointer">
+                    <select value={orderBy} onChange={e => setOrderBy(e.target.value)} className="bg-brand-surface border border-gray-700 text-white text-[11px] font-black uppercase rounded-xl px-4 py-2.5 outline-none appearance-none cursor-pointer">
                        <option value="newest">Novidades</option>
                        <option value="price_asc">Menor Preço</option>
                        <option value="price_desc">Maior Preço</option>
