@@ -17,6 +17,7 @@ export interface Car {
   mileage: number;
   fuel: string;
   transmission: string;
+  color?: string; // Novo campo para cor
   image: string;
   gallery: string[];
   location: string;

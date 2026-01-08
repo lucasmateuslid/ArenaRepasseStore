@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
-  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt, FaUserTag, FaCalendarCheck
+  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt, FaUserTag, FaCalendarCheck, FaPalette
 } from 'react-icons/fa';
 import { Car, Seller, CarExpense } from '../../../types';
 
@@ -349,7 +349,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Marca</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} /></div>
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Modelo</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} /></div>
                   
-                  {/* CATEGORIA COM CONTRASTE REFORÇADO */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-brand-orange uppercase">Categoria (Obrigatório para Filtros)</label>
                     <select 
@@ -366,7 +365,20 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Ano</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.year || ''} onChange={e => setCarFormData({...carFormData, year: Number(e.target.value)})} /></div>
                   <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">KM</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.mileage || ''} onChange={e => setCarFormData({...carFormData, mileage: Number(e.target.value)})} /></div>
                   
-                  {/* CÂMBIO COM CONTRASTE REFORÇADO */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Cor</label>
+                    <div className="relative">
+                      <FaPalette className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                      <input 
+                        type="text" 
+                        className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 pl-10 text-sm text-white focus:border-brand-orange outline-none" 
+                        placeholder="Ex: Branco, Preto..."
+                        value={carFormData.color || ''} 
+                        onChange={e => setCarFormData({...carFormData, color: e.target.value})} 
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase">Câmbio</label>
                     <select 
@@ -380,7 +392,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                     </select>
                   </div>
 
-                  {/* COMBUSTÍVEL COM CONTRASTE REFORÇADO */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase">Combustível</label>
                     <select 

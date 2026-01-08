@@ -78,9 +78,9 @@ export const Admin = () => {
   };
 
   const getNumber = (val: any) => {
-    if (!val) return 0;
+    if (val === undefined || val === null || val === '') return 0;
     if (typeof val === 'number') return val;
-    return Number(val) || 0;
+    return Number(String(val).replace(',', '.')) || 0;
   };
 
   const requireAdmin = async (callback: () => Promise<void>) => {
@@ -114,7 +114,17 @@ export const Admin = () => {
   useEffect(() => { loadAllData(); }, [loadAllData]);
 
   const handleNewCar = () => {
-    setCarFormData({ status: 'available', gallery: [], vehicleType: 'carros', category: 'Hatch' });
+    setCarFormData({ 
+      status: 'available', 
+      gallery: [], 
+      vehicleType: 'carros', 
+      category: 'Hatch',
+      color: '',
+      description: '',
+      location: 'Arena Repasse',
+      fuel: 'Flex',
+      transmission: 'Manual'
+    });
     setMainImageFile(null);
     setMainImagePreview(null);
     setGalleryFiles([]);
@@ -165,6 +175,7 @@ export const Admin = () => {
         if (!isAdmin) throw new Error("Permissão negada.");
         if (!carFormData.make || !carFormData.model) throw new Error('Marca e Modelo são obrigatórios.');
 
+        // 1. Upload da imagem principal se alterada
         let finalImage = carFormData.image;
         if (mainImageFile) {
           const url = await uploadCarImage(mainImageFile);
@@ -174,6 +185,7 @@ export const Admin = () => {
 
         if (!finalImage) throw new Error('Foto principal é obrigatória.');
 
+        // 2. Upload da galeria se houver novos arquivos
         const currentGallery = carFormData.gallery || [];
         const newGalleryUrls: string[] = [];
         if (galleryFiles.length > 0) {
@@ -183,29 +195,36 @@ export const Admin = () => {
         }
         const finalGallery = [...currentGallery, ...newGalleryUrls];
 
-        // Sincronização Final Crítica: Força o vehicleType correto baseado na categoria
+        // 3. Sincronização de vehicleType baseada na categoria
         const finalType = mapCategoryToType(carFormData.category);
 
+        // 4. Limpeza de Payload: Removemos campos sensíveis de sistema para evitar conflitos de ID/Data
+        const { id, created_at, ...dataToSave } = carFormData;
+
         const payload: any = {
-          ...carFormData,
+          ...dataToSave,
           price: getNumber(carFormData.price),
           fipeprice: getNumber(carFormData.fipeprice),
           mileage: getNumber(carFormData.mileage),
           year: getNumber(carFormData.year) || new Date().getFullYear(),
+          purchasePrice: getNumber(carFormData.purchasePrice),
+          soldPrice: carFormData.status === 'sold' ? getNumber(carFormData.soldPrice || carFormData.price) : null,
           image: finalImage,
           gallery: finalGallery,
-          purchasePrice: getNumber(carFormData.purchasePrice),
           expenses: carFormData.expenses || [],
           vehicleType: finalType,
-          status: carFormData.status || 'available'
+          status: carFormData.status || 'available',
+          color: carFormData.color || ''
         };
 
-        if (carFormData.id) {
-          const { error } = await updateCar(carFormData.id, payload);
+        // 5. Persistência
+        if (id) {
+          // Edição
+          const { error } = await updateCar(id, payload);
           if (error) throw new Error(error);
         } else {
-          const { id, ...createPayload } = payload;
-          const { error } = await createCar(createPayload);
+          // Criação
+          const { error } = await createCar(payload);
           if (error) throw new Error(error);
         }
 

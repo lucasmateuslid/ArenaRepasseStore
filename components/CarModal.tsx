@@ -175,12 +175,14 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
           <div className="flex items-center gap-3 mb-4">
             <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{displayYear}</span>
             <span className="text-gray-400 text-xs md:text-sm">{car.mileage.toLocaleString()} km</span>
+            {car.color && <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{car.color}</span>}
           </div>
 
           <div className="bg-brand-dark/40 rounded-xl p-3 md:p-4 mb-4 border border-gray-700">
             <div className="grid grid-cols-2 gap-3 text-xs md:text-sm">
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Combustível</span><span className="text-white font-medium">{car.fuel}</span></div>
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Câmbio</span><span className="text-white font-medium">{car.transmission}</span></div>
+               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Cor</span><span className="text-white font-medium">{car.color || 'Não informada'}</span></div>
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Localização</span><span className="text-white font-medium">{car.location || 'Brasil'}</span></div>
                <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Status</span><span className="text-green-400 font-medium">Disponível</span></div>
             </div>
@@ -191,7 +193,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
             <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 md:line-clamp-none">{car.description}</p>
           </div>
 
-          {/* SEÇÃO DE COMPARTILHAMENTO ATUALIZADA */}
+          {/* SEÇÃO DE COMPARTILHAMENTO */}
           <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
             <div className="flex items-center justify-between mb-4">
                <h4 className="font-bold text-gray-400 text-xs uppercase flex items-center gap-2">
@@ -202,7 +204,7 @@ export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp
                   onClick={handleNativeShare}
                   className="text-[10px] font-black text-brand-orange hover:text-white transition-colors uppercase flex items-center gap-1"
                 >
-                  <FaShareAlt size={10} /> Enviar p/ Amigo
+                   Enviar p/ Amigo
                 </button>
               )}
             </div>

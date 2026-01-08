@@ -3,13 +3,45 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, 
-  FaChevronRight, FaUserCog, FaChevronDown, FaFileAlt, 
+  FaChevronRight, FaUserCog, FaFileAlt, 
   FaCogs, FaHome, FaExternalLinkAlt
 } from 'react-icons/fa';
 import { AppUser } from '../../types';
 
+interface NavButtonProps {
+  item: {
+    id: string;
+    icon: any;
+    label: string;
+  };
+  activeTab: string;
+  onClick: (id: string) => void;
+}
+
+const NavButton: React.FC<NavButtonProps> = ({ item, activeTab, onClick }) => {
+  const Icon = item.icon;
+  const isActive = activeTab === item.id;
+
+  return (
+    <button 
+      onClick={() => onClick(item.id)} 
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 group relative
+        ${isActive 
+          ? 'bg-brand-orange text-white shadow-[0_4px_15px_rgba(220,38,38,0.3)]' 
+          : 'text-gray-400 hover:bg-white/5 hover:text-white'
+        }`}
+    >
+      <Icon className={`${isActive ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+      <span>{item.label}</span>
+      {isActive && (
+        <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+      )}
+    </button>
+  );
+};
+
 interface AdminLayoutProps {
-  children: React.Node;
+  children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: 'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports' | 'settings') => void;
   appUser: AppUser | null;
@@ -34,30 +66,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'settings', icon: FaCogs, label: 'Aparência' }
   ];
 
-  // Fix: Explicitly allow the 'key' prop in the component's property type to satisfy strict JSX checks
-  const NavButton = ({ item }: { item: any; key?: React.Key }) => (
-    <button 
-      onClick={() => setActiveTab(item.id as any)} 
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 group relative
-        ${activeTab === item.id 
-          ? 'bg-brand-orange text-white shadow-[0_4px_15px_rgba(220,38,38,0.3)]' 
-          : 'text-gray-400 hover:bg-white/5 hover:text-white'
-        }`}
-    >
-      <item.icon className={`${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-      <span>{item.label}</span>
-      {activeTab === item.id && (
-        <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-      )}
-    </button>
-  );
-
   return (
     <div className="min-h-screen bg-brand-dark font-sans text-gray-100 flex flex-col md:flex-row">
       
       {/* --- SIDEBAR DESKTOP --- */}
       <aside className="hidden md:flex w-72 bg-brand-surface border-r border-gray-800 flex-col fixed h-full z-50 overflow-hidden">
-        {/* Header Logo */}
         <div className="h-24 flex flex-col items-center justify-center border-b border-gray-800/50 bg-black/10">
           <Link to="/" className="flex items-center gap-2 group">
             <h1 className="text-2xl font-black italic tracking-tighter text-white transform -skew-x-6 group-hover:scale-105 transition-transform">
@@ -67,26 +80,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <span className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.3em] mt-1">Management Suite</span>
         </div>
 
-        {/* Scrollable Nav Area */}
         <div className="flex-1 p-6 space-y-8 overflow-y-auto no-scrollbar">
-          
-          {/* Section: Principal */}
           <div className="space-y-3">
             <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-4">Principal</p>
             <div className="space-y-1">
-              {mainItems.map(item => <NavButton key={item.id} item={item} />)}
+              {mainItems.map(item => (
+                <NavButton key={item.id} item={item} activeTab={activeTab} onClick={(id) => setActiveTab(id as any)} />
+              ))}
             </div>
           </div>
 
-          {/* Section: Sistema */}
           <div className="space-y-3">
             <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-4">Gestão & Sistema</p>
             <div className="space-y-1">
-              {systemItems.map(item => <NavButton key={item.id} item={item} />)}
+              {systemItems.map(item => (
+                <NavButton key={item.id} item={item} activeTab={activeTab} onClick={(id) => setActiveTab(id as any)} />
+              ))}
             </div>
           </div>
 
-          {/* User Section (Quick Access) */}
           <div className="pt-6 border-t border-gray-800/50">
             <button 
               onClick={() => setActiveTab('profile')}
@@ -99,7 +111,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-6 bg-black/20 border-t border-gray-800/50 space-y-3">
           <Link 
             to="/" 
@@ -133,7 +144,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </button>
       </header>
 
-      {/* --- MOBILE DOCK (BOTTOM) --- */}
+      {/* --- MOBILE DOCK --- */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-brand-surface/90 backdrop-blur-xl border-t border-gray-800 z-50 flex justify-around p-3 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
          {[...mainItems, ...systemItems.slice(0, 1), {id: 'settings', icon: FaCogs, label: 'Config'}].map(item => ( 
            <button 
@@ -149,24 +160,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
          ))}
       </nav>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col md:pl-72 min-h-screen">
-        {/* Desktop Header Navigation Info */}
         <header className="hidden md:flex h-20 bg-brand-dark/95 backdrop-blur-md border-b border-gray-800/50 items-center justify-between px-10 sticky top-0 z-40">
            <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Painel</span>
               <FaChevronRight className="text-[8px] text-gray-700" />
               <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">
-                {activeTab === 'dashboard' ? 'Visão Geral' : 
-                 activeTab === 'reports' ? 'Relatórios Financeiros' : 
-                 activeTab === 'cars' ? 'Controle de Frota' : 
-                 activeTab === 'sellers' ? 'Equipe de Vendas' : 
-                 activeTab === 'users' ? 'Gestão de Acessos' : 
-                 activeTab === 'settings' ? 'Configurações' : 'Meu Perfil'}
+                {activeTab.toUpperCase()}
               </span>
            </div>
            
-           {/* Perfil Dropdown */}
            <div className="relative group">
               <button 
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -182,7 +185,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 </div>
               </button>
 
-              {/* Menu suspenso flutuante */}
               <div className={`absolute right-0 top-full mt-3 w-56 bg-brand-surface border border-gray-800 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 transform origin-top-right z-50 
                 ${isProfileOpen ? 'translate-y-0 opacity-100 scale-100 visible' : 'translate-y-2 opacity-0 scale-95 invisible'}
               `}>
@@ -203,21 +205,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
            </div>
         </header>
 
-        {/* Notificações Flutuantes */}
         {notification && (
           <div className={`fixed top-24 right-6 z-[100] px-6 py-4 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-l-4 animate-fade-in flex items-center gap-3
             ${notification.type === 'success' ? 'bg-green-950/90 border-green-500 text-green-100' : 'bg-red-950/90 border-red-500 text-red-100'}
           `}>
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs
-              ${notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}
-            `}>
-              {notification.type === 'success' ? '✓' : '!'}
-            </div>
             <p className="font-bold text-xs uppercase tracking-wide">{notification.msg}</p>
           </div>
         )}
 
-        {/* Content Viewport */}
         <main className="flex-1 p-6 md:p-10 max-w-[1600px] mx-auto w-full">
            {children}
         </main>

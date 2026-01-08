@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Car } from '../types';
-import { FaCalendarAlt, FaGasPump, FaTachometerAlt, FaWhatsapp, FaInfoCircle, FaMapMarkerAlt, FaCogs } from 'react-icons/fa';
+import { FaCalendarAlt, FaGasPump, FaTachometerAlt, FaWhatsapp, FaInfoCircle, FaMapMarkerAlt, FaCogs, FaPalette } from 'react-icons/fa';
 
 interface CarGridProps {
   cars: Car[];
@@ -57,9 +57,10 @@ export const CarGrid: React.FC<CarGridProps> = ({
                 <div className="mb-4">
                   <span className="text-brand-orange text-[9px] font-black uppercase tracking-widest block mb-1">{car.make}</span>
                   <h3 className="text-lg font-black text-white truncate group-hover:text-brand-orange transition-colors">{car.model}</h3>
-                  <div className="flex gap-3 mt-2">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                     <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaCalendarAlt className="text-brand-orange"/> {car.year === 32000 ? 'Zero' : car.year}</span>
                     <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaTachometerAlt className="text-brand-orange"/> {car.mileage.toLocaleString()} KM</span>
+                    {car.color && <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaPalette className="text-brand-orange"/> {car.color}</span>}
                   </div>
                 </div>
 
