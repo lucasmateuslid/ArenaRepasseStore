@@ -48,33 +48,49 @@ export const CarGrid: React.FC<CarGridProps> = ({
               onClick={() => openModal(car)}
               className={`bg-brand-surface border border-gray-800 rounded-3xl overflow-hidden group hover:border-brand-orange/40 transition-all duration-300 shadow-2xl cursor-pointer ${viewMode === 'list' ? 'flex flex-col md:flex-row' : ''}`}
             >
-              <div className={`${viewMode === 'list' ? 'md:w-72' : 'aspect-[4/3]'} relative overflow-hidden bg-zinc-950`}>
+              <div className={`${viewMode === 'list' ? 'md:w-72 md:h-auto h-56' : 'aspect-[4/3]'} relative overflow-hidden bg-zinc-950 flex-shrink-0`}>
                 <img src={car.image} alt={car.model} className="w-full h-full object-cover transform group-hover:scale-105 transition duration-500" loading="lazy" />
                 {discount > 10 && <div className="absolute top-3 left-3 bg-red-600 text-white px-3 py-1.5 rounded-full font-black text-[10px] italic shadow-lg">-{discount}% FIPE</div>}
               </div>
               
-              <div className="p-5 flex-1 flex flex-col">
+              <div className="p-5 flex-1 flex flex-col justify-between">
                 <div className="mb-4">
                   <span className="text-brand-orange text-[9px] font-black uppercase tracking-widest block mb-1">{car.make}</span>
-                  <h3 className="text-lg font-black text-white truncate group-hover:text-brand-orange transition-colors">{car.model}</h3>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                    <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaCalendarAlt className="text-brand-orange"/> {car.year === 32000 ? 'Zero' : car.year}</span>
-                    <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaTachometerAlt className="text-brand-orange"/> {car.mileage.toLocaleString()} KM</span>
-                    {car.color && <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><FaPalette className="text-brand-orange"/> {car.color}</span>}
+                  <h3 className="text-lg md:text-xl font-black text-white truncate group-hover:text-brand-orange transition-colors">{car.model}</h3>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-bold bg-black/20 px-2 py-1 rounded-lg border border-gray-800/50">
+                      <FaCalendarAlt className="text-brand-orange"/> {car.year === 32000 ? 'Zero KM' : car.year}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-bold bg-black/20 px-2 py-1 rounded-lg border border-gray-800/50">
+                      <FaTachometerAlt className="text-brand-orange"/> {car.mileage.toLocaleString()} KM
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-bold bg-black/20 px-2 py-1 rounded-lg border border-gray-800/50">
+                      <FaMapMarkerAlt className="text-brand-orange"/> {car.location || 'Arena Repasse'}
+                    </div>
+                    {car.color && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-bold bg-black/20 px-2 py-1 rounded-lg border border-gray-800/50">
+                        <FaPalette className="text-brand-orange"/> {car.color}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-auto">
+                <div className="mt-auto pt-4 border-t border-gray-800/30">
                   <div className="flex items-end justify-between mb-4">
                     <div>
                       <span className="text-[8px] font-black text-gray-600 uppercase block">Repasse Especial</span>
-                      <span className="text-xl font-black text-white">{formatCurrency(car.price)}</span>
+                      <span className="text-2xl font-black text-white">{formatCurrency(car.price)}</span>
                     </div>
-                    {car.fipeprice > 0 && <span className="text-[10px] font-bold text-gray-500 line-through mb-1">{formatCurrency(car.fipeprice)}</span>}
+                    {car.fipeprice > 0 && (
+                      <div className="text-right">
+                         <span className="text-[10px] font-bold text-gray-500 line-through block">{formatCurrency(car.fipeprice)}</span>
+                         <span className="text-[9px] font-black text-green-500 uppercase">Fipe Oficial</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); openModal(car); }} className="flex-1 h-10 bg-white/5 border border-gray-800 rounded-xl text-[10px] font-black uppercase text-white hover:bg-white/10 transition">Detalhes</button>
-                    <button onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }} className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center text-white hover:bg-green-500 transition shadow-lg"><FaWhatsapp size={18}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); openModal(car); }} className="flex-1 h-11 bg-white/5 border border-gray-800 rounded-xl text-[10px] font-black uppercase text-white hover:bg-white/10 transition shadow-sm">Detalhes do Veículo</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleWhatsApp(car); }} className="w-11 h-11 bg-green-600 rounded-xl flex items-center justify-center text-white hover:bg-green-500 transition shadow-lg active:scale-95 transform"><FaWhatsapp size={20}/></button>
                   </div>
                 </div>
               </div>

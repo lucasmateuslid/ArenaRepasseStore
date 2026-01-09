@@ -35,6 +35,10 @@ export interface Car {
   maintenanceReason?: string; // Motivo da manutenção
   licensePlate?: string;   // Placa do veículo
   
+  // Informações do Cliente (Comprador)
+  customerName?: string;
+  customerCPF?: string;
+  
   // Gestão Financeira Detalhada
   purchasePrice?: number; // Valor de Entrada (Quanto pagou no carro)
   expenses?: CarExpense[]; // Histórico de gastos
@@ -60,6 +64,8 @@ export interface Seller {
   whatsapp: string;
   active: boolean;
   created_at?: string;
+  goal_qty?: number;   // Meta de quantidade de veículos
+  goal_value?: number; // Meta de valor total em vendas
 }
 
 export interface CompanySettings {
@@ -73,6 +79,7 @@ export interface CompanySettings {
   social_instagram?: string;
   social_facebook?: string;
   social_youtube?: string;
+  social_olx?: string;
 }
 
 export interface Message {

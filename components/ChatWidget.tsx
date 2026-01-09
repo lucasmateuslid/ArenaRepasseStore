@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse, Content } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Content } from "@google/genai";
 import { Car, Message } from '../types';
 
 interface ChatWidgetProps {
@@ -20,16 +21,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // ALWAYS use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
   const aiClient = React.useMemo(() => {
-    // Acesso seguro ao process.env para evitar ReferenceError em navegadores sem shim
-    const env = (typeof process !== 'undefined' && process.env) ? process.env : (window as any).process?.env;
-    const apiKey = env?.API_KEY;
-    
-    if (!apiKey) {
-      console.warn("Gemini API Key não encontrada no ambiente.");
+    try {
+      return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    } catch (error) {
+      console.error("Gemini API initialization error:", error);
       return null;
     }
-    return new GoogleGenAI({ apiKey });
   }, []);
 
   useEffect(() => {
@@ -71,11 +70,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     setIsTyping(true);
 
     try {
-      const history: Content[] = messages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      }));
-
       const inventory = cars.map(c => 
         `ID:${c.id} | ${c.make} ${c.model} ${c.year === 32000 ? 'Zero KM' : c.year} | Preço: R$${c.price} | FIPE: R$${c.fipeprice} | Categoria: ${c.category}`
       ).join("\n");
@@ -87,7 +81,8 @@ ${inventory}
 REGRAS: Responda apenas JSON { "reply": "...", "car_ids": [] }. Max 200 char no reply.
       `.trim();
 
-      const result: GenerateContentResponse = await aiClient.models.generateContent({
+      // Accessing the extracted string directly via the .text property as per guidelines
+      const response: GenerateContentResponse = await aiClient.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: userMsg,
         config: {
@@ -96,7 +91,7 @@ REGRAS: Responda apenas JSON { "reply": "...", "car_ids": [] }. Max 200 char no 
         }
       });
 
-      const generatedText = result.text;
+      const generatedText = response.text;
       const parsed = cleanAndParseJSON(generatedText || "");
 
       if (parsed && parsed.reply) {

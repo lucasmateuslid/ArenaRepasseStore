@@ -1,14 +1,18 @@
 
 import React, { useState } from 'react';
-import { FaPlus, FaWhatsapp, FaTrash, FaKey, FaUserTag, FaCheck, FaTimes, FaDesktop, FaNetworkWired } from 'react-icons/fa';
+import { 
+  FaPlus, FaWhatsapp, FaTrash, FaKey, FaUserTag, FaCheck, FaTimes, 
+  FaDesktop, FaNetworkWired, FaTrophy, FaChartBar, FaBullseye, FaMoneyBillWave, FaEdit
+} from 'react-icons/fa';
 import { Seller, AppUser } from '../../../types';
 import { SectionHeader } from '../components/AdminUI';
-import { updateUser, deleteUser } from '../../../supabaseClient'; // Import direto para ações de aprovação
+import { updateUser, deleteUser } from '../../../supabaseClient'; 
 
 interface SellersViewProps {
-  sellers: Seller[];
+  sellers: (Seller & { stats?: { totalQty: number, totalValue: number } })[];
   onSave: (e: React.FormEvent) => void;
   onDelete: (id: string) => void;
+  onEdit?: (seller: Seller) => void;
   saving: boolean;
   isCreating: boolean;
   setIsCreating: (val: boolean) => void;
@@ -18,52 +22,140 @@ interface SellersViewProps {
 }
 
 export const SellersView: React.FC<SellersViewProps> = ({ 
-  sellers, onSave, onDelete, saving, isCreating, setIsCreating, formData, setFormData, isAdmin 
+  sellers, onSave, onDelete, onEdit, saving, isCreating, setIsCreating, formData, setFormData, isAdmin 
 }) => {
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(val);
+
+  const getPercentage = (current: number, goal: number) => {
+    if (!goal || goal <= 0) return 0;
+    return Math.min(Math.round((current / goal) * 100), 100);
+  };
+
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
-      <SectionHeader title="Consultores" subtitle="Gerencie sua equipe de vendas" 
-        action={isAdmin && <button onClick={() => { setIsCreating(!isCreating); setFormData({ active: true }); }} className="bg-brand-orange text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow"><FaPlus /> {isCreating ? 'Cancelar' : 'Novo'}</button>}
+      <SectionHeader title="Consultores & Performance" subtitle="Gerencie sua equipe e acompanhe metas de vendas" 
+        action={isAdmin && <button onClick={() => { setIsCreating(!isCreating); setFormData({ active: true }); }} className="bg-brand-orange text-white px-5 py-3 rounded-xl text-sm font-bold uppercase flex items-center gap-2 shadow-glow"><FaPlus /> {isCreating ? 'Cancelar' : 'Novo Consultor'}</button>}
       />
       
       {isAdmin && isCreating && (
-        <form onSubmit={onSave} className="bg-brand-surface border border-gray-800 rounded-2xl p-6 mb-6">
-           <h4 className="text-white font-bold mb-4 flex items-center gap-2"><FaUserTag/> Novo Consultor</h4>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase">Nome Completo</label>
-                <input type="text" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+        <form onSubmit={onSave} className="bg-brand-surface border border-brand-orange/30 rounded-2xl p-6 mb-6 shadow-glow relative overflow-hidden">
+           <div className="absolute top-0 right-0 w-32 h-32 bg-brand-orange/5 blur-3xl pointer-events-none"></div>
+           <h4 className="text-white font-black uppercase italic mb-6 flex items-center gap-3 tracking-tight">
+             <FaUserTag className="text-brand-orange"/> {formData.id ? 'Editar Consultor' : 'Novo Consultor'}
+           </h4>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                <input type="text" required className="w-full bg-black/40 border border-gray-700 rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase">WhatsApp</label>
-                <input type="text" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-orange outline-none" placeholder="5511999999999" value={formData.whatsapp || ''} onChange={e => setFormData({...formData, whatsapp: e.target.value.replace(/\D/g,'')})} />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">WhatsApp</label>
+                <input type="text" required className="w-full bg-black/40 border border-gray-700 rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none" placeholder="5511999999999" value={formData.whatsapp || ''} onChange={e => setFormData({...formData, whatsapp: e.target.value.replace(/\D/g,'')})} />
               </div>
-              <div className="md:col-span-2 space-y-1 bg-blue-900/10 border border-blue-500/20 p-3 rounded-lg">
-                <label className="text-[10px] font-bold text-blue-400 uppercase">Email (Para Login no Sistema)</label>
-                <input type="email" required className="w-full bg-black/30 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none" placeholder="nome@arenarepasse.com" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-                <p className="text-[10px] text-gray-500 mt-1">* Será criado um usuário 'Editor' automaticamente com a senha padrão <strong>123456</strong>.</p>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-brand-orange uppercase tracking-widest ml-1 flex items-center gap-1"><FaBullseye/> Meta Quantidade</label>
+                <input type="number" className="w-full bg-black/40 border border-brand-orange/20 rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none" placeholder="Ex: 10" value={formData.goal_qty || ''} onChange={e => setFormData({...formData, goal_qty: Number(e.target.value)})} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-brand-orange uppercase tracking-widest ml-1 flex items-center gap-1"><FaMoneyBillWave/> Meta Valor (R$)</label>
+                <input type="number" className="w-full bg-black/40 border border-brand-orange/20 rounded-xl p-3 text-sm text-white focus:border-brand-orange outline-none" placeholder="Ex: 500000" value={formData.goal_value || ''} onChange={e => setFormData({...formData, goal_value: Number(e.target.value)})} />
+              </div>
+              <div className="md:col-span-2 lg:col-span-4 space-y-1.5 bg-blue-900/10 border border-blue-500/20 p-4 rounded-xl">
+                <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Email (Login do Sistema)</label>
+                <input type="email" required={!formData.id} className="w-full bg-black/40 border border-gray-700 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none" placeholder="nome@arenarepasse.com" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
+                {!formData.id && <p className="text-[10px] text-gray-500 mt-2 italic font-bold">* Novo acesso será criado com perfil 'Editor' e senha padrão 123456.</p>}
               </div>
            </div>
-           <button type="submit" disabled={saving} className="mt-4 px-6 py-2 bg-brand-orange text-white rounded-lg font-bold text-xs uppercase hover:bg-red-600 transition">{saving ? '...' : 'Salvar e Gerar Login'}</button>
+           <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-800">
+             <button type="button" onClick={() => setIsCreating(false)} className="px-6 py-3 text-[10px] font-black uppercase text-gray-500 hover:text-white transition">Cancelar</button>
+             <button type="submit" disabled={saving} className="px-10 py-3 bg-brand-orange text-white rounded-xl font-black text-xs uppercase hover:bg-red-600 transition shadow-glow">{saving ? 'Salvando...' : 'Salvar Consultor'}</button>
+           </div>
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sellers.map((s: Seller) => (
-          <div key={s.id} className="bg-brand-surface border border-gray-800 p-4 rounded-xl flex items-center justify-between group">
-             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center text-lg"><FaWhatsapp/></div>
-                <div>
-                   <h4 className="font-bold text-white text-sm">{s.name}</h4>
-                   <p className="text-xs text-gray-500">{s.whatsapp}</p>
-                   {s.email && <p className="text-[10px] text-blue-400/70">{s.email}</p>}
-                </div>
-             </div>
-             {isAdmin && (
-               <button onClick={() => onDelete(s.id)} className="p-2 text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition"><FaTrash size={12}/></button>
-             )}
-          </div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {sellers.map((s) => {
+          const qtyProgress = getPercentage(s.stats?.totalQty || 0, s.goal_qty || 0);
+          const valueProgress = getPercentage(s.stats?.totalValue || 0, s.goal_value || 0);
+
+          return (
+            <div key={s.id} className="bg-brand-surface border border-gray-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-brand-orange/40 transition-all duration-300">
+              <div className="flex justify-between items-start mb-6">
+                 <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-orange to-red-600 flex items-center justify-center text-white text-xl font-black italic shadow-lg">
+                      {s.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-white text-lg tracking-tight uppercase italic">{s.name}</h4>
+                      <p className="text-xs text-gray-500 font-bold">{s.whatsapp}</p>
+                    </div>
+                 </div>
+                 {isAdmin && (
+                   <div className="flex gap-2">
+                     <button onClick={() => onEdit?.(s)} className="p-2.5 text-blue-400 bg-blue-500/10 hover:bg-blue-600 hover:text-white rounded-xl transition" title="Editar"><FaEdit size={14}/></button>
+                     <button onClick={() => onDelete(s.id)} className="p-2.5 text-red-500 bg-red-500/10 hover:bg-red-600 hover:text-white rounded-xl transition" title="Excluir"><FaTrash size={14}/></button>
+                   </div>
+                 )}
+              </div>
+
+              <div className="space-y-6 pt-4 border-t border-gray-800/50">
+                 {/* Estatística de Veículos */}
+                 <div className="space-y-3">
+                    <div className="flex justify-between items-end">
+                       <div>
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Veículos Vendidos</p>
+                          <p className="text-2xl font-black text-white leading-none">{s.stats?.totalQty || 0} <span className="text-xs text-gray-600 font-bold">unidades</span></p>
+                       </div>
+                       {s.goal_qty && s.goal_qty > 0 ? (
+                         <p className="text-[10px] font-black text-brand-orange uppercase bg-brand-orange/10 px-2 py-1 rounded">Meta: {s.goal_qty}</p>
+                       ) : null}
+                    </div>
+                    {s.goal_qty && s.goal_qty > 0 ? (
+                      <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-gray-800">
+                        <div 
+                          className={`h-full transition-all duration-1000 ${qtyProgress >= 100 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-brand-orange'}`} 
+                          style={{ width: `${qtyProgress}%` }}
+                        ></div>
+                      </div>
+                    ) : null}
+                 </div>
+
+                 {/* Estatística de Valor */}
+                 <div className="space-y-3">
+                    <div className="flex justify-between items-end">
+                       <div>
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Volume de Vendas</p>
+                          <p className="text-2xl font-black text-white leading-none">{formatCurrency(s.stats?.totalValue || 0)}</p>
+                       </div>
+                       {s.goal_value && s.goal_value > 0 ? (
+                         <p className="text-[10px] font-black text-brand-orange uppercase bg-brand-orange/10 px-2 py-1 rounded">Meta: {formatCurrency(s.goal_value)}</p>
+                       ) : null}
+                    </div>
+                    {s.goal_value && s.goal_value > 0 ? (
+                      <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-gray-800">
+                        <div 
+                          className={`h-full transition-all duration-1000 ${valueProgress >= 100 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-brand-orange'}`} 
+                          style={{ width: `${valueProgress}%` }}
+                        ></div>
+                      </div>
+                    ) : null}
+                 </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-800/50 flex justify-between items-center">
+                 <button onClick={() => window.open(`https://wa.me/${s.whatsapp}`, '_blank')} className="text-[10px] font-black text-green-500 uppercase flex items-center gap-2 hover:underline">
+                    <FaWhatsapp/> Contato Direto
+                 </button>
+                 {s.goal_qty && s.goal_qty > 0 && (
+                    <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${qtyProgress >= 100 ? 'bg-green-500/10 text-green-500' : 'bg-brand-orange/10 text-brand-orange'}`}>
+                      {qtyProgress >= 100 ? 'Meta Atingida' : `${qtyProgress}% da Meta`}
+                    </div>
+                 )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -79,7 +171,7 @@ interface UsersViewProps {
   setIsCreating: (val: boolean) => void;
   formData: Partial<AppUser>;
   setFormData: (data: Partial<AppUser>) => void;
-  onApprove?: (id: string) => void; // Callback para atualizar lista
+  onApprove?: (id: string) => void; 
 }
 
 export const UsersView: React.FC<UsersViewProps> = ({ 
@@ -87,9 +179,8 @@ export const UsersView: React.FC<UsersViewProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'approved' | 'pending'>('approved');
 
-  // Separar usuários
   const pendingUsers = users.filter(u => u.is_approved === false);
-  const approvedUsers = users.filter(u => u.is_approved !== false); // True ou undefined (legado)
+  const approvedUsers = users.filter(u => u.is_approved !== false); 
 
   const handleApprove = async (id: string) => {
     if(!window.confirm("Aprovar acesso deste usuário?")) return;
@@ -105,7 +196,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
   return (
     <div className="space-y-6 animate-slide-up pb-20 md:pb-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <SectionHeader title="Usuários do Sistema" />
+        <SectionHeader title="Usuários do Sistema" subtitle="Controle de acessos e permissões" />
         <div className="flex bg-black/30 p-1 rounded-xl">
            <button 
              onClick={() => setActiveSubTab('approved')}

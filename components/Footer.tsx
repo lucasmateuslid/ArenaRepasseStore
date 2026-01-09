@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp, FaEnvelope, FaClock, FaInstagram } from 'react-icons/fa';
+import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp, FaEnvelope, FaClock, FaInstagram, FaStore } from 'react-icons/fa';
 import { useCompany } from '../contexts/CompanyContext';
 
 interface FooterProps {
@@ -154,6 +154,12 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
              {settings?.social_instagram && (
                <a href={settings.social_instagram.startsWith('http') ? settings.social_instagram : `https://instagram.com/${settings.social_instagram.replace('@','')}`} target="_blank" rel="noreferrer" className="text-gray-700 hover:text-white transition-colors">
                  <FaInstagram size={18} />
+               </a>
+             )}
+             {settings?.social_olx && (
+               <a href={settings.social_olx} target="_blank" rel="noreferrer" className="text-gray-700 hover:text-white transition-colors flex items-center gap-2">
+                 <FaStore size={18} />
+                 <span className="text-[10px] font-black uppercase tracking-tighter hidden sm:inline">OLX</span>
                </a>
              )}
           </div>

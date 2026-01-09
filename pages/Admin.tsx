@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+// DO NOT use @google/genai deprecated APIs. Always use the specified model names and initialization patterns.
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -112,6 +113,23 @@ export const Admin = () => {
   }, [isAdmin]);
 
   useEffect(() => { loadAllData(); }, [loadAllData]);
+
+  // Estatísticas de Consultores (Calculado em tempo real a partir do estoque)
+  const sellersWithStats = useMemo(() => {
+    const soldCars = cars.filter(c => c.status === 'sold');
+    return sellers.map(seller => {
+      const sellerSales = soldCars.filter(c => c.soldBy === seller.name);
+      const totalQty = sellerSales.length;
+      const totalValue = sellerSales.reduce((acc, curr) => acc + (Number(curr.soldPrice) || Number(curr.price) || 0), 0);
+      return {
+        ...seller,
+        stats: {
+          totalQty,
+          totalValue
+        }
+      };
+    });
+  }, [cars, sellers]);
 
   const handleNewCar = () => {
     setCarFormData({ 
@@ -244,14 +262,18 @@ export const Admin = () => {
     setSaving(true);
     try {
       await requireAdmin(async () => {
-        if (sellerFormData.id) {
-          const { error } = await updateSeller(sellerFormData.id, sellerFormData);
+        // FIX: Removemos a propriedade 'stats' antes de enviar ao Supabase
+        const { stats, ...payload } = sellerFormData as any;
+        
+        if (payload.id) {
+          const { error } = await updateSeller(payload.id, payload);
           if (error) throw new Error(error);
         } else {
-          const { error } = await createSeller({ ...(sellerFormData as any), active: true });
+          const { error } = await createSeller({ ...payload, active: true });
           if (error) throw new Error(error);
         }
         setIsCreatingSeller(false);
+        setSellerFormData({});
         loadAllData();
       });
     } catch (err: any) { 
@@ -360,8 +382,8 @@ export const Admin = () => {
       {activeTab === 'dashboard' && <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab as any} isAdmin={isAdmin} />}
       {activeTab === 'reports' && (isAdmin ? <ReportsView cars={cars} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
       {activeTab === 'settings' && (isAdmin ? <SettingsView showNotification={showNotification} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
-      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeModelWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
-      {activeTab === 'sellers' && <SellersView sellers={sellers} onSave={handleSellerSave} onDelete={handleDeleteSeller} saving={saving} isCreating={isCreatingSeller} setIsCreating={setIsCreatingSeller} formData={sellerFormData} setFormData={setSellerFormData} isAdmin={isAdmin} />}
+      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} sellers={sellers} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} onRefresh={loadAllData} showNotification={showNotification} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeBrandWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
+      {activeTab === 'sellers' && <SellersView sellers={sellersWithStats} onSave={handleSellerSave} onDelete={handleDeleteSeller} saving={saving} isCreating={isCreatingSeller} setIsCreating={setIsCreatingSeller} formData={sellerFormData} setFormData={setSellerFormData} isAdmin={isAdmin} onEdit={(s) => { setSellerFormData(s); setIsCreatingSeller(true); }} />}
       {activeTab === 'users' && <UsersView users={users} onSave={handleUserSave} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} saving={saving} isCreating={isCreatingUser} setIsCreating={setIsCreatingUser} formData={userFormData} setFormData={setUserFormData} onApprove={loadAllData} />}
       {activeTab === 'profile' && <ProfileView appUser={appUser} showNotification={showNotification} />}
     </AdminLayout>
