@@ -6,7 +6,6 @@ import {
 } from 'react-icons/fa';
 import { SectionHeader } from '../components/AdminUI';
 import { useCompany } from '../../../contexts/CompanyContext';
-import BankIcon from '../../../components/BankIcon';
 
 export const SettingsView = ({ showNotification }: { showNotification: (msg: string, type: 'success' | 'error') => void }) => {
   const { settings, updateSettings, loading } = useCompany();
@@ -230,9 +229,14 @@ export const SettingsView = ({ showNotification }: { showNotification: (msg: str
                 <div className="pt-6 border-t border-white/5">
                    <h5 className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-3">Financiamento Parceiro</h5>
                    <div className="grid grid-cols-2 gap-2">
-                      {[33, 341].map(compe => (
-                        <div key={compe} className="bg-white/5 border border-white/5 rounded p-2 flex items-center gap-2">
-                           <BankIcon bankId={compe} size={20} />
+                      {[
+                        'https://vectorseek.com/wp-content/uploads/2023/10/Banco-Santander-Icon-Logo-Vector.svg-.png',
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Ita%C3%BA_Unibanco_logo_2023.svg/2048px-Ita%C3%BA_Unibanco_logo_2023.svg.png'
+                      ].map((logo, idx) => (
+                        <div key={idx} className="bg-white/5 border border-white/5 rounded p-2 flex items-center gap-2">
+                           <div className="w-5 h-5 bg-white rounded-sm p-0.5 flex items-center justify-center overflow-hidden">
+                             <img src={logo} className="max-w-full max-h-full object-contain" />
+                           </div>
                            <span className="text-[8px] font-bold text-white/40 uppercase">Parceiro</span>
                         </div>
                       ))}

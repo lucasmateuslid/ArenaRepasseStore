@@ -2,7 +2,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaCar, FaMotorcycle, FaTruck, FaHome, FaWhatsapp, FaEnvelope, FaClock, FaInstagram } from 'react-icons/fa';
-import BankIcon from './BankIcon';
 import { useCompany } from '../contexts/CompanyContext';
 
 interface FooterProps {
@@ -14,12 +13,12 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
   const { settings } = useCompany();
 
   const banks = [
-    { name: 'SANTANDER', compe: 33 },
-    { name: 'BV FINAN.', compe: 655 },
-    { name: 'ITAÚ', compe: 341 },
-    { name: 'BRADESCO', compe: 237 },
-    { name: 'BANCO PAN', compe: 623 },
-    { name: 'SAFRA', compe: 422 }
+    { name: 'SANTANDER', logo: 'https://vectorseek.com/wp-content/uploads/2023/10/Banco-Santander-Icon-Logo-Vector.svg-.png' },
+    { name: 'BV FINAN.', logo: 'https://www.bv.com.br/documents/20121/44219/bv-logo.png/9b800464-b7f5-e9e9-4f9a-f3a666a71abf?t=1645031185498&download=true' },
+    { name: 'ITAÚ', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Ita%C3%BA_Unibanco_logo_2023.svg/2048px-Ita%C3%BA_Unibanco_logo_2023.svg.png' },
+    { name: 'BRADESCO', logo: 'https://companieslogo.com/img/orig/BBD-6b19aac5.png?t=1720244490' },
+    { name: 'BANCO PAN', logo: 'https://cdn.cookielaw.org/logos/82b81c01-85cd-4ada-9c9d-656b3e5682dd/9be12e3b-5e10-436c-826d-d0dfc661f023/9c073e0c-345d-4dae-a9c4-b55a6c15e17f/banco-pan-logo-8.png' },
+    { name: 'SAFRA', logo: 'https://portal.coren-sp.gov.br/wp-content/uploads/2022/01/Logo_Safra.png' }
   ];
 
   const handleNavigation = (type: string) => {
@@ -96,8 +95,8 @@ export const Footer: React.FC<FooterProps> = ({ handleWhatsApp, onQuickFilter })
             <div className="grid grid-cols-2 gap-2">
               {banks.map((bank, idx) => (
                 <div key={idx} className="bg-[#080808] border border-white/5 rounded-lg p-2 flex items-center gap-2.5 hover:border-gray-800 transition cursor-default">
-                  <div className="flex-shrink-0">
-                    <BankIcon bankId={bank.compe} size={26} borderRadius={4} />
+                  <div className="flex-shrink-0 w-[26px] h-[26px] bg-white rounded-sm p-0.5 flex items-center justify-center overflow-hidden">
+                    <img src={bank.logo} alt={bank.name} className="max-w-full max-h-full object-contain" loading="lazy" />
                   </div>
                   <span className="text-[9px] font-bold text-gray-400 tracking-tight uppercase truncate">{bank.name}</span>
                 </div>
