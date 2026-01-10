@@ -1,10 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   FaCamera, FaPlus, FaSave, FaCar, FaChartLine, FaTrash, 
   FaSearch, FaCheckSquare, FaSquare, FaMoneyBillWave, FaTimes,
-  FaArrowRight, FaCogs, FaGasPump, FaPalette, FaIdCard, FaCalendarAlt, FaTachometerAlt,
-  FaMotorcycle, FaTruck, FaTools, FaCheck
+  FaCogs, FaTools, FaCheck, FaMotorcycle, FaTruck, FaUserTie, FaCalendarAlt
 } from 'react-icons/fa';
 import { Car, Seller, CarExpense } from '../../../types';
 
@@ -32,8 +30,9 @@ interface CarFormViewProps {
   loadingFipe: boolean;
   selectedBrandCode: string;
   selectedModelCode: string;
-  vehicleType: string;
-  setVehicleType: (type: string) => void;
+  // Use specific union types to match Admin state
+  vehicleType: 'carros' | 'motos' | 'caminhoes';
+  setVehicleType: (type: 'carros' | 'motos' | 'caminhoes') => void;
 }
 
 const CATEGORIES = ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'];
@@ -90,13 +89,11 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
   const totalCost = (Number(carFormData.purchasePrice) || 0) + expensesValue;
   const profit = (Number(carFormData.price) || 0) - totalCost;
 
-  // Estilo customizado para os SELECTS corrigindo o contraste (Print 4)
   const selectClass = "w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none appearance-none cursor-pointer transition-all";
   const selectIcon = { backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'white\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' };
 
   return (
     <div className="max-w-7xl mx-auto pb-24 animate-slide-up">
-      {/* HEADER TABS */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">Gerenciar Veículo</h2>
         <div className="flex bg-black/40 p-1.5 rounded-2xl border border-gray-800">
@@ -115,12 +112,9 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
       <form onSubmit={onSave} className="space-y-6">
         {activeTab === 'details' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
-            
-            {/* STATUS E MÍDIA */}
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-brand-surface border border-gray-800 rounded-3xl p-6 shadow-xl">
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-4">STATUS DO VEÍCULO</label>
-                
                 <div className={`p-4 rounded-xl border-2 mb-4 transition-all ${
                   carFormData.status === 'sold' ? 'border-green-500 bg-green-500/5 text-green-500' :
                   carFormData.status === 'maintenance' ? 'border-orange-500 bg-orange-500/5 text-orange-500' :
@@ -138,7 +132,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   </select>
                 </div>
 
-                {/* DADOS DA VENDA (Print 1) */}
                 {carFormData.status === 'sold' && (
                   <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5 space-y-4 animate-slide-up">
                     <p className="text-[10px] font-black text-green-500 uppercase flex items-center gap-2"><FaCheck/> DADOS DA VENDA</p>
@@ -162,7 +155,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   </div>
                 )}
 
-                {/* MOTIVO MANUTENÇÃO (Print 2) */}
                 {carFormData.status === 'maintenance' && (
                   <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-5 space-y-4 animate-slide-up">
                     <p className="text-[10px] font-black text-orange-500 uppercase flex items-center gap-2"><FaTools/> MOTIVO</p>
@@ -171,7 +163,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                 )}
               </div>
 
-              {/* FOTOS */}
               <div className="bg-brand-surface border border-gray-800 rounded-3xl p-6 shadow-xl">
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-4">CAPA PRINCIPAL</label>
                 <div className="relative aspect-video bg-black/50 rounded-2xl border-2 border-dashed border-gray-700 hover:border-brand-orange overflow-hidden mb-4 group cursor-pointer">
@@ -201,17 +192,14 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
               </div>
             </div>
 
-            {/* FICHA TÉCNICA E FIPE (Print 3) */}
             <div className="lg:col-span-8 space-y-6">
               <div className="bg-brand-surface border border-gray-800 rounded-3xl p-8 shadow-2xl">
-                {/* FICHA TÉCNICA FIPE MULTI-MODAL */}
                 <div className="bg-black/30 border border-blue-500/20 rounded-[2rem] p-8 mb-10">
                   <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><FaSearch size={20}/></div>
                       <h3 className="font-black text-white uppercase italic tracking-tighter text-xl">Ficha Técnica FIPE</h3>
                     </div>
-                    {/* SELETOR DE MODALIDADE */}
                     <div className="flex bg-black/40 p-1.5 rounded-xl border border-gray-800">
                        <button type="button" onClick={() => setVehicleType('carros')} className={`p-2.5 rounded-lg transition-all ${vehicleType === 'carros' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}><FaCar/></button>
                        <button type="button" onClick={() => setVehicleType('motos')} className={`p-2.5 rounded-lg transition-all ${vehicleType === 'motos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}><FaMotorcycle/></button>
@@ -235,7 +223,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                   </div>
                 </div>
 
-                {/* FORMULÁRIO TÉCNICO */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Marca</label>
@@ -323,7 +310,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
 
         {activeTab === 'financial' && (
           <div className="space-y-8 animate-fade-in">
-            {/* KPI FINANCEIRO */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                <div className="bg-brand-surface border border-gray-800 p-8 rounded-[2rem] shadow-xl group hover:border-brand-orange/30 transition-all">
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Valor de Compra</p>
@@ -343,10 +329,8 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                </div>
             </div>
 
-            {/* ADICIONAR DESPESA */}
             <div className="bg-brand-surface border border-gray-800 rounded-[2.5rem] p-10 shadow-2xl">
               <h3 className="text-xl font-black text-white mb-10 uppercase italic tracking-tighter">Lançamento de Gastos</h3>
-              
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end bg-black/40 p-8 rounded-3xl border border-gray-800 mb-10">
                  <div className="lg:col-span-5 space-y-2">
                     <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Descrição</label>
@@ -370,7 +354,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
                  </div>
               </div>
 
-              {/* LISTA DE DESPESAS */}
               <div className="overflow-x-auto">
                  <table className="w-full text-left">
                     <thead className="text-[11px] font-black text-gray-500 uppercase border-b border-gray-800">
@@ -404,7 +387,6 @@ export const CarFormView: React.FC<CarFormViewProps> = ({
           </div>
         )}
 
-        {/* ACTIONS FIXAS */}
         <div className="flex justify-end gap-4 p-6 bg-brand-dark/95 backdrop-blur-xl sticky bottom-0 border-t border-gray-800 rounded-b-3xl z-40 shadow-2xl">
             <button type="button" onClick={onCancel} className="px-8 py-4 rounded-2xl border border-gray-700 text-gray-400 font-black text-xs uppercase hover:bg-white/5 transition">CANCELAR</button>
             <button type="submit" disabled={saving} className="px-12 py-4 rounded-2xl bg-brand-orange text-white font-black text-xs uppercase shadow-glow hover:bg-red-600 transition flex items-center gap-2 italic">

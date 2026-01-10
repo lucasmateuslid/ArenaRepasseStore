@@ -1,4 +1,4 @@
-import { Car } from "../types";
+import { Car } from "../../../types";
 
 // Service deprecated: The application now uses Supabase (see supabaseClient.ts).
 // These stubs prevent TypeScript errors in legacy components.

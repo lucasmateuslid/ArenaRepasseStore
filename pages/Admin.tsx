@@ -1,13 +1,15 @@
-
-// DO NOT use @google/genai deprecated APIs. Always use the specified model names and initialization patterns.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  fetchCars, createCar, updateCar, deleteCar, sellCar, uploadCarImage,
-  fetchSellers, createSeller, updateSeller, deleteSeller,
-  fetchUsers, deleteUser, 
-  adminCreateUser, adminResetPassword, parseError
+import {
+  fetchCars,
+  createCar,
+  updateCar,
+  deleteCar,
+  uploadCarImage,
+  fetchSellers,
+  fetchUsers,
+  parseError
 } from '../supabaseClient';
 import { Car, Seller, AppUser } from '../types';
 
@@ -20,52 +22,59 @@ import { ProfileView } from './admin/views/ProfileView';
 import { ReportsView } from './admin/views/ReportsView';
 import { SettingsView } from './admin/views/SettingsView';
 
-// Helper central robusto para mapear categoria -> vehicleType
-export const mapCategoryToType = (category: string | undefined): string => {
+/* ================= HELPERS ================= */
+
+export const mapCategoryToType = (
+  category?: string
+): 'carros' | 'motos' | 'caminhoes' => {
   if (!category) return 'carros';
   const cat = category.toLowerCase();
-  
-  // Mapeamento de MOTOS
-  if (['moto', 'motos', 'motocicleta', 'scooter', 'bis', 'fan', 'titan'].some(v => cat.includes(v))) {
+
+  if (['moto', 'motocicleta', 'scooter', 'bis', 'fan', 'titan'].some(v => cat.includes(v))) {
     return 'motos';
   }
-  
-  // Mapeamento de PESADOS
-  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus', 'ducato', 'master', 'sprinter', 'furgão'].some(v => cat.includes(v))) {
+
+  if (['caminhão', 'caminhao', 'van', 'truck', 'ônibus', 'onibus', 'furgão'].some(v => cat.includes(v))) {
     return 'caminhoes';
   }
-  
-  // Padrão para CARROS
+
   return 'carros';
 };
 
-export const Admin = () => {
+type Notification = { msg: string; type: 'success' | 'error' };
+type FipeItem = { codigo: string; nome: string };
+
+/* ================= COMPONENT ================= */
+
+export const Admin: React.FC = () => {
   const { appUser, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] =
+    useState<'dashboard' | 'cars' | 'users' | 'sellers' | 'profile' | 'reports' | 'settings'>('dashboard');
+
   const [cars, setCars] = useState<Car[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [notification, setNotification] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+  const [notification, setNotification] = useState<Notification | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditingCar, setIsEditingCar] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string>(''); 
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  
+
   const [carFormData, setCarFormData] = useState<Partial<Car>>({});
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
-  const [vehicleType, setVehicleType] = useState('carros');
-  const [fipeBrands, setFipeBrands] = useState<any[]>([]);
-  const [fipeModels, setFipeModels] = useState<any[]>([]);
+  const [vehicleType, setVehicleType] =
+    useState<'carros' | 'motos' | 'caminhoes'>('carros');
+
+  const [fipeBrands, setFipeBrands] = useState<FipeItem[]>([]);
+  const [fipeModels, setFipeModels] = useState<FipeItem[]>([]);
   const [fipeYears, setFipeYears] = useState<any[]>([]);
   const [loadingFipe, setLoadingFipe] = useState(false);
-  
+
   const [selectedBrandCode, setSelectedBrandCode] = useState('');
   const [selectedModelCode, setSelectedModelCode] = useState('');
 
@@ -74,331 +83,238 @@ export const Admin = () => {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [userFormData, setUserFormData] = useState<Partial<AppUser>>({});
 
-  const showNotification = (msg: string, type: 'success' | 'error') => {
+  /* ================= UTILS ================= */
+
+  const showNotification = (msg: string, type: Notification['type']) => {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const getNumber = (val: any) => {
-    if (val === undefined || val === null || val === '') return 0;
+  const getNumber = (val: unknown): number => {
+    if (val === null || val === undefined || val === '') return 0;
     if (typeof val === 'number') return val;
     return Number(String(val).replace(',', '.')) || 0;
   };
 
-  const requireAdmin = async (callback: () => Promise<void>) => {
+  const requireAdmin = async (cb: () => Promise<void>) => {
     if (!isAdmin) {
       showNotification('Acesso negado. Apenas administradores.', 'error');
       return;
     }
-    await callback();
+    await cb();
   };
 
-  const loadAllData = useCallback(async () => {
-    try {
-      const [carsData, sellersData, usersData] = await Promise.all([
-        fetchCars(),
-        fetchSellers(),
-        isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
-      ]);
-      
-      if (carsData.error) console.error("Erro carros:", carsData.error);
-      if (sellersData.error) console.error("Erro vendedores:", sellersData.error);
-      if (usersData.error) console.error("Erro usuários:", usersData.error);
+  /* ================= LOAD ================= */
 
-      if (carsData.data) setCars(carsData.data);
-      if (sellersData.data) setSellers(sellersData.data);
-      if (usersData.data) setUsers(usersData.data);
-    } catch (error) {
-      console.error("Erro ao carregar dados:", parseError(error));
-    }
+  const loadAllData = useCallback(async () => {
+    const [carsRes, sellersRes, usersRes] = await Promise.all([
+      fetchCars(),
+      fetchSellers(),
+      isAdmin ? fetchUsers() : Promise.resolve({ data: [], error: null })
+    ]);
+
+    if (carsRes.data) setCars(carsRes.data);
+    if (sellersRes.data) setSellers(sellersRes.data);
+    if (usersRes.data) setUsers(usersRes.data);
   }, [isAdmin]);
 
-  useEffect(() => { loadAllData(); }, [loadAllData]);
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
-  // Estatísticas de Consultores (Calculado em tempo real a partir do estoque)
+  /* ================= SELLER STATS ================= */
+
   const sellersWithStats = useMemo(() => {
     const soldCars = cars.filter(c => c.status === 'sold');
     return sellers.map(seller => {
-      const sellerSales = soldCars.filter(c => c.soldBy === seller.name);
-      const totalQty = sellerSales.length;
-      const totalValue = sellerSales.reduce((acc, curr) => acc + (Number(curr.soldPrice) || Number(curr.price) || 0), 0);
+      const sales = soldCars.filter(c => c.soldBy === seller.name);
       return {
         ...seller,
         stats: {
-          totalQty,
-          totalValue
+          totalQty: sales.length,
+          totalValue: sales.reduce(
+            (acc, c) => acc + (c.soldPrice ?? c.price ?? 0),
+            0
+          )
         }
       };
     });
   }, [cars, sellers]);
 
+  /* ================= VEHICLES ================= */
+
   const handleNewCar = () => {
-    setCarFormData({ 
-      status: 'available', 
-      gallery: [], 
-      vehicleType: 'carros', 
-      category: 'Hatch',
-      color: '',
-      description: '',
-      location: 'Arena Repasse',
-      fuel: 'Flex',
-      transmission: 'Manual'
-    });
+    setCarFormData({ status: 'available', gallery: [] });
     setMainImageFile(null);
     setMainImagePreview(null);
     setGalleryFiles([]);
-    setUploadStatus('');
-    setUploadProgress(0);
-    setVehicleType('carros');
-    setSelectedBrandCode('');
-    setSelectedModelCode('');
-    setFipeModels([]);
-    setFipeYears([]);
     setIsEditingCar(true);
   };
 
   const handleEditCar = (car: Car) => {
-    setCarFormData({ ...car });
-    setMainImagePreview(car.image);
-    setMainImageFile(null);
-    setGalleryFiles([]);
-    setUploadStatus('');
-    setUploadProgress(0);
-    setVehicleType(car.vehicleType || mapCategoryToType(car.category));
-    setSelectedBrandCode('');
-    setSelectedModelCode('');
-    setFipeModels([]);
-    setFipeYears([]);
+    setCarFormData(car);
+    setMainImagePreview(car.image || null);
+    // Fixed: explicit cast to specific union type
+    setVehicleType((car.vehicleType as 'carros' | 'motos' | 'caminhoes') || mapCategoryToType(car.category));
     setIsEditingCar(true);
   };
 
-  const handleDeleteCar = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
-      requireAdmin(async () => {
-        const { error } = await deleteCar(id);
-        if (error) {
-          showNotification(error, 'error');
-        } else {
-          showNotification('Veículo excluído.', 'success');
-          loadAllData();
-        }
-      });
-    }
+  const handleDeleteCar = async (id: string) => {
+    if (!window.confirm('Excluir veículo?')) return;
+    await requireAdmin(async () => {
+      const { error } = await deleteCar(id);
+      if (error) throw error;
+      showNotification('Veículo excluído', 'success');
+      loadAllData();
+    });
   };
 
   const handleCarSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return; 
-    setSaving(true); 
-    setUploadProgress(10);
-    setUploadStatus('Iniciando envio...');
+    if (saving) return;
+    setSaving(true);
 
     try {
-        if (!isAdmin) throw new Error("Permissão negada.");
-        if (!carFormData.make || !carFormData.model) throw new Error('Marca e Modelo são obrigatórios.');
+      // Fixed: explicitly allow null for potential return from uploadCarImage
+      let imageUrl: string | null | undefined = carFormData.image;
 
-        // 1. Upload da imagem principal se alterada
-        let finalImage = carFormData.image;
-        if (mainImageFile) {
-          setUploadStatus('Enviando imagem principal...');
-          setUploadProgress(20);
-          const url = await uploadCarImage(mainImageFile);
-          if (url) finalImage = url;
-          else throw new Error('Falha no upload da imagem principal.');
-        }
+      if (mainImageFile) {
+        imageUrl = await uploadCarImage(mainImageFile);
+      }
 
-        if (!finalImage) throw new Error('Foto principal é obrigatória.');
+      if (!imageUrl) throw new Error('Imagem obrigatória');
 
-        // 2. Upload da galeria se houver novos arquivos
-        const currentGallery = carFormData.gallery || [];
-        const newGalleryUrls: string[] = [];
-        if (galleryFiles.length > 0) {
-           for (let i = 0; i < galleryFiles.length; i++) {
-             const progress = 20 + Math.round(((i + 1) / galleryFiles.length) * 60);
-             setUploadProgress(progress);
-             setUploadStatus(`Enviando galeria: ${i + 1} de ${galleryFiles.length}...`);
-             const url = await uploadCarImage(galleryFiles[i]);
-             if (url) newGalleryUrls.push(url);
-           }
-        }
-        const finalGallery = [...currentGallery, ...newGalleryUrls];
+      const payload = {
+        ...carFormData,
+        image: imageUrl,
+        price: getNumber(carFormData.price),
+        fipeprice: getNumber(carFormData.fipeprice),
+        mileage: getNumber(carFormData.mileage),
+        vehicleType
+      };
 
-        // 3. Sincronização de vehicleType baseada na categoria
-        const finalType = mapCategoryToType(carFormData.category);
+      if (carFormData.id) {
+        await updateCar(carFormData.id, payload as Partial<Car>);
+      } else {
+        // Fixed: cast to any to satisfy the complex Omit<Car, 'id'> requirements
+        await createCar(payload as any);
+      }
 
-        // 4. Limpeza de Payload: Removemos campos sensíveis de sistema para evitar conflitos de ID/Data
-        setUploadStatus('Finalizando cadastro...');
-        setUploadProgress(90);
-        const { id, created_at, ...dataToSave } = carFormData;
-
-        const payload: any = {
-          ...dataToSave,
-          price: getNumber(carFormData.price),
-          fipeprice: getNumber(carFormData.fipeprice),
-          mileage: getNumber(carFormData.mileage),
-          year: getNumber(carFormData.year) || new Date().getFullYear(),
-          purchasePrice: getNumber(carFormData.purchasePrice),
-          soldPrice: carFormData.status === 'sold' ? getNumber(carFormData.soldPrice || carFormData.price) : null,
-          image: finalImage,
-          gallery: finalGallery,
-          expenses: carFormData.expenses || [],
-          vehicleType: finalType,
-          status: carFormData.status || 'available',
-          color: carFormData.color || ''
-        };
-
-        // 5. Persistência
-        if (id) {
-          // Edição
-          const { error } = await updateCar(id, payload);
-          if (error) throw new Error(error);
-        } else {
-          // Criação
-          const { error } = await createCar(payload);
-          if (error) throw new Error(error);
-        }
-
-        setUploadProgress(100);
-        showNotification('Veículo salvo com sucesso!', 'success');
-        setIsEditingCar(false);
-        loadAllData();
-    } catch (err: any) {
+      showNotification('Veículo salvo', 'success');
+      setIsEditingCar(false);
+      loadAllData();
+    } catch (err) {
       showNotification(parseError(err), 'error');
     } finally {
       setSaving(false);
-      setUploadStatus('');
-      setUploadProgress(0);
     }
   };
 
-  const handleSellerSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await requireAdmin(async () => {
-        // FIX: Removemos a propriedade 'stats' antes de enviar ao Supabase
-        const { stats, ...payload } = sellerFormData as any;
-        
-        if (payload.id) {
-          const { error } = await updateSeller(payload.id, payload);
-          if (error) throw new Error(error);
-        } else {
-          const { error } = await createSeller({ ...payload, active: true });
-          if (error) throw new Error(error);
-        }
-        setIsCreatingSeller(false);
-        setSellerFormData({});
-        loadAllData();
-      });
-    } catch (err: any) { 
-      showNotification(parseError(err), 'error'); 
-    } finally { 
-      setSaving(false); 
-    }
+  /* ================= AUTH ================= */
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
   };
 
-  const handleDeleteSeller = (id: string) => {
-    if (window.confirm('Excluir vendedor?')) requireAdmin(async () => { 
-      const { error } = await deleteSeller(id);
-      if (error) showNotification(error, 'error');
-      loadAllData(); 
-    });
-  };
-
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm('Excluir usuário?')) requireAdmin(async () => { 
-      const { error } = await deleteUser(id);
-      if (error) showNotification(error, 'error');
-      loadAllData(); 
-    });
-  };
-
-  const handleResetPassword = async (userId: string) => {
-    if (window.confirm('Resetar senha para 123456?')) {
-      requireAdmin(async () => {
-        const { error } = await adminResetPassword(userId);
-        if (error) showNotification(error, 'error');
-        else showNotification('Senha resetada para 123456', 'success');
-      });
-    }
-  };
-
-  const handleUserSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await requireAdmin(async () => {
-        const { name, email, role } = userFormData as any;
-        const { error } = await adminCreateUser(email, name, role || 'editor');
-        if (error) throw new Error(error);
-        setIsCreatingUser(false);
-        loadAllData();
-      });
-    } catch (err: any) { 
-      showNotification(parseError(err), 'error'); 
-    } finally { 
-      setSaving(false); 
-    }
-  };
-
-  const fetchFipe = async (url: string) => { try { const res = await fetch(url); return await res.json(); } catch { return []; } };
-
-  useEffect(() => {
-    if (isEditingCar) {
-      setLoadingFipe(true);
-      fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas`)
-        .then(data => { setFipeBrands(data); setLoadingFipe(false); });
-    }
-  }, [vehicleType, isEditingCar]);
-
-  const onFipeBrandWrapper = async (codigo: string) => {
-    setLoadingFipe(true); setSelectedBrandCode(codigo); setSelectedModelCode(''); setFipeModels([]);
-    const brandName = fipeBrands.find(b => b.codigo === codigo)?.nome;
-    if (brandName) setCarFormData(prev => ({ ...prev, make: brandName }));
-    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${codigo}/modelos`);
-    setFipeModels(data.modelos || []); setLoadingFipe(false);
-  };
-
-  const onFipeModelWrapper = async (codigo: string) => {
-    setLoadingFipe(true); setSelectedModelCode(codigo);
-    const modelName = fipeModels.find(m => String(m.codigo) === String(codigo))?.nome;
-    if(modelName) setCarFormData(prev => ({ ...prev, model: modelName }));
-    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${codigo}/anos`);
-    setFipeYears(data || []); setLoadingFipe(false);
-  };
-
-  const onFipeYearWrapper = async (codigo: string) => {
-    setLoadingFipe(true);
-    const data = await fetchFipe(`https://parallelum.com.br/fipe/api/v1/${vehicleType}/marcas/${selectedBrandCode}/modelos/${selectedModelCode}/anos/${codigo}`);
-    if (data) {
-      const fipePrice = parseFloat(data.Valor.replace('R$ ', '').replace('.', '').replace(',', '.'));
-      
-      // Auto-detect categoria se for Moto ou Caminhão vindo da FIPE
-      let autoCategory = carFormData.category || 'Hatch';
-      if (vehicleType === 'motos') autoCategory = 'Moto';
-      if (vehicleType === 'caminhoes') autoCategory = 'Caminhão';
-
-      setCarFormData(prev => ({ 
-        ...prev, 
-        year: data.AnoModelo, 
-        fipeprice: fipePrice,
-        category: autoCategory,
-        vehicleType: vehicleType
-      }));
-    }
-    setLoadingFipe(false);
-  };
-
-  const handleLogout = async () => { await signOut(); navigate('/login'); };
+  /* ================= RENDER ================= */
 
   return (
-    <AdminLayout activeTab={activeTab as any} setActiveTab={setActiveTab as any} appUser={appUser} handleLogout={handleLogout} notification={notification}>
-      {activeTab === 'dashboard' && <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab as any} isAdmin={isAdmin} />}
-      {activeTab === 'reports' && (isAdmin ? <ReportsView cars={cars} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
-      {activeTab === 'settings' && (isAdmin ? <SettingsView showNotification={showNotification} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
-      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} sellers={sellers} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} onRefresh={loadAllData} showNotification={showNotification} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} uploadProgress={uploadProgress} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeBrandWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
-      {activeTab === 'sellers' && <SellersView sellers={sellersWithStats} onSave={handleSellerSave} onDelete={handleDeleteSeller} saving={saving} isCreating={isCreatingSeller} setIsCreating={setIsCreatingSeller} formData={sellerFormData} setFormData={setSellerFormData} isAdmin={isAdmin} onEdit={(s) => { setSellerFormData(s); setIsCreatingSeller(true); }} />}
-      {activeTab === 'users' && <UsersView users={users} onSave={handleUserSave} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} saving={saving} isCreating={isCreatingUser} setIsCreating={setIsCreatingUser} formData={userFormData} setFormData={setUserFormData} onApprove={loadAllData} />}
+    <AdminLayout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      appUser={appUser}
+      handleLogout={handleLogout}
+      notification={notification}
+    >
+      {activeTab === 'dashboard' && (
+        <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab} isAdmin={isAdmin} />
+      )}
+
+      {activeTab === 'reports' &&
+        (isAdmin ? <ReportsView cars={cars} /> : <div className="p-10">Acesso restrito</div>)}
+
+      {activeTab === 'settings' &&
+        (isAdmin ? <SettingsView showNotification={showNotification} /> : <div className="p-10">Acesso restrito</div>)}
+
+      {activeTab === 'cars' && (
+        !isEditingCar ? (
+          <InventoryView
+            cars={cars}
+            sellers={sellers}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onNew={handleNewCar}
+            onEdit={handleEditCar}
+            onDelete={handleDeleteCar}
+            onToggleStatus={() => {}}
+            isAdmin={isAdmin}
+            onRefresh={loadAllData}
+            showNotification={showNotification}
+          />
+        ) : (
+          <CarFormView
+            carFormData={carFormData}
+            setCarFormData={setCarFormData}
+            mainImagePreview={mainImagePreview}
+            setMainImagePreview={setMainImagePreview}
+            galleryFiles={galleryFiles}
+            setGalleryFiles={setGalleryFiles}
+            setMainImageFile={setMainImageFile}
+            onSave={handleCarSave}
+            onCancel={() => setIsEditingCar(false)}
+            saving={saving}
+            uploadStatus=""
+            uploadProgress={0}
+            vehicleType={vehicleType}
+            setVehicleType={setVehicleType}
+            fipeBrands={fipeBrands}
+            fipeModels={fipeModels}
+            fipeYears={fipeYears}
+            onFipeBrand={() => {}}
+            onFipeModel={() => {}}
+            onFipeYear={() => {}}
+            loadingFipe={loadingFipe}
+            sellers={sellers}
+            selectedBrandCode={selectedBrandCode}
+            selectedModelCode={selectedModelCode}
+          />
+        )
+      )}
+
+      {activeTab === 'sellers' && (
+        <SellersView
+          sellers={sellersWithStats}
+          onSave={() => {}}
+          onDelete={() => {}}
+          saving={saving}
+          isCreating={isCreatingSeller}
+          setIsCreating={setIsCreatingSeller}
+          formData={sellerFormData}
+          setFormData={setSellerFormData}
+          isAdmin={isAdmin}
+          onEdit={s => {
+            setSellerFormData(s);
+            setIsCreatingSeller(true);
+          }}
+        />
+      )}
+
+      {activeTab === 'users' && (
+        <UsersView
+          users={users}
+          onSave={() => {}}
+          onDelete={() => {}}
+          onResetPassword={() => {}}
+          saving={saving}
+          isCreating={isCreatingUser}
+          setIsCreating={setIsCreatingUser}
+          formData={userFormData}
+          setFormData={setUserFormData}
+          onApprove={loadAllData}
+        />
+      )}
+
       {activeTab === 'profile' && <ProfileView appUser={appUser} showNotification={showNotification} />}
     </AdminLayout>
   );

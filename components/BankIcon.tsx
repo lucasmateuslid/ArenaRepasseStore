@@ -10,7 +10,8 @@ interface BankIconProps {
 }
 
 // Repositório de alta fidelidade para logos de bancos brasileiros
-const BASE_URL = 'https://raw.githubusercontent.com/kelvins/brazilian-banks-icons/main/icons';
+//const BASE_URL = 'https://github.com/budgi-it/community-brazilian-financial-icons/tree/main/assets';
+const BASE_URL = 'https://raw.githubusercontent.com/budgi-it/community-brazilian-financial-icons/4476b0e9b70fc112cb24910f6f8d64e8020290fe/assets/';
 
 export const BankIcon: React.FC<BankIconProps> = ({ 
   bankId, 

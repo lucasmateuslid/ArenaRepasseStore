@@ -46,6 +46,9 @@ export const Home = () => {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Moving ref inside the component to comply with React Hook rules
+  const observerRef = useRef<HTMLDivElement>(null);
+
   const loadFiltersData = useCallback(async (type?: string) => {
     const [brands, years] = await Promise.all([
       fetchAvailableBrands(type),
