@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom'; 
 import { Car, FilterOptions, Seller } from '../types';
 import { fetchCars, fetchSellers, fetchAvailableBrands, fetchAvailableYears, parseError } from '../supabaseClient';
 import { useCompany } from '../contexts/CompanyContext'; 
 import { encodeCarUrl, decodeCarIdFromUrl } from '../utils/urlHelpers'; 
-import { FaSortAmountDown, FaThList, FaThLarge } from 'react-icons/fa';
+import { FaSortAmountDown, FaThList, FaThLarge, FaPlus } from 'react-icons/fa';
 
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
@@ -15,7 +16,7 @@ import { CarModal } from '../components/CarModal';
 import { ChatWidget } from '../components/ChatWidget';
 import { Footer } from '../components/Footer';
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 16;
 
 export const Home = () => {
   const { settings } = useCompany(); 
@@ -28,7 +29,6 @@ export const Home = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  const observerTarget = useRef<HTMLDivElement>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null); 
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,28 +94,16 @@ export const Home = () => {
   }, [tempFilters.vehicleType, tempFilters.make, tempFilters.year, searchTerm, orderBy]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
-        loadInventory(false);
-      }
-    }, { threshold: 0.1 });
-    if (observerTarget.current) observer.observe(observerTarget.current);
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, loading, loadInventory]);
-
-  useEffect(() => {
     const prettyUrl = searchParams.get('v');
     const targetId = prettyUrl ? decodeCarIdFromUrl(prettyUrl) : searchParams.get('carId');
     
     if (!loading) {
       if (targetId) {
-        // Busca o carro no estado ou faz fallback se necessário
         const found = cars.find(c => c.id === targetId);
         if (found) {
           setSelectedCar(found);
         }
       } else {
-        // Limpeza explícita para fechar o modal
         setSelectedCar(null);
       }
     }
@@ -188,9 +176,26 @@ export const Home = () => {
                <CarGrid 
                   cars={cars} visibleCars={cars} loading={loading} viewMode={viewMode}
                   openModal={handleOpenModal} handleWhatsApp={handleWhatsApp}
-                  observerRef={hasMore ? observerTarget : null} resetFilters={resetApp}
+                  observerRef={null} resetFilters={resetApp}
                   formatCurrency={v => `R$ ${v.toLocaleString()}`}
                 />
+
+                {hasMore && !loading && (
+                  <div className="mt-12 flex justify-center">
+                    <button 
+                      onClick={() => loadInventory(false)}
+                      disabled={isLoadingMore}
+                      className="group flex items-center gap-3 px-10 py-5 bg-brand-surface border border-gray-800 rounded-2xl text-white font-black uppercase italic tracking-tighter hover:border-brand-orange hover:bg-brand-orange/5 transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoadingMore ? (
+                        <div className="w-5 h-5 border-2 border-brand-orange border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <FaPlus className="text-brand-orange group-hover:rotate-90 transition-transform duration-300" />
+                      )}
+                      <span>{isLoadingMore ? 'Carregando...' : 'Carregar mais veículos'}</span>
+                    </button>
+                  </div>
+                )}
             </div>
          </div>
       </div>
