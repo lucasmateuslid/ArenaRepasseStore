@@ -21,16 +21,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ALWAYS use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-  const aiClient = React.useMemo(() => {
-    try {
-      return new GoogleGenAI({ apiKey: process.env.API_KEY });
-    } catch (error) {
-      console.error("Gemini API initialization error:", error);
-      return null;
-    }
-  }, []);
-
   useEffect(() => {
     if (isChatOpen) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,14 +44,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
-    if (!aiClient) {
-      setMessages(prev => [...prev, 
-        { role: "user", text: inputMessage },
-        { role: "model", text: "Desculpe, meu sistema de IA está temporariamente indisponível (Erro de Configuração de Chave)." }
-      ]);
-      setInputMessage('');
-      return;
-    }
+    // Initialize GoogleGenAI instance right before the API call as per guidelines
+    const aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const userMsg = inputMessage;
     const newMessages = [...messages, { role: "user" as const, text: userMsg }];
@@ -81,7 +65,7 @@ ${inventory}
 REGRAS: Responda apenas JSON { "reply": "...", "car_ids": [] }. Max 200 char no reply.
       `.trim();
 
-      // Accessing the extracted string directly via the .text property as per guidelines
+      // Using the recommended Google GenAI SDK pattern
       const response: GenerateContentResponse = await aiClient.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: userMsg,
@@ -91,6 +75,7 @@ REGRAS: Responda apenas JSON { "reply": "...", "car_ids": [] }. Max 200 char no 
         }
       });
 
+      // Extract text directly from the response object
       const generatedText = response.text;
       const parsed = cleanAndParseJSON(generatedText || "");
 

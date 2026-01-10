@@ -1,8 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Car } from '../types';
 import { encodeCarUrl } from '../utils/urlHelpers';
-import { FaShareAlt } from 'react-icons/fa';
+import { 
+  FaWhatsapp, FaTimes, FaCalendarAlt, FaGasPump, FaCogs, 
+  FaTachometerAlt, FaIdCard, FaCheckCircle, FaChevronLeft, 
+  FaChevronRight, FaCar, FaShareAlt, FaPlus, FaArrowDown,
+  FaExpand, FaFacebookF, FaTwitter, FaLink
+} from 'react-icons/fa';
 
 interface CarModalProps {
   car: Car | null;
@@ -12,278 +17,355 @@ interface CarModalProps {
 }
 
 export const CarModal: React.FC<CarModalProps> = ({ car, onClose, handleWhatsApp, formatCurrency }) => {
-  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
-  const [copyStatus, setCopyStatus] = useState<string>('Copiar');
+  const [activeImage, setActiveImage] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [copyFeedback, setCopyFeedback] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isInternalScroll = useRef(false);
 
-  React.useEffect(() => {
-    setSelectedImageIndex(0);
-    setCopyStatus('Copiar');
+  const allImages = car ? [car.image, ...(car.gallery || [])].filter(img => !!img) : [];
+  const shareUrl = car ? `${window.location.origin}/#/?v=${encodeCarUrl(car.id, car.make, car.model, car.year)}` : '';
+
+  useEffect(() => {
+    if (car) {
+      setActiveImage(0);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
   }, [car]);
+
+  // Sincroniza o scroll do mobile quando o activeImage muda via botões
+  useEffect(() => {
+    if (scrollRef.current && isInternalScroll.current) {
+      const container = scrollRef.current;
+      const targetScroll = activeImage * container.offsetWidth;
+      container.scrollTo({ left: targetScroll, behavior: 'smooth' });
+      
+      // Reseta a flag após o tempo da animação
+      const timer = setTimeout(() => {
+        isInternalScroll.current = false;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeImage]);
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setIsLightboxOpen(true);
+  };
+
+  const nextLightboxImage = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setLightboxIndex((prev) => (prev + 1) % allImages.length);
+  }, [allImages.length]);
+
+  const prevLightboxImage = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setLightboxIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  }, [allImages.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isLightboxOpen) return;
+      if (e.key === 'ArrowRight') nextLightboxImage();
+      if (e.key === 'ArrowLeft') prevLightboxImage();
+      if (e.key === 'Escape') setIsLightboxOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen, nextLightboxImage, prevLightboxImage]);
+
+  const nextImage = useCallback(() => {
+    isInternalScroll.current = true;
+    setActiveImage((prev) => (prev + 1) % allImages.length);
+  }, [allImages.length]);
+
+  const prevImage = useCallback(() => {
+    isInternalScroll.current = true;
+    setActiveImage((prev) => (prev - 1 + allImages.length) % allImages.length);
+  }, [allImages.length]);
+
+  const handleMobileScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // Só atualiza o estado se for scroll manual (dedo)
+    if (isInternalScroll.current) return;
+    
+    const scrollLeft = e.currentTarget.scrollLeft;
+    const width = e.currentTarget.offsetWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== activeImage) setActiveImage(newIndex);
+    }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
+  };
 
   if (!car) return null;
 
-  const fipe = Number(car.fipeprice) || 0;
   const price = Number(car.price) || 0;
-  const discount = fipe > 0 ? Math.round(((fipe - price) / fipe) * 100) : 0;
-  const economy = fipe - price;
-  const images = (car.gallery && car.gallery.length > 0) ? car.gallery : [car.image];
-  
-  const displayYear = car.year === 32000 ? 'Zero KM' : car.year;
+  const fipe = Number(car.fipeprice) || 0;
 
-  const generateShareUrl = () => {
-    const origin = window.location.origin;
-    const pathname = window.location.pathname;
-    const prettyParam = encodeCarUrl(car.id, car.make, car.model, car.year);
-    return `${origin}${pathname}#/?v=${prettyParam}`;
-  };
+  const shareActions = [
+    { 
+      label: 'WHATS', 
+      icon: FaWhatsapp, 
+      color: 'border-green-500/20 text-green-500 bg-green-500/5', 
+      action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`Confira este ${car.model}: ${shareUrl}`)}`, '_blank') 
+    },
+    { 
+      label: 'FACE', 
+      icon: FaFacebookF, 
+      color: 'border-blue-500/20 text-blue-500 bg-blue-500/5', 
+      action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank') 
+    },
+    { 
+      label: 'TWITTER', 
+      icon: FaTwitter, 
+      color: 'border-gray-700 text-gray-400 bg-gray-800/10', 
+      action: () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`Confira este ${car.model} na Arena Repasse!`)}`, '_blank') 
+    },
+    { 
+      label: 'LINK', 
+      icon: FaLink, 
+      color: copyFeedback ? 'border-green-500 text-green-500 bg-green-500/10' : 'border-gray-700 text-gray-400 bg-gray-800/10', 
+      action: copyLink 
+    },
+  ];
 
-  const shareUrl = generateShareUrl();
-  const shareText = `Confira este ${car.make} ${car.model} ${displayYear} por ${formatCurrency(price)} no Arena Repasse!`;
-  
-  const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${car.make} ${car.model}`,
-          text: shareText,
-          url: shareUrl,
-        });
-      } catch (err) {
-        console.debug('Compartilhamento cancelado ou falhou', err);
-      }
-    } else {
-      handleCopyLink();
-    }
-  };
-
-  const handleCopyLink = async () => {
-    const textToCopy = shareUrl;
-
-    const copyFallback = (text: string) => {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-9999px";
-      textArea.style.top = "0";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-          setCopyStatus('Copiado!');
-        } else {
-          setCopyStatus('Erro');
-        }
-      } catch (err) {
-        setCopyStatus('Erro');
-      }
-      document.body.removeChild(textArea);
-    };
-
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-        setCopyStatus('Copiado!');
-      } catch (err) {
-        copyFallback(textToCopy);
-      }
-    } else {
-      copyFallback(textToCopy);
-    }
-
-    setTimeout(() => setCopyStatus('Copiar'), 2500);
-  };
-
-  const shareToSocial = (platform: 'whatsapp' | 'facebook' | 'twitter') => {
-    let url = '';
-    const text = encodeURIComponent(shareText);
-    const link = encodeURIComponent(shareUrl);
-
-    if (platform === 'whatsapp') {
-      url = `https://wa.me/?text=${text}%20${link}`;
-    } else if (platform === 'facebook') {
-      url = `https://www.facebook.com/sharer/sharer.php?u=${link}&quote=${text}`;
-    } else if (platform === 'twitter') {
-      url = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
-    }
-    
-    window.open(url, '_blank');
-  };
+  const specs = [
+    { label: 'MODELO', value: car.model, icon: FaCar },
+    { label: 'FINAL PLACA', value: car.licensePlate ? car.licensePlate.slice(-1) : 'N/I', icon: FaIdCard },
+    { label: 'QUILOMETRAGEM', value: `${car.mileage?.toLocaleString() || 0} km`, icon: FaTachometerAlt },
+    { label: 'ANO', value: car.year === 32000 ? 'ZERO KM' : car.year, icon: FaCalendarAlt },
+    { label: 'CÂMBIO', value: car.transmission, icon: FaCogs },
+    { label: 'COMBUSTÍVEL', value: car.fuel, icon: FaGasPump },
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="relative bg-brand-surface w-full md:max-w-5xl h-full md:h-auto md:max-h-[95vh] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center animate-fade-in overflow-hidden">
+      <div className="absolute inset-0 bg-black/98" onClick={onClose}></div>
+      
+      <div className="relative bg-brand-dark w-full h-full md:h-auto md:max-h-[92vh] md:max-w-6xl md:rounded-[2.5rem] shadow-2xl flex flex-col animate-slide-up border border-white/5 overflow-hidden">
         
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 md:hidden bg-black/60 text-white p-2 rounded-full backdrop-blur-sm">
-          <i className="fa-solid fa-times text-xl"></i>
+        {/* BOTÃO FECHAR */}
+        <button onClick={onClose} className="fixed md:absolute top-4 right-4 z-[110] bg-black/60 md:bg-white/10 p-3 rounded-full text-white border border-white/10 backdrop-blur-md hover:bg-brand-orange transition-colors">
+          <FaTimes size={18} />
         </button>
 
-        {/* Lado Esquerdo: Imagem */}
-        <div className="w-full md:w-3/5 bg-zinc-950 flex flex-col relative justify-center">
-          <div className="relative w-full h-[40vh] md:h-[60vh] md:flex-1 bg-black flex items-center justify-center overflow-hidden">
-             <img 
-                src={images[selectedImageIndex]} 
-                alt={`${car.model} view ${selectedImageIndex + 1}`}
-                className="max-w-full max-h-full object-contain"
-                loading="eager"
-             />
-             {images.length > 1 && (
-               <>
-                 <button className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full hover:bg-brand-orange transition active:scale-95" 
-                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1); }}>
-                    <i className="fa-solid fa-chevron-left"></i>
-                 </button>
-                 <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-3 rounded-full hover:bg-brand-orange transition active:scale-95"
-                    onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1); }}>
-                    <i className="fa-solid fa-chevron-right"></i>
-                 </button>
-               </>
-             )}
+        {/* CONTAINER DE SCROLL DO CONTEÚDO */}
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          {/* --- HEADER --- */}
+          <div className="p-6 md:p-10 pt-16 md:pt-10 flex flex-col gap-1">
+            <span className="text-brand-orange font-black uppercase text-[10px] tracking-[0.4em]">{car.make}</span>
+            <h2 className="text-3xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-none">
+              {car.model}
+            </h2>
+            <div className="text-4xl md:text-6xl font-black text-white tracking-tighter mt-4 italic">
+              {formatCurrency(price)}
+            </div>
           </div>
-          <div className="h-16 md:h-20 bg-zinc-900/90 flex items-center gap-2 p-2 overflow-x-auto no-scrollbar justify-center md:justify-start border-t border-gray-800">
-            {images.map((img, idx) => (
+
+          {/* --- GALERIA DE FOTOS --- */}
+          <div className="mb-8">
+            {/* DESKTOP BENTO GRID */}
+            <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-3 h-[500px] px-10">
               <div 
-                key={idx}
-                className={`flex-shrink-0 cursor-pointer border-2 transition-all ${selectedImageIndex === idx ? 'border-brand-orange opacity-100 scale-105' : 'border-transparent opacity-50 hover:opacity-100'}`}
-                onClick={() => setSelectedImageIndex(idx)}
+                onClick={() => openLightbox(activeImage)}
+                className="col-span-2 row-span-2 relative rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl group cursor-pointer"
               >
-                <img 
-                  src={img}
-                  alt={`thumbnail-${idx}`}
-                  className="h-12 md:h-16 w-16 md:w-24 object-cover rounded"
-                  loading="lazy"
-                />
+                 <img 
+                   src={allImages[activeImage]} 
+                   className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105" 
+                   alt="Principal" 
+                 />
+                 <div className="absolute bottom-6 right-6 flex gap-2">
+                    <div className="bg-black/60 p-3 rounded-xl hover:bg-brand-orange transition text-white">
+                       <FaExpand size={14} />
+                    </div>
+                 </div>
+                 <div className="absolute top-6 left-6 bg-black/60 px-4 py-1.5 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/10">
+                    {activeImage + 1} / {allImages.length}
+                 </div>
               </div>
-            ))}
+              
+              {allImages.slice(1, 5).map((img, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => { setActiveImage(i + 1); openLightbox(i + 1); }}
+                  className="relative rounded-2xl overflow-hidden border border-white/5 group cursor-pointer"
+                >
+                   <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={`Miniatura ${i}`} />
+                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
+                   {i === 3 && allImages.length > 5 && (
+                     <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white font-black text-[10px] uppercase tracking-widest backdrop-blur-sm">
+                        <FaPlus className="mb-1 text-lg" /> {allImages.length - 5} FOTOS
+                     </div>
+                   )}
+                </div>
+              ))}
+            </div>
+
+            {/* MOBILE SLIDER SNAP COM CORREÇÃO DE SETAS */}
+            <div className="md:hidden relative px-4">
+              <div 
+                ref={scrollRef}
+                onScroll={handleMobileScroll}
+                className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-[50vh] rounded-[2rem] border border-white/10 shadow-2xl bg-black/20"
+              >
+                {allImages.map((img, i) => (
+                  <div key={i} onClick={() => openLightbox(i)} className="w-full h-full flex-shrink-0 snap-center relative">
+                    <img src={img} className="w-full h-full object-cover" alt={`Slide ${i}`} />
+                  </div>
+                ))}
+              </div>
+              
+              <div className="absolute inset-y-0 left-8 right-8 flex items-center justify-between pointer-events-none">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                  className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center pointer-events-auto active:scale-90 transition backdrop-blur-md border border-white/10 shadow-xl"
+                >
+                  <FaChevronLeft size={14}/>
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); nextImage(); }} 
+                  className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center pointer-events-auto active:scale-90 transition backdrop-blur-md border border-white/10 shadow-xl"
+                >
+                  <FaChevronRight size={14}/>
+                </button>
+              </div>
+
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 px-4 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-widest border border-white/10 backdrop-blur-sm">
+                {activeImage + 1} / {allImages.length}
+              </div>
+            </div>
+          </div>
+
+          {/* --- CONTEÚDO --- */}
+          <div className="p-6 md:p-10 space-y-12 pb-10">
+            {/* FICHA TÉCNICA */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {specs.map((item, idx) => (
+                <div key={idx} className="bg-[#111111] border border-white/5 p-6 rounded-[1.5rem] flex items-center gap-5 group hover:bg-white/5 transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center text-brand-orange shadow-inner">
+                    <item.icon size={20} />
+                  </div>
+                  <div>
+                    <span className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">{item.label}</span>
+                    <span className="block text-sm font-black text-white uppercase italic tracking-tight">{item.value || 'N/I'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* COMPARTILHAR OFERTA */}
+            <div className="bg-[#0a0a0b] border border-white/5 p-6 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+              <div className="flex justify-between items-center mb-8">
+                <h5 className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] flex items-center gap-3">
+                  <FaShareAlt className="text-brand-orange text-lg"/> COMPARTILHAR OFERTA
+                </h5>
+                <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">ENVIAR P/ AMIGO</span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-3 md:gap-5">
+                {shareActions.map((btn, i) => (
+                  <button 
+                    key={i} 
+                    onClick={btn.action}
+                    className={`flex flex-col items-center justify-center gap-4 py-6 rounded-[1.5rem] border transition-all active:scale-95 group ${btn.color}`}
+                  >
+                    <btn.icon size={24} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black tracking-[0.2em]">{btn.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* DETALHES */}
+            <div className="mb-20">
+              <h4 className="text-white font-black text-[11px] uppercase italic tracking-widest mb-6 flex items-center gap-3">
+                <span className="w-10 h-[2px] bg-brand-orange"></span> DETALHES:
+              </h4>
+              <div className="bg-[#111111] border border-white/5 p-8 rounded-[2rem] leading-relaxed">
+                 <p className="text-gray-400 text-sm font-medium whitespace-pre-line italic">
+                   {car.description || 'Nenhuma descrição detalhada disponível para este veículo.'}
+                 </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Lado Direito: Info */}
-        <div className="w-full md:w-2/5 p-5 md:p-8 overflow-y-auto bg-brand-surface flex flex-col flex-1">
-          <div className="flex justify-between items-start mb-2">
-             <div>
-               <span className="text-brand-orange font-bold text-xs md:text-sm tracking-wider uppercase mb-1 block">{car.make}</span>
-               <h2 className="text-2xl md:text-3xl font-black text-white leading-tight">{car.model}</h2>
-             </div>
-             <button onClick={onClose} className="hidden md:block text-gray-500 hover:text-white transition">
-               <i className="fa-solid fa-times text-2xl"></i>
-             </button>
-          </div>
-          
-          <div className="flex items-center gap-3 mb-4">
-            <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{displayYear}</span>
-            <span className="text-gray-400 text-xs md:text-sm">{car.mileage.toLocaleString()} km</span>
-            {car.color && <span className="bg-gray-800 text-white px-3 py-1 rounded font-bold text-xs md:text-sm">{car.color}</span>}
-          </div>
+        {/* RODAPÉ TRAVADO NO FUNDO */}
+        <div className="bg-[#050505] border-t border-white/10 px-6 py-6 md:px-12 md:py-8 z-[120] flex items-center justify-between gap-3 shadow-[0_-15px_40px_rgba(0,0,0,0.8)]">
+           <div className="hidden md:flex flex-col">
+              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Preço Arena Repasse</span>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-black text-white italic tracking-tighter">{formatCurrency(price)}</span>
+              </div>
+           </div>
 
-          <div className="bg-brand-dark/40 rounded-xl p-3 md:p-4 mb-4 border border-gray-700">
-            <div className="grid grid-cols-2 gap-3 text-xs md:text-sm">
-               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Combustível</span><span className="text-white font-medium">{car.fuel}</span></div>
-               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Câmbio</span><span className="text-white font-medium">{car.transmission}</span></div>
-               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Cor</span><span className="text-white font-medium">{car.color || 'Não informada'}</span></div>
-               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Localização</span><span className="text-white font-medium">{car.location || 'Brasil'}</span></div>
-               <div><span className="block text-gray-500 text-[10px] uppercase mb-1">Status</span><span className="text-green-400 font-medium">Disponível</span></div>
-            </div>
-          </div>
-
-          <div className="mb-4 flex-1">
-            <h4 className="font-bold text-white mb-2 text-sm">Sobre o veículo</h4>
-            <p className="text-gray-400 text-sm leading-relaxed line-clamp-4 md:line-clamp-none">{car.description}</p>
-          </div>
-
-          {/* SEÇÃO DE COMPARTILHAMENTO */}
-          <div className="mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
-            <div className="flex items-center justify-between mb-4">
-               <h4 className="font-bold text-gray-400 text-xs uppercase flex items-center gap-2">
-                <i className="fa-solid fa-share-nodes text-brand-orange"></i> Compartilhar Oferta
-              </h4>
-              {navigator.share && (
-                <button 
-                  onClick={handleNativeShare}
-                  className="text-[10px] font-black text-brand-orange hover:text-white transition-colors uppercase flex items-center gap-1"
-                >
-                   Enviar p/ Amigo
-                </button>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-4 gap-2">
+           <div className="flex gap-2 w-full md:w-auto">
               <button 
-                onClick={() => shareToSocial('whatsapp')} 
-                className="flex flex-col items-center justify-center gap-1 bg-green-600/10 hover:bg-green-600 text-green-500 hover:text-white py-2.5 rounded-lg transition border border-green-600/20"
-                title="WhatsApp"
+                onClick={() => handleWhatsApp(car)}
+                className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#20bd5a] text-white px-8 py-5 rounded-3xl font-black uppercase text-xs md:text-sm shadow-xl flex items-center justify-center gap-3 italic tracking-tight active:scale-95 transition-all"
               >
-                <i className="fa-brands fa-whatsapp text-lg"></i>
-                <span className="text-[8px] font-bold uppercase">Whats</span>
+                <FaWhatsapp size={22} className="hidden sm:block" /> NEGOCIAR NO WHATSAPP
               </button>
               
               <button 
-                onClick={() => shareToSocial('facebook')} 
-                className="flex flex-col items-center justify-center gap-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white py-2.5 rounded-lg transition border border-blue-600/20"
-                title="Facebook"
+                onClick={copyLink}
+                className="w-16 h-16 bg-white/5 border border-white/10 text-white rounded-3xl flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0 active:scale-90 shadow-lg"
               >
-                <i className="fa-brands fa-facebook text-lg"></i>
-                <span className="text-[8px] font-bold uppercase">Face</span>
+                <FaLink size={20} className={copyFeedback ? 'text-green-500' : ''} />
               </button>
-
-              <button 
-                onClick={() => shareToSocial('twitter')} 
-                className="flex flex-col items-center justify-center gap-1 bg-white/5 hover:bg-white text-gray-400 hover:text-black py-2.5 rounded-lg transition border border-white/10"
-                title="Twitter (X)"
-              >
-                <i className="fa-brands fa-x-twitter text-lg"></i>
-                <span className="text-[8px] font-bold uppercase">Twitter</span>
-              </button>
-              
-              <button 
-                onClick={handleCopyLink} 
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg transition border ${
-                  copyStatus === 'Copiado!' 
-                    ? 'bg-green-500 text-white border-green-500' 
-                    : 'bg-gray-700/30 hover:bg-gray-700 text-gray-400 hover:text-white border-gray-700'
-                }`}
-                title="Copiar Link"
-              >
-                <i className={`fa-solid ${copyStatus === 'Copiado!' ? 'fa-check' : 'fa-link'} text-lg`}></i> 
-                <span className="text-[8px] font-bold uppercase">{copyStatus === 'Copiado!' ? 'Pronto' : 'Link'}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-auto pt-4 border-t border-gray-800/50">
-             <div className="flex flex-col gap-2 mb-3 bg-black/30 p-3 rounded-lg border border-gray-800">
-                <div className="flex justify-between items-center">
-                   <span className="text-xs font-bold text-gray-500">TABELA FIPE</span>
-                   <span className="text-sm font-bold text-red-500/70 line-through decoration-red-500/50">{formatCurrency(fipe)}</span>
-                </div>
-                {economy > 0 && (
-                  <div className="flex justify-between items-center">
-                     <span className="text-xs font-black text-green-500 uppercase">Sua Economia</span>
-                     <span className="text-sm font-black text-white bg-green-600 px-2 py-0.5 rounded shadow-lg">{formatCurrency(economy)}</span>
-                  </div>
-                )}
-             </div>
-
-             <div className="flex items-center justify-between mb-4">
-               <div>
-                 <span className="text-[10px] uppercase font-bold text-gray-400 block mb-0.5">Preço de Repasse</span>
-                 <span className="text-3xl md:text-4xl font-black text-white tracking-tight">{formatCurrency(price)}</span>
-               </div>
-               {discount > 0 && <span className="bg-brand-orange text-white text-sm font-black px-3 py-1 rounded-full animate-pulse">-{discount}% OFF</span>}
-             </div>
-
-             <button 
-               onClick={() => handleWhatsApp(car)}
-               className="w-full bg-[#25D366] hover:bg-[#1dbf57] text-white font-black uppercase tracking-wider py-3 md:py-4 rounded-xl shadow-[0_0_20px_rgba(37,211,102,0.3)] hover:shadow-[0_0_30px_rgba(37,211,102,0.5)] transition transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2 text-lg"
-             >
-               <i className="fa-brands fa-whatsapp text-2xl"></i> 
-               <span>Negociar no WhatsApp</span>
-             </button>
-          </div>
+           </div>
         </div>
       </div>
+
+      {/* LIGHTBOX COM NAVEGAÇÃO */}
+      {isLightboxOpen && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/98 p-4 animate-fade-in cursor-default" 
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <button 
+            className="absolute top-6 right-6 text-white p-4 bg-white/5 hover:bg-brand-orange rounded-full transition-colors z-[210] shadow-xl border border-white/10"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <FaTimes size={28}/>
+          </button>
+          
+          <div className="relative max-w-7xl max-h-[85vh] flex items-center justify-center" onClick={e => e.stopPropagation()}>
+             <img 
+               src={allImages[lightboxIndex]} 
+               className="max-w-full max-h-full object-contain shadow-[0_0_80px_rgba(0,0,0,1)] rounded-xl border border-white/5" 
+               alt="Lightbox" 
+             />
+             
+             <button 
+                onClick={prevLightboxImage}
+                className="absolute -left-16 lg:flex hidden w-14 h-14 bg-white/5 hover:bg-brand-orange border border-white/10 rounded-full items-center justify-center text-white transition-all shadow-2xl active:scale-90"
+             >
+               <FaChevronLeft size={24}/>
+             </button>
+             <button 
+                onClick={nextLightboxImage}
+                className="absolute -right-16 lg:flex hidden w-14 h-14 bg-white/5 hover:bg-brand-orange border border-white/10 rounded-full items-center justify-center text-white transition-all shadow-2xl active:scale-90"
+             >
+               <FaChevronRight size={24}/>
+             </button>
+          </div>
+
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/60 px-6 py-2 rounded-full text-[11px] font-black text-white uppercase tracking-[0.4em] border border-white/10 backdrop-blur-md">
+            {lightboxIndex + 1} / {allImages.length}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

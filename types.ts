@@ -17,7 +17,7 @@ export interface Car {
   mileage: number;
   fuel: string;
   transmission: string;
-  color?: string; // Novo campo para cor
+  color?: string;
   image: string;
   gallery: string[];
   location: string;
@@ -27,21 +27,22 @@ export interface Car {
   category?: string;
   status?: 'available' | 'sold' | 'maintenance' | 'unavailable';
   vehicleType?: string;
+  optionals?: string[];
   
-  // Novos campos para gestão avançada
-  soldPrice?: number;      // Valor real que foi vendido
-  soldDate?: string;       // Data da venda
-  soldBy?: string;         // Nome/ID do consultor que vendeu
-  maintenanceReason?: string; // Motivo da manutenção
-  licensePlate?: string;   // Placa do veículo
+  // Gestão avançada
+  soldPrice?: number;
+  soldDate?: string;
+  soldBy?: string;
+  licensePlate?: string;
+  maintenanceReason?: string;
   
-  // Informações do Cliente (Comprador)
+  // Gestão de clientes (venda)
   customerName?: string;
   customerCPF?: string;
   
-  // Gestão Financeira Detalhada
-  purchasePrice?: number; // Valor de Entrada (Quanto pagou no carro)
-  expenses?: CarExpense[]; // Histórico de gastos
+  // Gestão Financeira
+  purchasePrice?: number;
+  expenses?: CarExpense[];
 }
 
 export interface AppUser {
@@ -50,22 +51,20 @@ export interface AppUser {
   email: string;
   role: 'admin' | 'editor' | 'viewer';
   created_at?: string;
-  
-  // Controle de Acesso
   is_approved?: boolean;
   ip_address?: string;
-  user_agent?: string; // Substituto do MAC (Navegadores bloqueiam acesso ao MAC Address)
+  user_agent?: string;
 }
 
 export interface Seller {
   id: string;
   name: string;
-  email?: string; // Novo campo para login
+  email?: string;
   whatsapp: string;
   active: boolean;
   created_at?: string;
-  goal_qty?: number;   // Meta de quantidade de veículos
-  goal_value?: number; // Meta de valor total em vendas
+  goal_qty?: number;
+  goal_value?: number;
 }
 
 export interface CompanySettings {
@@ -73,7 +72,7 @@ export interface CompanySettings {
   company_name: string;
   cnpj: string;
   address: string;
-  phone_whatsapp: string; // WhatsApp Principal da Loja
+  phone_whatsapp: string;
   email: string;
   opening_hours: string;
   social_instagram?: string;
@@ -95,5 +94,5 @@ export interface FilterOptions {
   maxPrice?: string;
   search?: string;
   vehicleType?: string;
-  status?: string; // Novo filtro de status
+  status?: string;
 }

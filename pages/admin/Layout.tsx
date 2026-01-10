@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { 
   FaChartPie, FaCar, FaHeadset, FaUsers, FaSignOutAlt, 
   FaChevronRight, FaUserCog, FaFileAlt, 
-  FaCogs, FaHome, FaExternalLinkAlt
+  FaCogs, FaHome, FaExternalLinkAlt, FaTimes
 } from 'react-icons/fa';
 import { AppUser } from '../../types';
 
@@ -53,6 +53,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   children, activeTab, setActiveTab, appUser, handleLogout, notification 
 }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const mainItems = [
     { id: 'dashboard', icon: FaChartPie, label: 'Dashboard' },
@@ -63,7 +64,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const systemItems = [
     { id: 'sellers', icon: FaHeadset, label: 'Consultores' },
     { id: 'users', icon: FaUsers, label: 'Acessos' },
-    { id: 'settings', icon: FaCogs, label: 'Aparência' }
+    { id: 'settings', icon: FaCogs, label: 'Configurações' }
   ];
 
   return (
@@ -136,12 +137,45 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         <div className="text-xl font-black italic transform -skew-x-6">
           ARENA<span className="text-brand-orange ml-1">ADMIN</span>
         </div>
-        <button 
-          onClick={() => setActiveTab('profile')}
-          className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-orange to-red-600 border border-white/20 flex items-center justify-center text-white font-bold text-xs"
-        >
-          {appUser?.name?.charAt(0) || 'A'}
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-orange to-red-600 border border-white/20 flex items-center justify-center text-white font-black text-sm shadow-glow overflow-hidden"
+          >
+            {isMobileMenuOpen ? <FaTimes size={14} /> : (appUser?.name?.charAt(0) || 'A')}
+          </button>
+
+          {/* MOBILE PROFILE MENU */}
+          <div className={`absolute right-0 top-full mt-3 w-64 bg-brand-surface border border-gray-800 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 transform origin-top-right z-50 
+            ${isMobileMenuOpen ? 'translate-y-0 opacity-100 scale-100 visible' : 'translate-y-2 opacity-0 scale-95 invisible'}
+          `}>
+             <div className="p-4 bg-black/20 border-b border-gray-800/50">
+                <p className="text-xs font-black text-white">{appUser?.name || 'Usuário'}</p>
+                <p className="text-[10px] text-gray-500 font-medium truncate">{appUser?.email}</p>
+             </div>
+             <div className="p-2 space-y-1">
+                <button 
+                  onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }} 
+                  className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-brand-orange hover:text-white rounded-xl flex items-center gap-3 transition-colors font-bold"
+                >
+                    <FaUserCog size={14} className="text-brand-orange"/> Meu Perfil
+                </button>
+                <Link 
+                  to="/" 
+                  className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-brand-orange hover:text-white rounded-xl flex items-center gap-3 transition-colors font-bold"
+                >
+                    <FaHome size={14} className="text-brand-orange"/> Ver Site Público
+                </Link>
+                <div className="h-px bg-gray-800 my-1 mx-2"></div>
+                <button 
+                  onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} 
+                  className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 rounded-xl flex items-center gap-3 transition-colors font-bold"
+                >
+                    <FaSignOutAlt size={14}/> Sair do Sistema
+                </button>
+             </div>
+          </div>
+        </div>
       </header>
 
       {/* --- MOBILE DOCK --- */}
@@ -149,7 +183,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
          {[...mainItems, ...systemItems.slice(0, 1), {id: 'settings', icon: FaCogs, label: 'Config'}].map(item => ( 
            <button 
              key={item.id} 
-             onClick={() => setActiveTab(item.id as any)} 
+             onClick={() => { setActiveTab(item.id as any); setIsMobileMenuOpen(false); }} 
              className={`flex flex-col items-center justify-center w-14 h-12 rounded-xl transition-all
                ${activeTab === item.id ? 'text-brand-orange bg-brand-orange/10 scale-110' : 'text-gray-500'}
              `}

@@ -53,6 +53,7 @@ export const Admin = () => {
   const [isEditingCar, setIsEditingCar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>(''); 
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   
   const [carFormData, setCarFormData] = useState<Partial<Car>>({});
   const [mainImageFile, setMainImageFile] = useState<File | null>(null);
@@ -147,6 +148,7 @@ export const Admin = () => {
     setMainImagePreview(null);
     setGalleryFiles([]);
     setUploadStatus('');
+    setUploadProgress(0);
     setVehicleType('carros');
     setSelectedBrandCode('');
     setSelectedModelCode('');
@@ -161,6 +163,7 @@ export const Admin = () => {
     setMainImageFile(null);
     setGalleryFiles([]);
     setUploadStatus('');
+    setUploadProgress(0);
     setVehicleType(car.vehicleType || mapCategoryToType(car.category));
     setSelectedBrandCode('');
     setSelectedModelCode('');
@@ -187,7 +190,8 @@ export const Admin = () => {
     e.preventDefault();
     if (saving) return; 
     setSaving(true); 
-    setUploadStatus('Processando imagens...');
+    setUploadProgress(10);
+    setUploadStatus('Iniciando envio...');
 
     try {
         if (!isAdmin) throw new Error("Permissão negada.");
@@ -196,6 +200,8 @@ export const Admin = () => {
         // 1. Upload da imagem principal se alterada
         let finalImage = carFormData.image;
         if (mainImageFile) {
+          setUploadStatus('Enviando imagem principal...');
+          setUploadProgress(20);
           const url = await uploadCarImage(mainImageFile);
           if (url) finalImage = url;
           else throw new Error('Falha no upload da imagem principal.');
@@ -207,9 +213,13 @@ export const Admin = () => {
         const currentGallery = carFormData.gallery || [];
         const newGalleryUrls: string[] = [];
         if (galleryFiles.length > 0) {
-           const uploadPromises = galleryFiles.map(file => uploadCarImage(file));
-           const results = await Promise.all(uploadPromises);
-           results.forEach(url => { if (url) newGalleryUrls.push(url); });
+           for (let i = 0; i < galleryFiles.length; i++) {
+             const progress = 20 + Math.round(((i + 1) / galleryFiles.length) * 60);
+             setUploadProgress(progress);
+             setUploadStatus(`Enviando galeria: ${i + 1} de ${galleryFiles.length}...`);
+             const url = await uploadCarImage(galleryFiles[i]);
+             if (url) newGalleryUrls.push(url);
+           }
         }
         const finalGallery = [...currentGallery, ...newGalleryUrls];
 
@@ -217,6 +227,8 @@ export const Admin = () => {
         const finalType = mapCategoryToType(carFormData.category);
 
         // 4. Limpeza de Payload: Removemos campos sensíveis de sistema para evitar conflitos de ID/Data
+        setUploadStatus('Finalizando cadastro...');
+        setUploadProgress(90);
         const { id, created_at, ...dataToSave } = carFormData;
 
         const payload: any = {
@@ -246,6 +258,7 @@ export const Admin = () => {
           if (error) throw new Error(error);
         }
 
+        setUploadProgress(100);
         showNotification('Veículo salvo com sucesso!', 'success');
         setIsEditingCar(false);
         loadAllData();
@@ -254,6 +267,7 @@ export const Admin = () => {
     } finally {
       setSaving(false);
       setUploadStatus('');
+      setUploadProgress(0);
     }
   };
 
@@ -382,7 +396,7 @@ export const Admin = () => {
       {activeTab === 'dashboard' && <DashboardView cars={cars} sellers={sellers} setActiveTab={setActiveTab as any} isAdmin={isAdmin} />}
       {activeTab === 'reports' && (isAdmin ? <ReportsView cars={cars} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
       {activeTab === 'settings' && (isAdmin ? <SettingsView showNotification={showNotification} /> : <div className="p-10 text-center">Acesso Restrito</div>)}
-      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} sellers={sellers} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} onRefresh={loadAllData} showNotification={showNotification} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeBrandWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
+      {activeTab === 'cars' && (!isEditingCar ? <InventoryView cars={cars} sellers={sellers} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onNew={handleNewCar} onEdit={handleEditCar} onDelete={handleDeleteCar} onToggleStatus={() => {}} isAdmin={isAdmin} onRefresh={loadAllData} showNotification={showNotification} /> : <CarFormView carFormData={carFormData} setCarFormData={setCarFormData} mainImagePreview={mainImagePreview} setMainImagePreview={setMainImagePreview} galleryFiles={galleryFiles} setGalleryFiles={setGalleryFiles} setMainImageFile={setMainImageFile} onSave={handleCarSave} onCancel={() => setIsEditingCar(false)} saving={saving} uploadStatus={uploadStatus} uploadProgress={uploadProgress} vehicleType={vehicleType} setVehicleType={setVehicleType} fipeBrands={fipeBrands} fipeModels={fipeModels} fipeYears={fipeYears} onFipeBrand={onFipeBrandWrapper} onFipeModel={onFipeBrandWrapper} onFipeYear={onFipeYearWrapper} loadingFipe={loadingFipe} onGetLocation={() => {}} sellers={sellers} selectedBrandCode={selectedBrandCode} selectedModelCode={selectedModelCode} />)}
       {activeTab === 'sellers' && <SellersView sellers={sellersWithStats} onSave={handleSellerSave} onDelete={handleDeleteSeller} saving={saving} isCreating={isCreatingSeller} setIsCreating={setIsCreatingSeller} formData={sellerFormData} setFormData={setSellerFormData} isAdmin={isAdmin} onEdit={(s) => { setSellerFormData(s); setIsCreatingSeller(true); }} />}
       {activeTab === 'users' && <UsersView users={users} onSave={handleUserSave} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} saving={saving} isCreating={isCreatingUser} setIsCreating={setIsCreatingUser} formData={userFormData} setFormData={setUserFormData} onApprove={loadAllData} />}
       {activeTab === 'profile' && <ProfileView appUser={appUser} showNotification={showNotification} />}

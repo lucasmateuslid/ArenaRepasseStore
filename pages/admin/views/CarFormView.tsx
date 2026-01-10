@@ -1,8 +1,10 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  FaTimes, FaCamera, FaPlus, FaSave, FaChevronRight, FaSearchDollar, 
-  FaTruck, FaMotorcycle, FaCar, FaMapMarkerAlt, FaTrash, FaTools, FaMoneyBillWave, FaChartLine, FaChevronDown, FaSearch, FaCloudUploadAlt, FaUserTag, FaCalendarCheck, FaPalette
+  FaCamera, FaPlus, FaSave, FaCar, FaChartLine, FaTrash, 
+  FaSearch, FaCheckSquare, FaSquare, FaMoneyBillWave, FaTimes,
+  FaArrowRight, FaCogs, FaGasPump, FaPalette, FaIdCard, FaCalendarAlt, FaTachometerAlt,
+  FaMotorcycle, FaTruck, FaTools, FaCheck
 } from 'react-icons/fa';
 import { Car, Seller, CarExpense } from '../../../types';
 
@@ -18,435 +20,398 @@ interface CarFormViewProps {
   onCancel: () => void;
   saving: boolean;
   uploadStatus?: string;
-  vehicleType: string;
-  setVehicleType: (type: string) => void;
+  uploadProgress?: number;
+  sellers: Seller[];
+  // FIPE Props
   fipeBrands: any[];
   fipeModels: any[];
   fipeYears: any[];
-  onFipeBrand: (codigo: string) => void;
-  onFipeModel: (codigo: string) => void;
-  onFipeYear: (codigo: string) => void;
+  onFipeBrand: (code: string) => void;
+  onFipeModel: (code: string) => void;
+  onFipeYear: (code: string) => void;
   loadingFipe: boolean;
-  onGetLocation: () => void;
-  sellers: Seller[];
-  selectedBrandCode?: string;
-  selectedModelCode?: string;
+  selectedBrandCode: string;
+  selectedModelCode: string;
+  vehicleType: string;
+  setVehicleType: (type: string) => void;
 }
 
-// Lógica avançada de detecção de classe
-const getVehicleTypeFromCategory = (category: string | undefined): string => {
-  if (!category) return 'carros';
-  const cat = category.toLowerCase();
-  
-  if (['moto', 'motos', 'motocicleta', 'scooter', 'bis', 'fan', 'titan'].some(v => cat.includes(v))) {
-    return 'motos';
-  }
-  
-  if (['caminhão', 'caminhao', 'van', 'pesados', 'truck', 'onibus', 'ônibus', 'master', 'ducato', 'sprinter', 'furgão'].some(v => cat.includes(v))) {
-    return 'caminhoes';
-  }
-  
-  return 'carros';
-};
-
-interface SearchableFipeSelectProps {
-  options: any[];
-  placeholder: string;
-  onChange: (code: string) => void;
-  disabled: boolean;
-  stepLabel: string;
-}
-
-const SearchableFipeSelect: React.FC<SearchableFipeSelectProps> = ({ 
-  options, placeholder, onChange, disabled, stepLabel 
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [selectedLabel, setSelectedLabel] = useState('');
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef]);
-
-  const filteredOptions = options.filter(opt => 
-    opt.nome.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleSelect = (code: string, name: string) => {
-    setSelectedLabel(name);
-    setSearch('');
-    setIsOpen(false);
-    onChange(code);
-  };
-
-  return (
-    <div className="relative" ref={wrapperRef}>
-      <div 
-        className={`w-full bg-gray-900 border ${isOpen ? 'border-blue-500 ring-1 ring-blue-500' : 'border-blue-500/30'} rounded-lg flex items-center justify-between p-2.5 cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-      >
-        <span className={`text-xs ${selectedLabel ? 'text-white' : 'text-gray-400'} truncate select-none`}>
-          {selectedLabel || placeholder}
-        </span>
-        <FaChevronDown className="text-gray-500 text-[10px]" />
-      </div>
-
-      {isOpen && !disabled && (
-        <div className="absolute top-full left-0 w-full bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50 mt-1 overflow-hidden animate-fade-in">
-          <div className="p-2 border-b border-gray-800 flex items-center gap-2 sticky top-0 bg-gray-900">
-            <FaSearch className="text-gray-500 text-xs"/>
-            <input 
-              type="text" 
-              autoFocus
-              className="w-full bg-transparent text-xs text-white outline-none placeholder-gray-600"
-              placeholder={`Pesquisar ${stepLabel}...`}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="max-h-60 overflow-y-auto custom-scrollbar">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((opt) => (
-                <div 
-                  key={opt.codigo} 
-                  className="px-3 py-2 text-xs text-gray-300 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors"
-                  onClick={(e) => { e.stopPropagation(); handleSelect(opt.codigo, opt.nome); }}
-                >
-                  {opt.nome}
-                </div>
-              ))
-            ) : (
-              <div className="px-3 py-4 text-xs text-gray-500 text-center italic">
-                Nenhum resultado encontrado.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const generateId = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+const CATEGORIES = ['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'];
+const OPTIONALS_LIST = [
+  'Ar condicionado', 'Direção Hidráulica', 'Vidros Elétricos', 'Travas Elétricas',
+  'Alarme', 'Freio ABS', 'Airbag Duplo', 'Som Original', 'Rodas de Liga Leve',
+  'Banco de Couro', 'Sensor de Estacionamento', 'Câmera de Ré', 'Teto Solar',
+  'Farol de Neblina', 'Controle de Tração', 'Piloto Automático'
+];
 
 export const CarFormView: React.FC<CarFormViewProps> = ({
   carFormData, setCarFormData, mainImagePreview, setMainImagePreview,
-  galleryFiles, setGalleryFiles, setMainImageFile, onSave, onCancel, saving, uploadStatus,
-  vehicleType, setVehicleType, fipeBrands, fipeModels, fipeYears, 
-  onFipeBrand, onFipeModel, onFipeYear, loadingFipe, onGetLocation, sellers,
-  selectedBrandCode, selectedModelCode
+  galleryFiles, setGalleryFiles, setMainImageFile, onSave, onCancel, saving, 
+  uploadStatus, uploadProgress, fipeBrands, fipeModels, fipeYears, 
+  onFipeBrand, onFipeModel, onFipeYear, loadingFipe, selectedBrandCode, selectedModelCode,
+  vehicleType, setVehicleType, sellers
 }) => {
-  const currentStatus = carFormData.status || 'available';
-  const [activeTab, setActiveTab] = useState<'details' | 'financial'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'optionals' | 'financial'>('details');
+  const [newExpense, setNewExpense] = useState({ description: '', amount: '', type: 'maintenance' as any });
 
-  const [newExpense, setNewExpense] = useState<Partial<CarExpense>>({
-    description: '',
-    amount: 0,
-    type: 'maintenance',
-    date: new Date().toISOString().split('T')[0]
-  });
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-  const financialSummary = useMemo(() => {
-    const purchasePrice = Number(carFormData.purchasePrice) || 0;
-    const currentPrice = Number(carFormData.price) || 0;
-    const soldPrice = Number(carFormData.soldPrice) || 0;
-    const totalExpenses = (carFormData.expenses || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-    const totalCost = purchasePrice + totalExpenses;
-    const referenceRevenue = currentStatus === 'sold' ? soldPrice : currentPrice;
-    const profit = referenceRevenue - totalCost;
-    const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
-    return { purchasePrice, totalExpenses, totalCost, profit, roi, referenceRevenue };
-  }, [carFormData.purchasePrice, carFormData.price, carFormData.soldPrice, carFormData.expenses, currentStatus]);
-
-  const handleRemoveGalleryImage = (indexToRemove: number) => {
-    const currentGallery = carFormData.gallery || [];
-    const newGallery = currentGallery.filter((_, idx) => idx !== indexToRemove);
-    setCarFormData({ ...carFormData, gallery: newGallery });
-  };
-
-  const handleRemoveNewGalleryFile = (indexToRemove: number) => {
-    setGalleryFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
-  };
-
-  const handleAddExpense = () => {
-    if (!newExpense.description || !newExpense.amount || Number(newExpense.amount) <= 0) {
-        alert("Preencha descrição e valor.");
-        return;
+  const toggleOptional = (opt: string) => {
+    const current = carFormData.optionals || [];
+    if (current.includes(opt)) {
+      setCarFormData({ ...carFormData, optionals: current.filter(o => o !== opt) });
+    } else {
+      setCarFormData({ ...carFormData, optionals: [...current, opt] });
     }
+  };
+
+  const removeGalleryItem = (index: number) => {
+    setGalleryFiles(prev => prev.filter((_, i) => i !== index));
+    if (carFormData.gallery) {
+      setCarFormData({ ...carFormData, gallery: carFormData.gallery.filter((_, i) => i !== index) });
+    }
+  };
+
+  const addExpense = () => {
+    if (!newExpense.description || !newExpense.amount) return;
     const expense: CarExpense = {
-      id: generateId(),
-      description: newExpense.description!,
+      id: Math.random().toString(36).substr(2, 9),
+      description: newExpense.description,
       amount: Number(newExpense.amount),
-      date: newExpense.date || new Date().toISOString(),
-      type: newExpense.type as any || 'maintenance'
+      date: new Date().toISOString().split('T')[0],
+      type: newExpense.type
     };
-    const currentExpenses = carFormData.expenses || [];
-    setCarFormData({ ...carFormData, expenses: [...currentExpenses, expense] });
-    setNewExpense({ description: '', amount: 0, type: 'maintenance', date: new Date().toISOString().split('T')[0] });
+    setCarFormData({ ...carFormData, expenses: [...(carFormData.expenses || []), expense] });
+    setNewExpense({ description: '', amount: '', type: 'maintenance' });
   };
 
-  const handleRemoveExpense = (id: string) => {
-    if(window.confirm("Remover esta despesa?")) {
-        const currentExpenses = carFormData.expenses || [];
-        setCarFormData({ ...carFormData, expenses: currentExpenses.filter(e => e.id !== id) });
-    }
-  };
+  const expensesValue = carFormData.expenses?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+  const totalCost = (Number(carFormData.purchasePrice) || 0) + expensesValue;
+  const profit = (Number(carFormData.price) || 0) - totalCost;
 
-  // Handler para mudança de categoria com sincronização de vehicleType
-  const handleCategoryChange = (val: string) => {
-    const inferredType = getVehicleTypeFromCategory(val);
-    setVehicleType(inferredType);
-    setCarFormData({ ...carFormData, category: val, vehicleType: inferredType });
-  };
+  // Estilo customizado para os SELECTS corrigindo o contraste (Print 4)
+  const selectClass = "w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-orange outline-none appearance-none cursor-pointer transition-all";
+  const selectIcon = { backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'white\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' };
 
   return (
-  <div className="max-w-6xl mx-auto pb-24 md:pb-0 animate-slide-up relative">
-    {saving && (
-      <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center flex-col animate-fade-in">
-        <div className="bg-brand-surface border border-gray-700 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full">
-           <div className="relative mb-6">
-              <div className="w-16 h-16 border-4 border-gray-700 border-t-brand-orange rounded-full animate-spin"></div>
-              <FaCloudUploadAlt className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-xl animate-pulse" />
-           </div>
-           <h3 className="text-xl font-bold text-white mb-2">Processando...</h3>
-           <p className="text-sm text-gray-400 text-center animate-pulse">{uploadStatus || 'Salvando informações...'}</p>
-        </div>
-      </div>
-    )}
-
-    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-      <h2 className="text-2xl font-black text-white">{carFormData.id ? 'Gerenciar Veículo' : 'Novo Cadastro'}</h2>
-      <div className="flex bg-black/30 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
-        <button type="button" onClick={() => setActiveTab('details')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === 'details' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
-          <FaCar className="inline mr-2"/> Detalhes
-        </button>
-        <button type="button" onClick={() => setActiveTab('financial')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === 'financial' ? 'bg-brand-orange text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
-          <FaChartLine className="inline mr-2"/> Financeiro
-        </button>
-      </div>
-    </div>
-
-    <form onSubmit={onSave} className="space-y-6">
-      {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-brand-surface border border-gray-800 rounded-2xl p-5">
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Status do Veículo</label>
-              <select 
-                className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-colors ${currentStatus === 'available' ? 'bg-blue-500/10 border-blue-500 text-blue-500' : currentStatus === 'sold' ? 'bg-green-500/10 border-green-500 text-green-500' : currentStatus === 'maintenance' ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-gray-800 border-gray-600 text-gray-400'}`} 
-                value={currentStatus} 
-                onChange={e => setCarFormData({...carFormData, status: e.target.value as any, soldDate: e.target.value === 'sold' ? new Date().toISOString().split('T')[0] : carFormData.soldDate})}
-              >
-                <option value="available" className="bg-brand-surface text-white">Disponível</option>
-                <option value="sold" className="bg-brand-surface text-white">Vendido</option>
-                <option value="maintenance" className="bg-brand-surface text-white">Em Manutenção</option>
-                <option value="unavailable" className="bg-brand-surface text-white">Indisponível</option>
-              </select>
-              
-              {currentStatus === 'sold' && (
-                <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-xl space-y-4 animate-fade-in">
-                   <h4 className="text-[10px] font-black text-green-500 uppercase flex items-center gap-2 mb-2">
-                     <FaCalendarCheck/> Dados da Venda
-                   </h4>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-gray-500 uppercase">Consultor que Vendeu</label>
-                     <select 
-                       required
-                       className="w-full bg-black/40 border border-gray-700 rounded-lg p-2.5 text-xs text-white outline-none focus:border-green-500" 
-                       value={carFormData.soldBy || ''} 
-                       onChange={e => setCarFormData({...carFormData, soldBy: e.target.value})}
-                     >
-                       <option value="" className="bg-brand-surface">Selecione o Vendedor...</option>
-                       {sellers.map(s => <option key={s.id} value={s.name} className="bg-brand-surface">{s.name}</option>)}
-                     </select>
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-gray-500 uppercase">Data da Venda</label>
-                     <input 
-                       type="date" 
-                       required
-                       className="w-full bg-black/40 border border-gray-700 rounded-lg p-2.5 text-xs text-white outline-none focus:border-green-500" 
-                       value={carFormData.soldDate || ''} 
-                       onChange={e => setCarFormData({...carFormData, soldDate: e.target.value})} 
-                     />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-gray-500 uppercase">Valor de Venda Final (R$)</label>
-                     <input 
-                       type="number" 
-                       step="0.01"
-                       required
-                       className="w-full bg-black/40 border border-green-500/30 rounded-lg p-2.5 text-sm font-black text-green-400 outline-none" 
-                       value={carFormData.soldPrice || carFormData.price || ''} 
-                       onChange={e => setCarFormData({...carFormData, soldPrice: Number(e.target.value)})} 
-                     />
-                   </div>
-                </div>
-              )}
-
-              {currentStatus === 'maintenance' && (
-                <div className="mt-4 animate-fade-in">
-                  <label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Motivo</label>
-                  <input type="text" required className="w-full bg-black/30 border border-orange-500/30 rounded-lg p-2 text-sm text-white" value={carFormData.maintenanceReason || ''} onChange={e => setCarFormData({...carFormData, maintenanceReason: e.target.value})} />
-                </div>
-              )}
-            </div>
-
-            <div className="bg-brand-surface border border-gray-800 rounded-2xl p-5">
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-3">Capa Principal</label>
-              <div className="relative aspect-video bg-black/50 rounded-xl border-2 border-dashed border-gray-700 hover:border-brand-orange group cursor-pointer overflow-hidden transition-colors mb-4">
-                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={e => { if(e.target.files?.[0]) { setMainImageFile(e.target.files[0]); setMainImagePreview(URL.createObjectURL(e.target.files[0])); } }} accept="image/*" />
-                {mainImagePreview ? (<img src={mainImagePreview} className="w-full h-full object-cover group-hover:opacity-60 transition" />) : (<div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600"><FaCamera className="text-3xl mb-2"/><span className="text-[10px] uppercase font-bold">Capa</span></div>)}
-              </div>
-              <div className="relative h-12 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 hover:text-white cursor-pointer hover:bg-gray-700 transition border border-gray-700 mb-4">
-                  <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => e.target.files && setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} accept="image/*" />
-                  <span className="text-xs font-bold flex items-center gap-2"><FaPlus/> Galeria</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {carFormData.gallery?.map((imgUrl, idx) => (
-                  <div key={`old-${idx}`} className="relative aspect-square"><img src={imgUrl} className="w-full h-full object-cover rounded-lg border border-gray-700" /><button type="button" onClick={() => handleRemoveGalleryImage(idx)} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"><FaTimes/></button></div>
-                ))}
-                {galleryFiles.map((file, idx) => (
-                  <div key={`new-${idx}`} className="relative aspect-square"><img src={URL.createObjectURL(file)} className="w-full h-full object-cover rounded-lg border border-green-500/50" /><button type="button" onClick={() => handleRemoveNewGalleryFile(idx)} className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"><FaTimes/></button></div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6 md:p-8 space-y-6">
-              <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs"><FaSearchDollar/></span>
-                    <h4 className="text-sm font-bold text-blue-100">Ficha Técnica FIPE</h4>
-                    <div className="ml-auto flex bg-black/30 rounded-lg p-1">
-                      {['carros', 'motos', 'caminhoes'].map(t => (
-                        <button type="button" key={t} onClick={() => setVehicleType(t)} className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition ${vehicleType === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}>{t === 'caminhoes' ? <FaTruck/> : t === 'motos' ? <FaMotorcycle/> : <FaCar/>}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <SearchableFipeSelect options={fipeBrands} onChange={onFipeBrand} disabled={false} placeholder="1. Marca" stepLabel="Marca" />
-                    <SearchableFipeSelect key={selectedBrandCode || 'model'} options={fipeModels} onChange={onFipeModel} disabled={fipeModels.length === 0} placeholder="2. Modelo" stepLabel="Modelo" />
-                    <SearchableFipeSelect key={selectedModelCode || 'year'} options={fipeYears} onChange={onFipeYear} disabled={fipeYears.length === 0} placeholder="3. Ano" stepLabel="Ano" />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Marca</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Modelo</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} /></div>
-                  
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-brand-orange uppercase">Categoria (Obrigatório para Filtros)</label>
-                    <select 
-                      className="w-full bg-black/40 border border-brand-orange/30 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
-                      value={carFormData.category || ''} 
-                      onChange={e => handleCategoryChange(e.target.value)}
-                    >
-                      <option value="" className="bg-brand-surface text-white">Selecione...</option>
-                      {['Hatch', 'Sedan', 'SUV', 'Pickup', 'Moto', 'Caminhão', 'Van'].map(o => <option key={o} value={o} className="bg-brand-surface text-white">{o}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Placa</label><input type="text" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.licensePlate || ''} onChange={e => setCarFormData({...carFormData, licensePlate: e.target.value.toUpperCase()})} maxLength={8} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Ano</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.year || ''} onChange={e => setCarFormData({...carFormData, year: Number(e.target.value)})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">KM</label><input type="number" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.mileage || ''} onChange={e => setCarFormData({...carFormData, mileage: Number(e.target.value)})} /></div>
-                  
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Cor</label>
-                    <div className="relative">
-                      <FaPalette className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
-                      <input 
-                        type="text" 
-                        className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 pl-10 text-sm text-white focus:border-brand-orange outline-none" 
-                        placeholder="Ex: Branco, Preto..."
-                        value={carFormData.color || ''} 
-                        onChange={e => setCarFormData({...carFormData, color: e.target.value})} 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Câmbio</label>
-                    <select 
-                      className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
-                      value={carFormData.transmission || ''} 
-                      onChange={e => setCarFormData({...carFormData, transmission: e.target.value})}
-                    >
-                      <option value="Manual" className="bg-brand-surface">Manual</option>
-                      <option value="Automático" className="bg-brand-surface">Automático</option>
-                      <option value="CVT" className="bg-brand-surface">CVT</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase">Combustível</label>
-                    <select 
-                      className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-brand-orange outline-none" 
-                      value={carFormData.fuel || ''} 
-                      onChange={e => setCarFormData({...carFormData, fuel: e.target.value})}
-                    >
-                      <option value="Flex" className="bg-brand-surface">Flex</option>
-                      <option value="Gasolina" className="bg-brand-surface">Gasolina</option>
-                      <option value="Diesel" className="bg-brand-surface">Diesel</option>
-                    </select>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5 pt-4 border-t border-gray-800">
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-brand-orange uppercase">Preço Venda (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-brand-orange/50 rounded-lg px-3 py-3 text-lg font-bold text-white focus:border-brand-orange outline-none" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} /></div>
-                  <div className="space-y-1.5"><label className="text-[10px] font-bold text-gray-500 uppercase">Tabela FIPE (R$)</label><input type="number" step="0.01" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-3 text-lg font-bold text-gray-400 focus:border-brand-orange outline-none" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'financial' && (
-        <div className="space-y-6 animate-fade-in">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-brand-surface border border-gray-800 p-5 rounded-2xl"><span className="text-[10px] font-bold text-gray-500 uppercase">Valor Compra</span><input type="number" step="0.01" className="bg-transparent text-xl font-black text-white w-full outline-none" value={carFormData.purchasePrice || ''} onChange={e => setCarFormData({...carFormData, purchasePrice: Number(e.target.value)})} /></div>
-            <div className="bg-brand-surface border border-gray-800 p-5 rounded-2xl"><span className="text-[10px] font-bold text-gray-500 uppercase">Despesas</span><span className="block text-xl font-black text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.totalExpenses)}</span></div>
-            <div className="bg-brand-surface border border-gray-800 p-5 rounded-2xl"><span className="text-[10px] font-bold text-gray-500 uppercase">Custo Total</span><span className="block text-xl font-black text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.totalCost)}</span></div>
-            <div className={`border p-5 rounded-2xl ${financialSummary.profit >= 0 ? 'bg-green-900/20 border-green-500' : 'bg-red-900/20 border-red-500'}`}><span className="text-[10px] font-bold uppercase block">{financialSummary.profit >= 0 ? 'Lucro' : 'Prejuízo'}</span><span className="text-xl font-black">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(financialSummary.profit)}</span></div>
-          </div>
-          <div className="bg-brand-surface border border-gray-800 rounded-2xl p-6">
-            <h3 className="font-bold text-white text-lg mb-4">Adicionar Despesa</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-               <input type="text" className="md:col-span-2 bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" placeholder="Descrição" value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
-               <input type="number" className="bg-black/30 border border-gray-700 rounded-lg p-2 text-sm text-white" placeholder="Valor" value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
-               <button type="button" onClick={handleAddExpense} className="bg-brand-orange text-white rounded-lg font-bold text-xs uppercase">Adicionar</button>
-            </div>
-            <table className="w-full text-left">
-              <thead><tr className="text-[10px] text-gray-500 uppercase border-b border-gray-800"><th className="py-2">Data</th><th className="py-2">Descrição</th><th className="py-2 text-right">Valor</th><th className="py-2 text-right">Ação</th></tr></thead>
-              <tbody className="text-sm">
-                 {carFormData.expenses?.map((exp) => (<tr key={exp.id} className="border-b border-gray-800/50"><td className="py-2">{new Date(exp.date).toLocaleDateString('pt-BR')}</td><td className="py-2">{exp.description}</td><td className="py-2 text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(exp.amount)}</td><td className="py-2 text-right"><button type="button" onClick={() => handleRemoveExpense(exp.id)} className="text-red-500 p-2"><FaTrash/></button></td></tr>))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-4 sticky bottom-0 bg-brand-dark/95 backdrop-blur p-4 z-20 border-t border-gray-800">
-          <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl border border-gray-700 text-gray-400 font-bold text-xs uppercase">Cancelar</button>
-          <button type="submit" disabled={saving} className="px-8 py-3 rounded-xl bg-brand-orange text-white font-bold text-xs uppercase flex items-center gap-2">
-              {saving ? 'Salvando...' : <><FaSave/> Salvar Alterações</>}
+    <div className="max-w-7xl mx-auto pb-24 animate-slide-up">
+      {/* HEADER TABS */}
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">Gerenciar Veículo</h2>
+        <div className="flex bg-black/40 p-1.5 rounded-2xl border border-gray-800">
+          <button type="button" onClick={() => setActiveTab('details')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'details' ? 'bg-brand-orange text-white' : 'text-gray-500 hover:text-white'}`}>
+            <FaCar /> Detalhes
           </button>
+          <button type="button" onClick={() => setActiveTab('optionals')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'optionals' ? 'bg-brand-orange text-white' : 'text-gray-500 hover:text-white'}`}>
+            <FaCheckSquare /> Opcionais
+          </button>
+          <button type="button" onClick={() => setActiveTab('financial')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'financial' ? 'bg-brand-orange text-white' : 'text-gray-500 hover:text-white'}`}>
+            <FaChartLine /> Financeiro
+          </button>
+        </div>
       </div>
-    </form>
-  </div>
+
+      <form onSubmit={onSave} className="space-y-6">
+        {activeTab === 'details' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
+            
+            {/* STATUS E MÍDIA */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-brand-surface border border-gray-800 rounded-3xl p-6 shadow-xl">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-4">STATUS DO VEÍCULO</label>
+                
+                <div className={`p-4 rounded-xl border-2 mb-4 transition-all ${
+                  carFormData.status === 'sold' ? 'border-green-500 bg-green-500/5 text-green-500' :
+                  carFormData.status === 'maintenance' ? 'border-orange-500 bg-orange-500/5 text-orange-500' :
+                  'border-gray-700 bg-black/20 text-blue-400'
+                }`}>
+                   <select 
+                    className="bg-transparent w-full font-black text-sm uppercase outline-none cursor-pointer appearance-none"
+                    value={carFormData.status || 'available'} 
+                    onChange={e => setCarFormData({...carFormData, status: e.target.value as any})}
+                    style={selectIcon}
+                   >
+                    <option value="available" className="bg-brand-dark text-white">Disponível</option>
+                    <option value="sold" className="bg-brand-dark text-white">Vendido</option>
+                    <option value="maintenance" className="bg-brand-dark text-white">Em Manutenção</option>
+                  </select>
+                </div>
+
+                {/* DADOS DA VENDA (Print 1) */}
+                {carFormData.status === 'sold' && (
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5 space-y-4 animate-slide-up">
+                    <p className="text-[10px] font-black text-green-500 uppercase flex items-center gap-2"><FaCheck/> DADOS DA VENDA</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1 block">Consultor que vendeu</label>
+                        <select className={selectClass} style={selectIcon} value={carFormData.soldBy || ''} onChange={e => setCarFormData({...carFormData, soldBy: e.target.value})}>
+                          <option value="">Selecione...</option>
+                          {sellers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1 block">Data da Venda</label>
+                        <input type="date" className="w-full bg-brand-dark border border-gray-700 rounded-xl p-3 text-xs text-white outline-none" value={carFormData.soldDate || ''} onChange={e => setCarFormData({...carFormData, soldDate: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1 block">Valor de Venda Final (R$)</label>
+                        <input type="number" placeholder="0" className="w-full bg-brand-dark border border-gray-700 rounded-xl p-3 text-sm font-black text-green-500 outline-none" value={carFormData.soldPrice || ''} onChange={e => setCarFormData({...carFormData, soldPrice: Number(e.target.value)})} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MOTIVO MANUTENÇÃO (Print 2) */}
+                {carFormData.status === 'maintenance' && (
+                  <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-5 space-y-4 animate-slide-up">
+                    <p className="text-[10px] font-black text-orange-500 uppercase flex items-center gap-2"><FaTools/> MOTIVO</p>
+                    <input type="text" placeholder="Ex: Mecânica, Pintura..." className="w-full bg-brand-dark border border-gray-700 rounded-xl p-3 text-sm font-black text-white outline-none" value={carFormData.maintenanceReason || ''} onChange={e => setCarFormData({...carFormData, maintenanceReason: e.target.value})} />
+                  </div>
+                )}
+              </div>
+
+              {/* FOTOS */}
+              <div className="bg-brand-surface border border-gray-800 rounded-3xl p-6 shadow-xl">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-4">CAPA PRINCIPAL</label>
+                <div className="relative aspect-video bg-black/50 rounded-2xl border-2 border-dashed border-gray-700 hover:border-brand-orange overflow-hidden mb-4 group cursor-pointer">
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={e => { if(e.target.files?.[0]) { setMainImageFile(e.target.files[0]); setMainImagePreview(URL.createObjectURL(e.target.files[0])); } }} accept="image/*" />
+                  {mainImagePreview ? <img src={mainImagePreview} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700"><FaCamera className="text-3xl mb-2"/><span className="text-[10px] uppercase font-black">Anexar Capa</span></div>}
+                </div>
+                
+                <div className="relative h-12 bg-gray-800/50 rounded-xl flex items-center justify-center text-gray-400 hover:text-white cursor-pointer border border-gray-700 mb-6 transition">
+                    <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => e.target.files && setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} accept="image/*" />
+                    <span className="text-[10px] font-black uppercase flex items-center gap-2"><FaPlus/> Galeria</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {carFormData.gallery?.map((img, idx) => (
+                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-800 group">
+                      <img src={img} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removeGalleryItem(idx)} className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition"><FaTimes size={10}/></button>
+                    </div>
+                  ))}
+                  {galleryFiles.map((file, idx) => (
+                    <div key={`new-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-brand-orange group">
+                      <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removeGalleryItem(idx)} className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-md"><FaTimes size={10}/></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* FICHA TÉCNICA E FIPE (Print 3) */}
+            <div className="lg:col-span-8 space-y-6">
+              <div className="bg-brand-surface border border-gray-800 rounded-3xl p-8 shadow-2xl">
+                {/* FICHA TÉCNICA FIPE MULTI-MODAL */}
+                <div className="bg-black/30 border border-blue-500/20 rounded-[2rem] p-8 mb-10">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><FaSearch size={20}/></div>
+                      <h3 className="font-black text-white uppercase italic tracking-tighter text-xl">Ficha Técnica FIPE</h3>
+                    </div>
+                    {/* SELETOR DE MODALIDADE */}
+                    <div className="flex bg-black/40 p-1.5 rounded-xl border border-gray-800">
+                       <button type="button" onClick={() => setVehicleType('carros')} className={`p-2.5 rounded-lg transition-all ${vehicleType === 'carros' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}><FaCar/></button>
+                       <button type="button" onClick={() => setVehicleType('motos')} className={`p-2.5 rounded-lg transition-all ${vehicleType === 'motos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}><FaMotorcycle/></button>
+                       <button type="button" onClick={() => setVehicleType('caminhoes')} className={`p-2.5 rounded-lg transition-all ${vehicleType === 'caminhoes' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}><FaTruck/></button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <select className={selectClass} style={selectIcon} value={selectedBrandCode} onChange={e => onFipeBrand(e.target.value)}>
+                      <option value="">1. Marca</option>
+                      {fipeBrands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
+                    </select>
+                    <select className={selectClass} style={selectIcon} value={selectedModelCode} onChange={e => onFipeModel(e.target.value)}>
+                      <option value="">2. Modelo</option>
+                      {fipeModels.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}
+                    </select>
+                    <select className={selectClass} style={selectIcon} onChange={e => onFipeYear(e.target.value)}>
+                      <option value="">3. Ano</option>
+                      {fipeYears.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* FORMULÁRIO TÉCNICO */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Marca</label>
+                    <input type="text" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.make || ''} onChange={e => setCarFormData({...carFormData, make: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Modelo</label>
+                    <input type="text" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.model || ''} onChange={e => setCarFormData({...carFormData, model: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-red-500 uppercase tracking-widest ml-1">Categoria (Filtros)</label>
+                    <select className={selectClass} style={selectIcon} value={carFormData.category || ''} onChange={e => setCarFormData({...carFormData, category: e.target.value})}>
+                      <option value="" className="bg-brand-dark">Selecione...</option>
+                      {CATEGORIES.map(c => <option key={c} value={c} className="bg-brand-dark">{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Placa</label>
+                    <input type="text" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none uppercase" value={carFormData.licensePlate || ''} onChange={e => setCarFormData({...carFormData, licensePlate: e.target.value.toUpperCase()})} maxLength={8} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Ano</label>
+                    <input type="number" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.year || ''} onChange={e => setCarFormData({...carFormData, year: Number(e.target.value)})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Kilometragem (KM)</label>
+                    <input type="number" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={carFormData.mileage || ''} onChange={e => setCarFormData({...carFormData, mileage: Number(e.target.value)})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Cor</label>
+                    <input type="text" className="w-full bg-black/40 border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" placeholder="Ex: Branco" value={carFormData.color || ''} onChange={e => setCarFormData({...carFormData, color: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Câmbio</label>
+                    <select className={selectClass} style={selectIcon} value={carFormData.transmission || 'Manual'} onChange={e => setCarFormData({...carFormData, transmission: e.target.value})}>
+                      <option value="Manual" className="bg-brand-dark">Manual</option>
+                      <option value="Automático" className="bg-brand-dark">Automático</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Combustível</label>
+                    <select className={selectClass} style={selectIcon} value={carFormData.fuel || 'Flex'} onChange={e => setCarFormData({...carFormData, fuel: e.target.value})}>
+                      <option value="Flex" className="bg-brand-dark">Flex</option>
+                      <option value="Gasolina" className="bg-brand-dark">Gasolina</option>
+                      <option value="Diesel" className="bg-brand-dark">Diesel</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 border-t border-gray-800 pt-10">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-red-500 uppercase tracking-widest ml-1">Preço Venda Arena (R$)</label>
+                    <input type="number" className="w-full bg-black/40 border border-red-500/30 rounded-2xl px-6 py-6 text-4xl font-black text-white outline-none focus:border-red-500 shadow-lg" value={carFormData.price || ''} onChange={e => setCarFormData({...carFormData, price: Number(e.target.value)})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Tabela FIPE (R$)</label>
+                    <input type="number" className="w-full bg-black/40 border border-gray-700 rounded-2xl px-6 py-6 text-4xl font-black text-gray-500 outline-none" value={carFormData.fipeprice || ''} onChange={e => setCarFormData({...carFormData, fipeprice: Number(e.target.value)})} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'optionals' && (
+          <div className="bg-brand-surface border border-gray-800 rounded-[2.5rem] p-10 animate-fade-in shadow-2xl">
+            <h3 className="text-xl font-black text-white mb-10 uppercase italic tracking-tighter flex items-center gap-4">
+               <span className="w-10 h-1 bg-brand-orange rounded-full"></span> Itens e Opcionais do Veículo
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {OPTIONALS_LIST.map(opt => (
+                <button 
+                  key={opt} 
+                  type="button" 
+                  onClick={() => toggleOptional(opt)}
+                  className={`flex items-center gap-4 p-5 rounded-2xl border transition-all ${carFormData.optionals?.includes(opt) ? 'bg-brand-orange/10 border-brand-orange text-white shadow-glow' : 'bg-black/20 border-gray-800 text-gray-500 hover:border-gray-700'}`}
+                >
+                  {carFormData.optionals?.includes(opt) ? <FaCheckSquare size={18} /> : <FaSquare size={18} />}
+                  <span className="text-[11px] font-black uppercase tracking-tight">{opt}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'financial' && (
+          <div className="space-y-8 animate-fade-in">
+            {/* KPI FINANCEIRO */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+               <div className="bg-brand-surface border border-gray-800 p-8 rounded-[2rem] shadow-xl group hover:border-brand-orange/30 transition-all">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Valor de Compra</p>
+                  <input type="number" className="bg-transparent text-3xl font-black text-white w-full outline-none focus:text-brand-orange transition-colors" value={carFormData.purchasePrice || ''} onChange={e => setCarFormData({...carFormData, purchasePrice: Number(e.target.value)})} placeholder="0" />
+               </div>
+               <div className="bg-brand-surface border border-gray-800 p-8 rounded-[2rem] shadow-xl">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Total Despesas</p>
+                  <p className="text-3xl font-black text-white">{formatCurrency(expensesValue)}</p>
+               </div>
+               <div className="bg-brand-surface border border-gray-800 p-8 rounded-[2rem] shadow-xl">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Custo Total</p>
+                  <p className="text-3xl font-black text-white">{formatCurrency(totalCost)}</p>
+               </div>
+               <div className="bg-green-500/5 border border-green-500/20 p-8 rounded-[2rem] shadow-xl">
+                  <p className="text-[10px] font-black text-green-500 uppercase tracking-widest mb-4">Lucro Projetado</p>
+                  <p className={`text-3xl font-black ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(profit)}</p>
+               </div>
+            </div>
+
+            {/* ADICIONAR DESPESA */}
+            <div className="bg-brand-surface border border-gray-800 rounded-[2.5rem] p-10 shadow-2xl">
+              <h3 className="text-xl font-black text-white mb-10 uppercase italic tracking-tighter">Lançamento de Gastos</h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end bg-black/40 p-8 rounded-3xl border border-gray-800 mb-10">
+                 <div className="lg:col-span-5 space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Descrição</label>
+                    <input type="text" placeholder="Ex: Pintura para-choque" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
+                 </div>
+                 <div className="lg:col-span-3 space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Valor Gasto</label>
+                    <input type="number" placeholder="0,00" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-5 py-4 text-sm text-white focus:border-brand-orange outline-none" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} />
+                 </div>
+                 <div className="lg:col-span-3 space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Categoria</label>
+                    <select className={selectClass} style={selectIcon} value={newExpense.type} onChange={e => setNewExpense({...newExpense, type: e.target.value as any})}>
+                      <option value="maintenance" className="bg-brand-dark">Manutenção Mecânica</option>
+                      <option value="repair" className="bg-brand-dark">Estética / Funilaria</option>
+                      <option value="document" className="bg-brand-dark">Documentação / IPVA</option>
+                      <option value="other" className="bg-brand-dark">Outros / Diversos</option>
+                    </select>
+                 </div>
+                 <div className="lg:col-span-1">
+                    <button type="button" onClick={addExpense} className="w-full h-[58px] bg-brand-orange hover:bg-red-600 text-white font-black py-3 rounded-xl text-xs uppercase transition shadow-lg flex items-center justify-center">LANÇAR</button>
+                 </div>
+              </div>
+
+              {/* LISTA DE DESPESAS */}
+              <div className="overflow-x-auto">
+                 <table className="w-full text-left">
+                    <thead className="text-[11px] font-black text-gray-500 uppercase border-b border-gray-800">
+                       <tr>
+                          <th className="px-6 py-6">Data</th>
+                          <th className="px-6 py-6">Descrição</th>
+                          <th className="px-6 py-6 text-right">Valor</th>
+                          <th className="px-6 py-6 text-center">Ação</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800/50">
+                      {carFormData.expenses?.map((exp) => (
+                        <tr key={exp.id} className="text-sm group hover:bg-white/5 transition-colors">
+                           <td className="px-6 py-6 text-gray-500">{new Date(exp.date).toLocaleDateString('pt-BR')}</td>
+                           <td className="px-6 py-6 text-gray-300 font-bold">{exp.description}</td>
+                           <td className="px-6 py-6 text-right text-white font-black">{formatCurrency(exp.amount)}</td>
+                           <td className="px-6 py-6 text-center">
+                              <button type="button" onClick={() => setCarFormData({...carFormData, expenses: carFormData.expenses?.filter(e => e.id !== exp.id)})} className="text-red-500 hover:text-white p-2 transition">
+                                <FaTrash size={14}/>
+                              </button>
+                           </td>
+                        </tr>
+                      ))}
+                      {(!carFormData.expenses || carFormData.expenses.length === 0) && (
+                        <tr><td colSpan={4} className="py-16 text-center text-gray-600 italic text-xs">Nenhuma despesa lançada para este veículo.</td></tr>
+                      )}
+                    </tbody>
+                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ACTIONS FIXAS */}
+        <div className="flex justify-end gap-4 p-6 bg-brand-dark/95 backdrop-blur-xl sticky bottom-0 border-t border-gray-800 rounded-b-3xl z-40 shadow-2xl">
+            <button type="button" onClick={onCancel} className="px-8 py-4 rounded-2xl border border-gray-700 text-gray-400 font-black text-xs uppercase hover:bg-white/5 transition">CANCELAR</button>
+            <button type="submit" disabled={saving} className="px-12 py-4 rounded-2xl bg-brand-orange text-white font-black text-xs uppercase shadow-glow hover:bg-red-600 transition flex items-center gap-2 italic">
+                {saving ? 'PROCESSANDO...' : <><FaSave/> SALVAR ALTERAÇÕES</>}
+            </button>
+        </div>
+      </form>
+    </div>
   );
 }
